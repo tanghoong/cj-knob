@@ -1,18 +1,20 @@
-cj-knob
+# cj-knob
 =======
 
-Javascript canvas knob
+Simple jQuery canvas knob
 
-First step:
+## First step:
 div with id and number
-
-Second step:
+```
+<div id="cjknob-1">78</div>
+<div id="cjknob-2">145</div>
+```
+## Second step:
 Including Jquery 1.8.1 and cjknob.js
 
-Third step:
-Put js in
-  $("#canvasText2").cjknob({
-		cColor	:	"#62c3ef",
-		height	:	"220",
-		width	:	"220",
-	});
+## Third step:
+Call JS
+```
+$("#cjknob-1").cjknob({ cColor : "green" });
+$("#cjknob-2").cjknob({ cColor : "red" });
+```
