@@ -18,3 +18,6 @@ Call JS
 $("#cjknob-1").cjknob({ cColor : "green" });
 $("#cjknob-2").cjknob({ cColor : "red" });
 ```
+
+## Preview
+![demo](example.cjknob.png)
