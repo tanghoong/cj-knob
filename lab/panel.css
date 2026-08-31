@@ -1,0 +1,133 @@
+/* ---------------------------------------------------------------
+   Shared instrument-panel skeleton.
+
+   Every dashboard in the lab that uses panel.js gets its look purely
+   from the custom properties below — redefine them in the page and
+   nothing here needs to change.
+   --------------------------------------------------------------- */
+:root {
+  --bg: #0a0d12;
+  --panel: #121820;
+  --edge: #1f2833;
+  --ink: #e6ecf3;
+  --dim: #7c8b9c;
+  --track: #1a222c;
+  --tick: #3a4756;
+
+  --a1: #4cc4ff;
+  --a2: #2ee6a0;
+  --a3: #ffb020;
+  --a4: #b07bff;
+  --ok: #2ee6a0;
+  --warn: #ffb020;
+  --bad: #ff4d5e;
+
+  --font: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --radius: 10px;
+  --cell-pad: .6rem .4rem .5rem;
+  --bg-image: none;
+  --cell-image: none;
+  --cell-shadow: none;
+
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  padding: .75rem;
+  display: flex;
+  flex-direction: column;
+  gap: .6rem;
+  background-color: var(--bg);
+  background-image: var(--bg-image);
+  color: var(--ink);
+  font: 12.5px/1.4 var(--font);
+}
+
+/* On a real screen the panel fills the glass; anything smaller just scrolls. */
+@media (min-width: 900px) and (min-height: 640px) {
+  body { height: 100vh; overflow: hidden; }
+  .row { min-height: 0; }
+  .row.lg { flex: 1.4; }
+  .row.md { flex: 1; }
+  .row.sm { flex: .85; }
+  .row.lg cj-knob { --cj-size: min(210px, 27vh); }
+  .row.md cj-knob { --cj-size: min(114px, 14.5vh); }
+  .row.sm cj-knob { --cj-size: min(86px, 11vh); }
+}
+
+h1 {
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: .28em;
+  text-transform: uppercase;
+  color: var(--dim);
+  font-weight: 500;
+}
+
+.strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.2rem;
+  align-items: baseline;
+  padding: .5rem .9rem;
+  background: var(--panel);
+  border: 1px solid var(--edge);
+  border-radius: calc(var(--radius) - 3px);
+  font-size: 11px;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+.strip .t { color: var(--dim); }
+.strip b { color: var(--a2); font-weight: 600; letter-spacing: .04em; }
+.strip .lead { color: var(--a1); font-size: 14px; letter-spacing: .05em; }
+.strip .flag { color: var(--warn); }
+
+.row { display: grid; gap: .6rem; }
+.row.lg { grid-template-columns: repeat(auto-fit, minmax(186px, 1fr)); }
+.row.md { grid-template-columns: repeat(auto-fit, minmax(114px, 1fr)); }
+.row.sm { grid-template-columns: repeat(auto-fit, minmax(86px, 1fr)); }
+
+.cell {
+  background-color: var(--panel);
+  background-image: var(--cell-image);
+  border: 1px solid var(--edge);
+  border-radius: var(--radius);
+  box-shadow: var(--cell-shadow);
+  padding: var(--cell-pad);
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: .4rem;
+  position: relative;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.cap {
+  font-size: 9.5px;
+  letter-spacing: .14em;
+  color: var(--dim);
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.legend { display: flex; flex-wrap: wrap; justify-content: center; gap: .4rem;
+          font-size: 8.5px; color: var(--dim); }
+.legend i { display: inline-block; width: 6px; height: 6px; border-radius: 2px; margin-right: .2rem; }
+
+cj-knob {
+  --cj-track: var(--track);
+  --cj-text: var(--ink);
+  --cj-muted: var(--dim);
+  --cj-tick: var(--tick);
+  --cj-duration: 260ms;
+  --cj-easing: linear;
+  --cj-size: 114px;
+  --cj-thickness: 7;
+}
+.row.lg cj-knob { --cj-size: 186px; --cj-thickness: 6; }
+.row.sm cj-knob { --cj-size: 86px; --cj-thickness: 9; }

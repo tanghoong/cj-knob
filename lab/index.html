@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>cj-knob — instrument lab</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0a0c10;
+    --bar: #12151b;
+    --line: #232833;
+    --fg: #e8ecf2;
+    --dim: #8b95a5;
+    --accent: #4cc4ff;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    display: flex; flex-direction: column;
+  }
+
+  header {
+    flex: none; display: flex; align-items: center; gap: 1rem;
+    padding: 0 .75rem; height: 48px;
+    background: var(--bar); border-bottom: 1px solid var(--line);
+  }
+  .brand {
+    font: 600 13px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    letter-spacing: -.02em; white-space: nowrap;
+  }
+  .brand span { color: var(--dim); font-weight: 400; }
+
+  nav { display: flex; align-items: center; gap: .2rem; overflow-x: auto; flex: 1;
+        scrollbar-width: none; }
+  nav::-webkit-scrollbar { display: none; }
+  nav a {
+    padding: .3rem .55rem; border-radius: 6px; text-decoration: none;
+    color: var(--dim); white-space: nowrap;
+    font: 500 11.5px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+    border: 1px solid transparent;
+  }
+  nav a:hover { color: var(--fg); background: #1a1f28; }
+  nav a[aria-current="page"] { color: #0a0c10; background: var(--accent); border-color: var(--accent); }
+
+  .grp {
+    font: 600 9px/1 ui-monospace, monospace; letter-spacing: .16em; text-transform: uppercase;
+    color: #4d5768; padding: 0 .3rem 0 .6rem; white-space: nowrap;
+    border-left: 1px solid var(--line); margin-left: .25rem; align-self: stretch;
+    display: flex; align-items: center;
+  }
+  .grp:first-child { border-left: 0; margin-left: 0; padding-left: 0; }
+
+  .home {
+    flex: none; color: var(--dim); text-decoration: none; font-size: 11.5px;
+    padding: .3rem .6rem; border: 1px solid var(--line); border-radius: 6px; white-space: nowrap;
+  }
+  .home:hover { color: var(--fg); border-color: var(--dim); }
+
+  iframe { flex: 1; width: 100%; border: 0; display: block; background: var(--bg); }
+
+  @media (max-width: 860px) {
+    header { height: auto; flex-wrap: wrap; padding: .5rem .6rem; gap: .4rem; }
+    nav { order: 3; width: 100%; }
+    .grp { align-self: center; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">cj-knob <span>/ lab</span></div>
+  <nav id="nav">
+    <span class="grp">Vehicles</span>
+    <a href="#aviation">Aviation</a>
+    <a href="#submarine">Submarine</a>
+    <a href="#spacex">Spacecraft</a>
+    <a href="#gundam">Mobile Suit</a>
+    <a href="#ferrari">Race</a>
+
+    <span class="grp">Worlds</span>
+    <a href="#steampunk">Steampunk</a>
+    <a href="#futuristic">Futuristic</a>
+    <a href="#alien">Xenology</a>
+    <a href="#nuclear">Reactor</a>
+    <a href="#war">Campaign</a>
+
+    <span class="grp">Systems</span>
+    <a href="#server">Server</a>
+    <a href="#jobs">Jobs</a>
+    <a href="#micro">Micro</a>
+
+    <span class="grp">Human</span>
+    <a href="#body">Body</a>
+    <a href="#emotion">Emotion</a>
+    <a href="#lifeos">Life OS</a>
+    <a href="#charm">Charm</a>
+
+    <span class="grp">Money</span>
+    <a href="#business">Enterprise</a>
+    <a href="#money">Personal</a>
+    <a href="#salary">Salary</a>
+    <a href="#stocks">Markets</a>
+
+    <span class="grp">World</span>
+    <a href="#countries">Countries</a>
+    <a href="#population">Population</a>
+    <a href="#resources">Resources</a>
+    <a href="#food">Food</a>
+    <a href="#religions">Faiths</a>
+    <a href="#singapore">Singapore</a>
+    <a href="#malaysia">Malaysia</a>
+    <a href="#worldclock">World Clock</a>
+  </nav>
+  <a class="home" href="../">&larr; component</a>
+</header>
+
+<iframe id="stage" title="Instrument dashboard"></iframe>
+
+<script>
+  const stage = document.getElementById('stage');
+  const links = [...document.querySelectorAll('#nav a[href^="#"]')];
+  const PAGES = links.map((a) => a.getAttribute('href').slice(1));
+
+  function show() {
+    const want = location.hash.slice(1);
+    const page = PAGES.includes(want) ? want : PAGES[0];
+    const src = page + '.html';
+    // only reload when the target actually changes, so the running panel is not restarted
+    if (!stage.src.endsWith('/' + src)) stage.src = src;
+    for (const a of links) {
+      if (a.getAttribute('href') === '#' + page) {
+        a.setAttribute('aria-current', 'page');
+        a.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      } else {
+        a.removeAttribute('aria-current');
+      }
+    }
+    document.title = `cj-knob — ${page} lab`;
+  }
+
+  addEventListener('hashchange', show);
+  show();
+</script>
+
+</body>
+</html>

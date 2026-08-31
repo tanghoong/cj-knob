@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Money — cj-knob lab</title>
+<link rel="stylesheet" href="panel.css">
+<style>
+  :root {
+    --bg: #0a0f0d; --panel: #101815; --edge: #1d2b25; --ink: #e8f5ee;
+    --dim: #74907f; --track: #16211c; --tick: #2f4a3c;
+    --a1: #35d07f; --a2: #ffcf5c; --a3: #ff6b6b; --a4: #5cb8ff;
+    --bg-image: radial-gradient(1000px 520px at 50% -12%, #10241c 0%, transparent 68%);
+  }
+  h1 { color: var(--a1); }
+</style>
+</head>
+<body>
+<script type="module">
+  import { buildPanel, wave, clamp } from './panel.js';
+
+  buildPanel({
+    title: 'personal finance · month 9 — simulation',
+    status: [
+      { id: 'net', lead: true, value: '—' },
+      { id: 'cash', label: 'cash', value: '—' },
+      { id: 'inout', label: 'this month', value: '—' },
+      { id: 'rate', label: 'savings rate', value: '—' },
+      { id: 'flag', flag: true, value: '' },
+    ],
+    rows: [
+      {
+        size: 'lg', items: [
+          { id: 'networth', cap: 'Net worth', min: 0, max: 500, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: 'k', color: 'var(--a1)', benchmark: 300 },
+          { id: 'alloc', cap: 'Asset allocation', readout: 'none', icon: '💰',
+            segments: '42:#35d07f, 24:#5cb8ff, 18:#ffcf5c, 16:#16211c',
+            legend: [['equities', '#35d07f'], ['bonds', '#5cb8ff'], ['property', '#ffcf5c'], ['cash', '#16211c']] },
+          { id: 'savings', cap: 'Savings rate', min: 0, max: 60, sweep: 270, readout: 'value',
+            decimals: 1, ticks: 6, tickMajor: 3, label: '%', color: 'var(--a1)',
+            benchmark: 30, zones: '0-10:#3d1c1c' },
+          { id: 'spend', cap: 'Spending split', readout: 'none', icon: '🧾',
+            segments: '32:#ff6b6b, 21:#ffcf5c, 17:#5cb8ff, 14:#a78bfa, 16:#35d07f',
+            legend: [['housing', '#ff6b6b'], ['food', '#ffcf5c'], ['transport', '#5cb8ff'],
+                     ['fun', '#a78bfa'], ['other', '#35d07f']] },
+        ],
+      },
+      {
+        size: 'md', items: [
+          { id: 'income', cap: 'Monthly income', min: 0, max: 20000, sweep: 270,
+            readout: 'value', ticks: 10, tickMajor: 5, label: '', color: 'var(--a1)' },
+          { id: 'expense', cap: 'Monthly spend', min: 0, max: 20000, sweep: 270,
+            readout: 'value', ticks: 10, tickMajor: 5, label: '', color: 'var(--a3)' },
+          { id: 'emergency', cap: 'Emergency fund', min: 0, max: 12, sweep: 270,
+            readout: 'value', decimals: 1, ticks: 12, tickMajor: 3, label: 'months',
+            color: 'var(--a4)', benchmark: 6, zones: '0-3:#3d1c1c' },
+          { id: 'debt', cap: 'Debt-to-income', min: 0, max: 100, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: '%', color: 'var(--a2)',
+            zones: '36-50:#3d3418, 50-100:#3d1c1c', benchmark: 36 },
+          { id: 'burnrate', cap: 'Burn rate', min: 0, max: 15000, sweep: 270,
+            readout: 'value', ticks: 10, tickMajor: 5, label: '/mo', color: 'var(--a3)' },
+          { id: 'fire', cap: 'FIRE progress', min: 0, max: 100, sweep: 270, readout: 'value',
+            decimals: 1, ticks: 10, tickMajor: 5, label: '% to goal', color: 'var(--a1)' },
+          { id: 'yield', cap: 'Portfolio yield', min: -20, max: 30, sweep: 270,
+            readout: 'value', decimals: 1, ticks: 10, tickMajor: 5, label: '% yr',
+            color: 'var(--a1)', benchmark: 0, zones: '-20-0:#3d1c1c' },
+          { id: 'credit', cap: 'Credit score', min: 300, max: 850, sweep: 270,
+            readout: 'value', ticks: 11, tickMajor: 5, label: '', color: 'var(--a4)',
+            zones: '300-580:#3d1c1c, 580-670:#3d3418', benchmark: 740 },
+        ],
+      },
+      {
+        size: 'md', items: [
+          { id: 'budget-h', cap: 'Housing budget', min: 0, max: 120, sweep: 270,
+            readout: 'value', ticks: 12, tickMajor: 6, label: '% used', color: 'var(--a3)',
+            benchmark: 100, zones: '100-120:#3d1c1c' },
+          { id: 'budget-f', cap: 'Food budget', min: 0, max: 120, sweep: 270,
+            readout: 'value', ticks: 12, tickMajor: 6, label: '% used', color: 'var(--a2)',
+            benchmark: 100, zones: '100-120:#3d1c1c' },
+          { id: 'budget-t', cap: 'Transport budget', min: 0, max: 120, sweep: 270,
+            readout: 'value', ticks: 12, tickMajor: 6, label: '% used', color: 'var(--a4)',
+            benchmark: 100, zones: '100-120:#3d1c1c' },
+          { id: 'budget-x', cap: 'Fun budget', min: 0, max: 120, sweep: 270,
+            readout: 'value', ticks: 12, tickMajor: 6, label: '% used', color: 'var(--a1)',
+            benchmark: 100, zones: '100-120:#3d1c1c' },
+          { id: 'subs', cap: 'Subscriptions', min: 0, max: 60, sweep: 270, readout: 'value',
+            ticks: 6, tickMajor: 3, label: 'active', color: 'var(--a2)', zones: '30-60:#3d3418' },
+          { id: 'tax', cap: 'Effective tax', min: 0, max: 50, sweep: 270, readout: 'value',
+            decimals: 1, ticks: 10, tickMajor: 5, label: '%', color: 'var(--a3)' },
+          { id: 'inflation', cap: 'Personal inflation', min: -5, max: 15, sweep: 270,
+            readout: 'value', decimals: 1, ticks: 10, tickMajor: 5, label: '%',
+            color: 'var(--a2)', benchmark: 2 },
+          { id: 'runway', cap: 'Runway', min: 0, max: 36, sweep: 270, readout: 'value',
+            ticks: 12, tickMajor: 6, label: 'months', color: 'var(--a1)',
+            zones: '0-6:#3d1c1c', benchmark: 12 },
+        ],
+      },
+    ],
+
+    // income is steady, spending wobbles, and net worth compounds off the difference
+    tick(t, set) {
+      const income = 11800 + wave(t, 91, 900);
+      const expense = 7900 + wave(t, 23, 1400) + wave(t, 7, 320);
+      const saved = income - expense;
+      const rate = saved / income * 100;
+      const nw = 268 + t * 0.06 + wave(t, 47, 9);
+
+      set('networth', nw);
+      set('income', income);
+      set('expense', expense);
+      set('savings', clamp(rate, 0, 60), 1);
+      set('burnrate', expense);
+      set('emergency', clamp(58000 / expense, 0, 12), 1);
+      set('debt', clamp(28 + wave(t, 71, 7), 0, 100));
+      set('fire', clamp(nw / 1250 * 100, 0, 100), 1);
+      set('yield', 7.4 + wave(t, 31, 9), 1);
+      set('credit', 762 + wave(t, 113, 18));
+      set('subs', clamp(18 + wave(t, 83, 6), 0, 60));
+      set('tax', 24.6 + wave(t, 149, 2), 1);
+      set('inflation', 3.2 + wave(t, 101, 1.6), 1);
+      set('runway', clamp(58000 / expense * 2.2, 0, 36));
+
+      set('budget-h', clamp(expense * 0.32 / 2600 * 100, 0, 120));
+      set('budget-f', clamp(expense * 0.21 / 1500 * 100, 0, 120));
+      set('budget-t', clamp(expense * 0.17 / 1400 * 100, 0, 120));
+      set('budget-x', clamp(expense * 0.14 / 900 * 100, 0, 120));
+
+      const eq = 42 + wave(t, 61, 5);
+      set.seg('alloc', [[eq, '#35d07f'], [24, '#5cb8ff'], [18, '#ffcf5c'], [16, '#16211c']]);
+      set.seg('spend', [[32, '#ff6b6b'], [21, '#ffcf5c'], [17, '#5cb8ff'],
+        [14 + wave(t, 17, 5), '#a78bfa'], [16, '#35d07f']]);
+
+      set.text('net', 'RM ' + Math.round(nw) + 'k');
+      set.text('cash', 'RM ' + Math.round(58 + wave(t, 37, 6)) + 'k');
+      set.text('inout', `+${Math.round(income / 1000)}k / −${Math.round(expense / 1000)}k`);
+      set.text('rate', rate.toFixed(1) + ' %');
+      set.text('flag', rate < 12 ? '▲ SAVINGS RATE BELOW TARGET'
+        : expense * 0.32 / 2600 > 1 ? '▲ HOUSING OVER BUDGET' : '');
+    },
+  });
+</script>
+</body>
+</html>

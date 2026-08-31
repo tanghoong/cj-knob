@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mobile Suit — cj-knob lab</title>
+<link rel="stylesheet" href="panel.css">
+<style>
+  :root {
+    --bg: #050a12; --panel: rgba(14, 26, 44, .62); --edge: #1d3a5c; --ink: #dbeafe;
+    --dim: #6b8bb0; --track: #12233a; --tick: #2f5580;
+    --a1: #35c9ff; --a2: #64e37a; --a3: #ffd23f; --a4: #ff5c5c;
+    --bg-image:
+      radial-gradient(900px 560px at 50% -10%, rgba(53,201,255,.12), transparent 64%),
+      linear-gradient(rgba(53,201,255,.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(53,201,255,.05) 1px, transparent 1px);
+    --radius: 2px;
+    --cell-shadow: inset 0 0 0 1px rgba(53,201,255,.06);
+  }
+  body { background-size: auto, 40px 40px, 40px 40px; }
+  h1 { color: var(--a1); }
+  /* cockpit HUD brackets on every readout */
+  .cell::before, .cell::after {
+    content: ''; position: absolute; width: 10px; height: 10px; pointer-events: none;
+    border: 1px solid var(--a1); opacity: .5;
+  }
+  .cell::before { top: 3px; left: 3px; border-right: 0; border-bottom: 0; }
+  .cell::after { bottom: 3px; right: 3px; border-left: 0; border-top: 0; }
+  cj-knob::part(value) { filter: drop-shadow(0 0 4px currentColor); }
+</style>
+</head>
+<body>
+<script type="module">
+  import { buildPanel, wave, clamp } from './panel.js';
+
+  const LIMBS = [
+    ['head', '#35c9ff'], ['torso', '#35c9ff'], ['l-arm', '#64e37a'], ['r-arm', '#64e37a'],
+    ['l-leg', '#64e37a'], ['r-leg', '#64e37a'], ['backpack', '#ffd23f'], ['shield', '#ffd23f'],
+  ];
+
+  buildPanel({
+    title: 'RX-1013 · pilot cj · linear seat — combat simulation',
+    status: [
+      { id: 'state', lead: true, value: 'SORTIE' },
+      { id: 'gen', label: 'generator', value: '—' },
+      { id: 'prop', label: 'propellant', value: '—' },
+      { id: 'apo', label: 'apogee motor', value: '—' },
+      { id: 'alert', flag: true, value: '' },
+    ],
+    rows: [
+      {
+        size: 'lg', items: [
+          { id: 'reactor', cap: 'Fusion output', min: 0, max: 120, sweep: 270, readout: 'value',
+            decimals: 1, ticks: 12, tickMajor: 6, label: '% rated', color: 'var(--a1)',
+            zones: '100-110:#4a3d10, 110-120:#4a1a1a', benchmark: 100 },
+          { id: 'armour', cap: 'Frame integrity', readout: 'none', icon: '🤖',
+            segments: '64:#64e37a, 22:#ffd23f, 14:#ff5c5c',
+            legend: [['intact', '#64e37a'], ['damaged', '#ffd23f'], ['lost', '#ff5c5c']] },
+          { id: 'thrust', cap: 'Thruster vector', min: 0, max: 100, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: '%', color: 'var(--a3)' },
+          { id: 'beam', cap: 'Beam charge', min: 0, max: 100, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: '%', color: 'var(--a1)', benchmark: 80,
+            zones: '0-25:#4a1a1a' },
+        ],
+      },
+      {
+        size: 'sm',
+        items: LIMBS.map(([name, color]) => ({
+          id: name, cap: name, min: 0, max: 100, sweep: 270, readout: 'value',
+          ticks: 10, tickMajor: 5, label: '%', color, zones: '0-25:#4a1a1a',
+        })),
+      },
+      {
+        size: 'md', items: [
+          { id: 'propellant', cap: 'Propellant', min: 0, max: 100, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: '%', color: 'var(--a2)', zones: '0-15:#4a1a1a' },
+          { id: 'gforce', cap: 'Pilot g-load', min: 0, max: 12, sweep: 270, readout: 'value',
+            decimals: 1, ticks: 12, tickMajor: 6, label: 'g', color: 'var(--a3)',
+            zones: '8-10:#4a3d10, 10-12:#4a1a1a' },
+          { id: 'psyco', cap: 'Psycommu link', min: 0, max: 100, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: '%', color: 'var(--a1)' },
+          { id: 'heat', cap: 'Heat sink', min: 0, max: 100, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: '%', color: 'var(--a4)',
+            zones: '75-90:#4a3d10, 90-100:#4a1a1a' },
+          { id: 'ammo', cap: 'Rifle magazine', min: 0, max: 20, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: 'rds', color: 'var(--a3)', zones: '0-4:#4a1a1a' },
+          { id: 'vulcan', cap: 'Head vulcan', min: 0, max: 60, sweep: 270, readout: 'value',
+            ticks: 6, tickMajor: 3, label: 'rds', color: 'var(--a3)' },
+          { id: 'radar', cap: 'Minovsky density', min: 0, max: 100, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: '%', color: 'var(--a4)',
+            zones: '70-100:#4a3d10' },
+          { id: 'contacts', cap: 'Contacts', min: 0, max: 24, sweep: 360, readout: 'value',
+            ticks: 24, tickMajor: 6, label: 'bogeys', color: 'var(--a4)' },
+        ],
+      },
+    ],
+
+    // a sortie on a loop: three engagements, each of which spikes thrust, heat and
+    // g-load together and eats propellant, ammunition and armour
+    tick(t, set) {
+      const CYCLE = 96;
+      const u = t % CYCLE;
+      const engagements = [18, 46, 74];
+      let intensity = 0.12;
+      for (const e of engagements) intensity += 0.9 * Math.exp(-((u - e) ** 2) / 26);
+      intensity = clamp(intensity, 0, 1);
+
+      const thrust = 18 + intensity * 78;
+      const heat = 22 + intensity * 68;
+
+      set('reactor', 62 + intensity * 46, 1);
+      set('thrust', thrust);
+      set('heat', heat);
+      set('gforce', 1 + intensity * 9.4, 1);
+      set('beam', clamp(100 - intensity * 92 + (u % 12) * 5, 0, 100));
+      set('propellant', clamp(96 - (u / CYCLE) * 62, 0, 100));
+      set('psyco', 78 + wave(t, 9, 16));
+      set('ammo', Math.max(0, Math.round(20 - (u / CYCLE) * 17)));
+      set('vulcan', Math.max(0, Math.round(60 - (u / CYCLE) * 44)));
+      set('radar', 34 + intensity * 52);
+      set('contacts', Math.round(intensity * 18 + 2));
+
+      const damage = (u / CYCLE) * 34;
+      LIMBS.forEach(([name], i) => {
+        set(name, clamp(100 - damage * (0.5 + (i % 4) * 0.42) - wave(t, 13 + i, 6, i), 0, 100));
+      });
+      const lost = damage * 0.42, hurt = damage * 0.7;
+      set.seg('armour', [[100 - lost - hurt, '#64e37a'], [hurt, '#ffd23f'], [lost, '#ff5c5c']]);
+
+      set.text('state', intensity > 0.5 ? 'ENGAGED' : 'SORTIE');
+      set.text('gen', (62 + intensity * 46).toFixed(0) + ' %');
+      set.text('prop', clamp(96 - (u / CYCLE) * 62, 0, 100).toFixed(0) + ' %');
+      set.text('apo', heat > 78 ? 'THERMAL LIMIT' : 'NOMINAL');
+      set.text('alert', heat > 82 ? '▲ HEAT CRITICAL — VENT'
+        : intensity > 0.7 ? '▲ MULTIPLE CONTACTS' : '');
+    },
+  });
+</script>
+</body>
+</html>

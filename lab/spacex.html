@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deep Space — cj-knob lab</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #05070a;
+    --panel: #0d1117;
+    --edge: #1d242e;
+    --ink: #f0f4f8;
+    --dim: #7d8998;
+    --hot: #ff6b3d;
+    --cool: #4aa8ff;
+    --ok: #3ee08a;
+    --warn: #ffc542;
+    --bad: #ff4d5e;
+    --track: #171e27;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; background: var(--bg); color: var(--ink);
+    font: 12.5px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    padding: .75rem; display: flex; flex-direction: column; gap: .6rem;
+    background-image:
+      radial-gradient(1000px 560px at 50% -14%, #0f1c2b 0%, transparent 68%),
+      radial-gradient(2px 2px at 12% 22%, rgba(255,255,255,.5), transparent),
+      radial-gradient(1.5px 1.5px at 78% 14%, rgba(255,255,255,.4), transparent),
+      radial-gradient(1.5px 1.5px at 34% 62%, rgba(255,255,255,.3), transparent),
+      radial-gradient(2px 2px at 88% 74%, rgba(255,255,255,.35), transparent);
+  }
+  @media (min-width: 900px) and (min-height: 640px) {
+    body { height: 100vh; overflow: hidden; }
+    .row { min-height: 0; }
+    .primary { flex: 1.4; }
+    .engines, .secondary { flex: 1; }
+    .primary cj-knob { --cj-size: min(212px, 27vh); }
+    .secondary cj-knob { --cj-size: min(110px, 14vh); }
+    .engines cj-knob { --cj-size: min(84px, 11vh); }
+  }
+
+  h1 { margin: 0; font-size: 11px; letter-spacing: .3em; text-transform: uppercase; color: var(--dim); }
+
+  .tlm {
+    display: flex; flex-wrap: wrap; gap: 1.3rem; align-items: baseline;
+    padding: .5rem .9rem; background: var(--panel);
+    border: 1px solid var(--edge); border-radius: 6px;
+    font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
+  }
+  .tlm b { color: var(--ok); font-weight: 600; }
+  .tlm .t { color: var(--dim); }
+  .tlm .clk { color: var(--cool); font-size: 14px; letter-spacing: .06em; }
+  .tlm .ev { color: var(--warn); }
+
+  .row { display: grid; gap: .6rem; }
+  .primary { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+  .secondary { grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); }
+  .engines { grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); }
+
+  .cell {
+    background: var(--panel); border: 1px solid var(--edge); border-radius: 8px;
+    padding: .55rem .35rem .45rem; display: grid; justify-items: center; align-content: center;
+    gap: .35rem; position: relative; overflow: hidden;
+  }
+  .cell.lit { border-color: #35506e; }
+  .cap { font-size: 9.5px; letter-spacing: .15em; color: var(--dim); text-transform: uppercase; }
+
+  cj-knob {
+    --cj-track: var(--track);
+    --cj-text: var(--ink);
+    --cj-muted: var(--dim);
+    --cj-tick: #33404f;
+    --cj-duration: 180ms;
+    --cj-easing: linear;
+    --cj-size: 110px;
+    --cj-thickness: 7;
+  }
+  .primary cj-knob { --cj-size: 190px; --cj-thickness: 6; }
+  .engines cj-knob { --cj-size: 84px; --cj-thickness: 9; }
+</style>
+</head>
+<body>
+
+<h1>CJ HEAVY · ASCENT TELEMETRY — SIMULATION</h1>
+
+<div class="tlm">
+  <span class="clk" id="t-clock">T+ 00:00:00</span>
+  <span><span class="t">Phase</span> <b id="t-phase">PRELAUNCH</b></span>
+  <span><span class="t">Vel</span> <b id="t-vel">—</b></span>
+  <span><span class="t">Alt</span> <b id="t-alt">—</b></span>
+  <span><span class="t">Downrange</span> <b id="t-dr">—</b></span>
+  <span class="ev" id="t-event">&nbsp;</span>
+</div>
+
+<div class="row primary">
+  <div class="cell lit">
+    <cj-knob id="vel" min="0" max="28000" value="0" sweep="270" readout="value"
+             ticks="14" tick-major="7" color="var(--cool)" label="km/h"></cj-knob>
+    <div class="cap">Velocity</div>
+  </div>
+  <div class="cell lit">
+    <cj-knob id="alt" min="0" max="400" value="0" sweep="270" readout="value" decimals="1"
+             ticks="10" tick-major="5" color="var(--ok)" benchmark="100" label="km"></cj-knob>
+    <div class="cap">Altitude · Kármán 100</div>
+  </div>
+  <div class="cell lit">
+    <cj-knob id="throttle" min="0" max="100" value="0" sweep="270" readout="value"
+             ticks="10" tick-major="5" color="var(--hot)" label="%"></cj-knob>
+    <div class="cap">Throttle</div>
+  </div>
+  <div class="cell lit">
+    <cj-knob id="prop" readout="none"
+             segments="52:#4aa8ff, 26:#3ee08a, 22:#171e27"><span slot="icon">🛰️</span></cj-knob>
+    <div class="cap">S1 · S2 · reserve</div>
+  </div>
+</div>
+
+<div class="row engines" id="engines"></div>
+
+<div class="row secondary">
+  <div class="cell">
+    <cj-knob id="gforce" min="0" max="6" value="1" sweep="270" readout="value" decimals="1"
+             ticks="6" tick-major="3" color="var(--warn)"
+             zones="4-5:#ffc542, 5-6:#ff4d5e" label="g"></cj-knob>
+    <div class="cap">Acceleration</div>
+  </div>
+  <div class="cell">
+    <cj-knob id="maxq" min="0" max="40" value="0" sweep="270" readout="value"
+             ticks="8" tick-major="4" color="var(--hot)"
+             zones="30-36:#ffc542, 36-40:#ff4d5e" label="kPa"></cj-knob>
+    <div class="cap">Dynamic press</div>
+  </div>
+  <div class="cell">
+    <cj-knob id="dv" min="0" max="9500" value="9500" sweep="270" readout="value"
+             ticks="10" tick-major="5" color="var(--cool)" label="m/s"></cj-knob>
+    <div class="cap">Δv remaining</div>
+  </div>
+  <div class="cell">
+    <cj-knob id="pitch" min="0" max="90" value="90" sweep="180" readout="value"
+             ticks="9" tick-major="3" color="var(--ok)" label="deg"></cj-knob>
+    <div class="cap">Pitch program</div>
+  </div>
+  <div class="cell">
+    <cj-knob id="skin" min="0" max="1800" value="15" sweep="270" readout="value"
+             ticks="9" tick-major="3" color="var(--hot)"
+             zones="1200-1500:#ffc542, 1500-1800:#ff4d5e" label="°C"></cj-knob>
+    <div class="cap">Skin temp</div>
+  </div>
+  <div class="cell">
+    <cj-knob id="power" min="0" max="100" value="94" sweep="270" readout="value"
+             ticks="10" tick-major="5" color="var(--ok)" label="%"></cj-knob>
+    <div class="cap">Bus power</div>
+  </div>
+  <div class="cell">
+    <cj-knob id="signal" min="0" max="100" value="99" sweep="270" readout="value"
+             ticks="10" tick-major="5" color="var(--cool)"
+             zones="0-25:#ff4d5e" label="%"></cj-knob>
+    <div class="cap">Downlink</div>
+  </div>
+  <div class="cell">
+    <cj-knob id="rcs" min="0" max="100" value="100" sweep="270" readout="value"
+             ticks="10" tick-major="5" color="var(--warn)" label="%"></cj-knob>
+    <div class="cap">RCS propellant</div>
+  </div>
+</div>
+
+<script type="module">
+  import '../src/cj-knob.js';
+
+  const $ = (id) => document.getElementById(id);
+
+  // nine engine bells, laid out as their own row of small dials
+  const bells = Array.from({ length: 9 }, (_, i) => {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    cell.innerHTML = `
+      <cj-knob readout="value" min="0" max="110" value="0" sweep="270"
+               color="var(--hot)" zones="100-110:#ff4d5e" label="%"></cj-knob>
+      <div class="cap">M${i + 1}</div>`;
+    $('engines').append(cell);
+    return cell.querySelector('cj-knob');
+  });
+
+  // a scripted ascent: every number below is derived from one clock, so the whole
+  // board tells a single coherent story instead of eleven unrelated wiggles
+  const EVENTS = [
+    [0, 'LIFTOFF'], [62, 'MAX-Q'], [149, 'MECO'], [156, 'STAGE SEP'],
+    [163, 'SES-1'], [201, 'FAIRING JETTISON'], [512, 'SECO-1'], [540, 'ORBIT INSERTION'],
+  ];
+  const T = 600; // one full cycle, then it loops
+  const t0 = performance.now();
+
+  const smooth = (x) => x * x * (3 - 2 * x);
+  const clamp01 = (x) => Math.max(0, Math.min(1, x));
+
+  function frame(now) {
+    const t = ((now - t0) / 1000) % T;
+
+    const staged = t > 156;
+    const vel = 28000 * smooth(clamp01(t / 540));
+    const alt = 400 * smooth(clamp01((t - 8) / 520));
+    const throttle = t < 1 ? 0
+      : t < 40 ? 100
+      : t < 78 ? 68            // throttle bucket through max-q
+      : t < 149 ? 100
+      : t < 163 ? 0            // MECO to second-stage ignition
+      : t < 512 ? 92 : 0;
+    const q = 40 * Math.exp(-((t - 62) ** 2) / 900) * (t > 4 ? 1 : 0);
+    const g = t < 149 ? 1 + 2.6 * clamp01(t / 149) : staged && t < 512 ? 1.4 : 0;
+    const pitch = 90 - 88 * smooth(clamp01((t - 12) / 300));
+
+    $('vel').value = vel.toFixed(0);
+    $('alt').value = alt.toFixed(1);
+    $('throttle').value = throttle.toFixed(0);
+    $('gforce').value = g.toFixed(1);
+    $('maxq').value = q.toFixed(0);
+    $('dv').value = (9500 * (1 - clamp01(t / 540))).toFixed(0);
+    $('pitch').value = pitch.toFixed(0);
+    $('skin').value = (15 + 1500 * Math.exp(-((t - 80) ** 2) / 2400)).toFixed(0);
+    $('power').value = (94 + Math.sin(t / 9) * 3).toFixed(0);
+    $('signal').value = (99 - 40 * Math.exp(-((t - 160) ** 2) / 120)).toFixed(0); // sep blackout
+    $('rcs').value = (100 - clamp01((t - 163) / 400) * 18).toFixed(0);
+
+    // stage 1 burns down first, then stage 2
+    const s1 = 52 * (1 - clamp01(t / 149));
+    const s2 = 26 * (1 - clamp01((t - 163) / 349));
+    $('prop').setAttribute('segments',
+      `${s1.toFixed(1)}:#4aa8ff, ${s2.toFixed(1)}:#3ee08a, ${(100 - s1 - s2).toFixed(1)}:#171e27`);
+
+    bells.forEach((b, i) => {
+      // engines shut down in pairs on the way up, and only one relights on stage two
+      const off = t > 149 || (t > 130 && i >= 9 - Math.floor((t - 130) / 5));
+      const lit = staged ? (i === 4 && t < 512) : !off && t > 0.5;
+      b.value = (lit ? throttle + Math.sin(t * 3 + i) * 1.2 : 0).toFixed(0);
+    });
+
+    const last = EVENTS.filter(([at]) => t >= at).pop();
+    const next = EVENTS.find(([at]) => t < at);
+    $('t-phase').textContent = t < 0.5 ? 'PRELAUNCH' : staged ? 'SECOND STAGE' : 'FIRST STAGE';
+    $('t-event').textContent = last && t - last[0] < 6 ? '◆ ' + last[1]
+      : next ? `next: ${next[1]} in T-${Math.ceil(next[0] - t)}s` : '';
+
+    const s = Math.floor(t);
+    $('t-clock').textContent =
+      `T+ ${String(Math.floor(s / 3600)).padStart(2, '0')}:${String(Math.floor(s / 60) % 60).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+    $('t-vel').textContent = Math.round(vel).toLocaleString() + ' km/h';
+    $('t-alt').textContent = alt.toFixed(1) + ' km';
+    $('t-dr').textContent = (vel * t / 3600 * 0.36).toFixed(0) + ' km';
+
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+</script>
+
+</body>
+</html>

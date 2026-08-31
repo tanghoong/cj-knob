@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Markets — cj-knob lab</title>
+<link rel="stylesheet" href="panel.css">
+<style>
+  :root {
+    --bg: #08090c; --panel: #101318; --edge: #1e2430; --ink: #e9edf4;
+    --dim: #78849a; --track: #171c25; --tick: #333c4c;
+    --a1: #22c55e; --a2: #ef4444; --a3: #eab308; --a4: #60a5fa;
+    --bg-image: radial-gradient(1000px 540px at 50% -12%, #141a26 0%, transparent 68%);
+  }
+  h1 { color: var(--a4); }
+  .strip b { color: var(--a1); }
+</style>
+</head>
+<body>
+<script type="module">
+  import { buildPanel, wave, clamp } from './panel.js';
+
+  const INDICES = [
+    ['S&P 500', 5980, '#22c55e'], ['Nasdaq', 19400, '#60a5fa'], ['Dow', 43800, '#eab308'],
+    ['FTSE 100', 8340, '#a78bfa'], ['DAX', 19800, '#f472b6'], ['Nikkei', 39200, '#fb923c'],
+    ['Hang Seng', 19600, '#2dd4bf'], ['STI', 3720, '#facc15'],
+  ];
+
+  buildPanel({
+    title: 'global equity board · session open — simulated market data',
+    status: [
+      { id: 'session', lead: true, value: '—' },
+      { id: 'breadth', label: 'breadth', value: '—' },
+      { id: 'vix', label: 'volatility', value: '—' },
+      { id: 'usd', label: 'dollar', value: '—' },
+      { id: 'flag', flag: true, value: 'simulated prices — not investment information' },
+    ],
+    rows: [
+      {
+        size: 'lg', items: [
+          { id: 'spx', cap: 'S&P 500 · daily', min: -4, max: 4, sweep: 240, start: 150,
+            readout: 'value', decimals: 2, ticks: 8, tickMajor: 4, label: '% today',
+            color: 'var(--a1)', benchmark: 0, zones: '-4-0:#3a1c1c' },
+          { id: 'sectors', cap: 'Sector breadth', readout: 'none', icon: '📈',
+            segments: '58:#22c55e, 12:#eab308, 30:#ef4444',
+            legend: [['advancing', '#22c55e'], ['flat', '#eab308'], ['declining', '#ef4444']] },
+          { id: 'vix', cap: 'Volatility index', min: 0, max: 60, sweep: 270,
+            readout: 'value', decimals: 1, ticks: 12, tickMajor: 6, label: 'VIX',
+            color: 'var(--a3)', benchmark: 20, zones: '30-45:#3a3116, 45-60:#3a1c1c' },
+          { id: 'yield10', cap: 'US 10-year', min: 0, max: 8, sweep: 270, readout: 'value',
+            decimals: 2, ticks: 8, tickMajor: 4, label: '% yield', color: 'var(--a4)' },
+        ],
+      },
+      {
+        size: 'md',
+        items: INDICES.map(([name, , color], i) => ({
+          id: `i${i}`, cap: name, min: -4, max: 4, sweep: 240, start: 150, readout: 'value',
+          decimals: 2, ticks: 8, tickMajor: 4, label: '%', color, benchmark: 0,
+        })),
+      },
+      {
+        size: 'md', items: [
+          { id: 'gold', cap: 'Gold', min: -3, max: 3, sweep: 240, start: 150,
+            readout: 'value', decimals: 2, ticks: 6, tickMajor: 3, label: '%',
+            color: 'var(--a3)', benchmark: 0 },
+          { id: 'oil', cap: 'Brent crude', min: -6, max: 6, sweep: 240, start: 150,
+            readout: 'value', decimals: 2, ticks: 6, tickMajor: 3, label: '%',
+            color: 'var(--a2)', benchmark: 0 },
+          { id: 'btc', cap: 'Bitcoin', min: -12, max: 12, sweep: 240, start: 150,
+            readout: 'value', decimals: 2, ticks: 8, tickMajor: 4, label: '%',
+            color: 'var(--a3)', benchmark: 0 },
+          { id: 'dxy', cap: 'Dollar index', min: 90, max: 120, sweep: 270, readout: 'value',
+            decimals: 2, ticks: 6, tickMajor: 3, label: 'DXY', color: 'var(--a4)' },
+          { id: 'pe', cap: 'Forward P/E', min: 8, max: 32, sweep: 270, readout: 'value',
+            decimals: 1, ticks: 12, tickMajor: 6, label: '×', color: 'var(--a4)',
+            benchmark: 18, zones: '26-32:#3a1c1c' },
+          { id: 'fear', cap: 'Fear & greed', min: 0, max: 100, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: '', color: 'var(--a1)', benchmark: 50,
+            zones: '0-25:#3a1c1c, 75-100:#3a3116' },
+          { id: 'volume', cap: 'Volume vs 30d', min: 0, max: 200, sweep: 270,
+            readout: 'value', ticks: 10, tickMajor: 5, label: '%', color: 'var(--a4)',
+            benchmark: 100 },
+          { id: 'drawdown', cap: 'From all-time high', min: -40, max: 0, sweep: 270,
+            readout: 'value', decimals: 1, ticks: 8, tickMajor: 4, label: '%',
+            color: 'var(--a2)', zones: '-40--20:#3a1c1c' },
+        ],
+      },
+    ],
+
+    interval: 220,
+
+    // a risk cycle: one factor drives everything, so equities, gold, the dollar
+    // and volatility move against each other the way they usually do
+    tick(t, set) {
+      const risk = Math.sin(t / 29) * 0.7 + wave(t, 5, 0.25);   // +risk-on / −risk-off
+      const spx = risk * 2.1 + wave(t, 3, 0.3);
+
+      set('spx', spx, 2);
+      INDICES.forEach((_, i) => set(`i${i}`, spx * (0.7 + (i % 4) * 0.22) + wave(t, 7 + i * 2, 0.5, i), 2));
+
+      const vix = clamp(17 - risk * 11 + wave(t, 11, 2), 8, 60);
+      set('vix', vix, 1);
+      set('yield10', 4.28 + risk * 0.34, 2);
+      set('gold', -risk * 1.1 + wave(t, 13, 0.3), 2);
+      set('oil', risk * 2.4 + wave(t, 9, 0.8), 2);
+      set('btc', risk * 6.2 + wave(t, 4, 1.4), 2);
+      set('dxy', 104.2 - risk * 2.1, 2);
+      set('pe', 19.4 + risk * 2.2, 1);
+      set('fear', clamp(50 + risk * 34, 0, 100));
+      set('volume', clamp(96 + Math.abs(risk) * 52, 0, 200));
+      set('drawdown', clamp(-4.2 + risk * 4 - Math.abs(risk) * 2, -40, 0), 1);
+
+      const adv = clamp(50 + risk * 34, 4, 92);
+      set.seg('sectors', [[adv, '#22c55e'], [10, '#eab308'], [100 - adv - 10, '#ef4444']]);
+
+      set.text('session', spx >= 0 ? 'RISK-ON' : 'RISK-OFF');
+      set.text('breadth', `${Math.round(adv)} % advancing`);
+      set.text('vix', vix.toFixed(1));
+      set.text('usd', (104.2 - risk * 2.1).toFixed(2));
+
+      // colour each index by direction, the way a real board does
+      INDICES.forEach((_, i) => {
+        const v = spx * (0.7 + (i % 4) * 0.22);
+        set.attr(`i${i}`, 'color', v >= 0 ? INDICES[i][2] : '#ef4444');
+      });
+    },
+  });
+</script>
+</body>
+</html>

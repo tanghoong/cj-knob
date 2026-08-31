@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Malaysia Index — cj-knob lab</title>
+<link rel="stylesheet" href="panel.css">
+<style>
+  :root {
+    --bg: #080c11; --panel: #101820; --edge: #1c2a37; --ink: #eef5fb;
+    --dim: #7d93a8; --track: #16212b; --tick: #33475a;
+    --a1: #0f8bd1; --a2: #f7c948; --a3: #e0433f; --a4: #4bbf87;
+    --bg-image: radial-gradient(1000px 540px at 50% -12%, #10263a 0%, transparent 68%);
+  }
+  h1 { color: var(--a2); }
+  .strip b { color: var(--a2); }
+</style>
+</head>
+<body>
+<script type="module">
+  import { buildPanel, wave, clamp } from './panel.js';
+
+  const STATES = [
+    ['Selangor', '#0f8bd1'], ['KL', '#f7c948'], ['Johor', '#4bbf87'], ['Penang', '#e0433f'],
+    ['Sarawak', '#8b7bd8'], ['Sabah', '#2dd4bf'], ['Perak', '#fb923c'], ['Melaka', '#a3e635'],
+  ];
+
+  buildPanel({
+    title: '🇲🇾 malaysia · national indicators board — simulated figures',
+    status: [
+      { id: 'quarter', lead: true, value: 'Q3 2026' },
+      { id: 'gdp', label: 'GDP growth', value: '—' },
+      { id: 'cpi', label: 'inflation', value: '—' },
+      { id: 'klci', label: 'KLCI', value: '—' },
+      { id: 'note', flag: true, value: 'illustrative figures, not official statistics' },
+    ],
+    rows: [
+      {
+        size: 'lg', items: [
+          { id: 'gdp', cap: 'GDP growth', min: -6, max: 10, sweep: 240, start: 150,
+            readout: 'value', decimals: 1, ticks: 8, tickMajor: 4, label: '% yoy',
+            color: 'var(--a4)', benchmark: 0, zones: '-6-0:#3a1a1a' },
+          { id: 'sectors', cap: 'Economy by sector', readout: 'none', icon: '🏭',
+            segments: '24:#0f8bd1, 20:#f7c948, 12:#4bbf87, 9:#e0433f, 35:#16212b',
+            legend: [['services', '#0f8bd1'], ['manufacturing', '#f7c948'],
+                     ['commodities', '#4bbf87'], ['agriculture', '#e0433f'], ['other', '#16212b']] },
+          { id: 'cpi', cap: 'Headline inflation', min: -2, max: 8, sweep: 270,
+            readout: 'value', decimals: 1, ticks: 10, tickMajor: 5, label: '% yoy',
+            color: 'var(--a2)', benchmark: 2.5, zones: '4-6:#3a3418, 6-8:#3a1a1a' },
+          { id: 'klci', cap: 'FBM KLCI', min: 1200, max: 2000, sweep: 270, readout: 'value',
+            ticks: 8, tickMajor: 4, label: 'pts', color: 'var(--a1)' },
+        ],
+      },
+      {
+        size: 'md',
+        items: STATES.map(([name, color], i) => ({
+          id: `s${i}`, cap: name, min: 0, max: 30, sweep: 270, readout: 'value',
+          decimals: 1, ticks: 6, tickMajor: 3, label: '% of GDP', color,
+        })),
+      },
+      {
+        size: 'md', items: [
+          { id: 'unemployment', cap: 'Unemployment', min: 0, max: 10, sweep: 270,
+            readout: 'value', decimals: 1, ticks: 10, tickMajor: 5, label: '%',
+            color: 'var(--a3)', benchmark: 3.5, zones: '5-10:#3a1a1a' },
+          { id: 'myr', cap: 'MYR / USD', min: 3.2, max: 5.2, sweep: 270, readout: 'value',
+            decimals: 3, ticks: 10, tickMajor: 5, label: '', color: 'var(--a2)' },
+          { id: 'opr', cap: 'Overnight policy rate', min: 0, max: 6, sweep: 270,
+            readout: 'value', decimals: 2, ticks: 12, tickMajor: 6, label: '%',
+            color: 'var(--a1)', benchmark: 3 },
+          { id: 'exports', cap: 'Exports', min: -20, max: 30, sweep: 240, start: 150,
+            readout: 'value', decimals: 1, ticks: 10, tickMajor: 5, label: '% yoy',
+            color: 'var(--a4)', benchmark: 0 },
+          { id: 'palm', cap: 'Crude palm oil', min: 2000, max: 6000, sweep: 270,
+            readout: 'value', ticks: 8, tickMajor: 4, label: 'RM / t', color: 'var(--a2)' },
+          { id: 'semicon', cap: 'E&E exports', min: 0, max: 800, sweep: 270,
+            readout: 'value', ticks: 8, tickMajor: 4, label: 'RM bn', color: 'var(--a1)' },
+          { id: 'tourists', cap: 'Visitor arrivals', min: 0, max: 40, sweep: 270,
+            readout: 'value', decimals: 1, ticks: 8, tickMajor: 4, label: 'M / yr',
+            color: 'var(--a4)' },
+          { id: 'fdi', cap: 'Approved FDI', min: 0, max: 400, sweep: 270, readout: 'value',
+            ticks: 8, tickMajor: 4, label: 'RM bn', color: 'var(--a1)' },
+        ],
+      },
+      {
+        size: 'md', items: [
+          { id: 'population', cap: 'Population', min: 0, max: 45, sweep: 270,
+            readout: 'value', decimals: 2, ticks: 9, tickMajor: 3, label: 'million',
+            color: 'var(--a1)' },
+          { id: 'median', cap: 'Median age', min: 20, max: 50, sweep: 270, readout: 'value',
+            decimals: 1, ticks: 6, tickMajor: 3, label: 'years', color: 'var(--a4)' },
+          { id: 'income', cap: 'Median household', min: 0, max: 12, sweep: 270,
+            readout: 'value', decimals: 1, ticks: 12, tickMajor: 6, label: 'k RM/mo',
+            color: 'var(--a2)' },
+          { id: 'b40', cap: 'Household split', readout: 'none', icon: '🏘️',
+            segments: '40:#e0433f, 40:#f7c948, 20:#4bbf87',
+            legend: [['B40', '#e0433f'], ['M40', '#f7c948'], ['T20', '#4bbf87']] },
+          { id: 'debt', cap: 'Household debt', min: 0, max: 120, sweep: 270,
+            readout: 'value', decimals: 1, ticks: 12, tickMajor: 6, label: '% of GDP',
+            color: 'var(--a3)', zones: '90-120:#3a1a1a' },
+          { id: 'renewable', cap: 'Renewable capacity', min: 0, max: 60, sweep: 270,
+            readout: 'value', decimals: 1, ticks: 6, tickMajor: 3, label: '% of mix',
+            color: 'var(--a4)', benchmark: 31 },
+          { id: 'internet', cap: 'Internet penetration', min: 0, max: 100, sweep: 270,
+            readout: 'value', decimals: 1, ticks: 10, tickMajor: 5, label: '%',
+            color: 'var(--a1)' },
+          { id: 'forest', cap: 'Forest cover', min: 0, max: 100, sweep: 270,
+            readout: 'value', decimals: 1, ticks: 10, tickMajor: 5, label: '% land',
+            color: 'var(--a4)', benchmark: 50 },
+        ],
+      },
+    ],
+
+    tick(t, set) {
+      const cycle = Math.sin(t / 47);
+
+      set('gdp', 4.4 + cycle * 1.8, 1);
+      set('cpi', 2.2 + cycle * 1.2, 1);
+      set('klci', 1596 + cycle * 96 + wave(t, 7, 12));
+      set('unemployment', 3.2 - cycle * 0.4, 1);
+      set('myr', 4.42 - cycle * 0.18, 3);
+      set('opr', 3.0 + (cycle > 0.5 ? 0.25 : 0), 2);
+      set('exports', 6.2 + cycle * 12, 1);
+      set('palm', 4180 + cycle * 620);
+      set('semicon', 594 + cycle * 62);
+      set('tourists', 26.4 + cycle * 3.2, 1);
+      set('fdi', 188 + cycle * 54);
+      set('population', 34.6 + wave(t, 200, 0.2), 2);
+      set('median', 31.2 + wave(t, 210, 0.4), 1);
+      set('income', 6.34 + wave(t, 120, 0.3), 1);
+      set('debt', 84.2 + wave(t, 90, 4), 1);
+      set('renewable', 26.4 + wave(t, 160, 3), 1);
+      set('internet', 97.4 + wave(t, 140, 0.8), 1);
+      set('forest', 54.6 + wave(t, 190, 1.2), 1);
+
+      // state shares of GDP, renormalised so the board always totals sensibly
+      const base = [25.9, 16.4, 9.6, 6.8, 9.4, 6.2, 5.6, 3.4];
+      base.forEach((v, i) => set(`s${i}`, v + wave(t, 70 + i * 9, 0.6, i), 1));
+
+      const svc = 24 + cycle * 1.5;
+      set.seg('sectors', [[svc, '#0f8bd1'], [20, '#f7c948'], [12 + cycle, '#4bbf87'],
+        [9, '#e0433f'], [35, '#16212b']]);
+      set.seg('b40', [[40, '#e0433f'], [40, '#f7c948'], [20, '#4bbf87']]);
+
+      set.text('gdp', (4.4 + cycle * 1.8).toFixed(1) + ' %');
+      set.text('cpi', (2.2 + cycle * 1.2).toFixed(1) + ' %');
+      set.text('klci', Math.round(1596 + cycle * 96).toLocaleString());
+    },
+  });
+</script>
+</body>
+</html>

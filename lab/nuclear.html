@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reactor — cj-knob lab</title>
+<link rel="stylesheet" href="panel.css">
+<style>
+  :root {
+    --bg: #06090a; --panel: #0f1618; --edge: #1d2c2e; --ink: #e2f4f2;
+    --dim: #6f8f8f; --track: #162224; --tick: #2e4548;
+    --a1: #4be3c8; --a2: #a3e635; --a3: #ffc233; --a4: #7dd3fc;
+    --bg-image:
+      radial-gradient(900px 520px at 50% -10%, #0f2a2c 0%, transparent 66%),
+      radial-gradient(600px 400px at 85% 100%, #1a2a12 0%, transparent 60%);
+  }
+  h1 { color: var(--a2); }
+</style>
+</head>
+<body>
+<script type="module">
+  import { buildPanel, wave, clamp } from './panel.js';
+
+  const rods = Array.from({ length: 8 }, (_, i) => ({
+    id: `rod${i}`, cap: `bank ${String.fromCharCode(65 + i)}`, min: 0, max: 100,
+    sweep: 270, readout: 'value', ticks: 10, tickMajor: 5, label: '% in',
+    color: 'var(--a4)',
+  }));
+
+  buildPanel({
+    title: 'CJ-1 pressurised water reactor · unit 2 — simulation',
+    status: [
+      { id: 'mode', lead: true, value: 'CRITICAL' },
+      { id: 'pwr', label: 'thermal', value: '—' },
+      { id: 'grid', label: 'to grid', value: '—' },
+      { id: 'k', label: 'k-eff', value: '—' },
+      { id: 'scram', flag: true, value: '' },
+    ],
+    rows: [
+      {
+        size: 'lg', items: [
+          { id: 'thermal', cap: 'Thermal power', min: 0, max: 3600, sweep: 270,
+            readout: 'value', ticks: 12, tickMajor: 6, label: 'MWth', color: 'var(--a2)',
+            zones: '3200-3450:#4a3d0f, 3450-3600:#4d1f1f', benchmark: 3400 },
+          { id: 'flux', cap: 'Neutron flux', min: 0, max: 120, sweep: 270, readout: 'value',
+            decimals: 1, ticks: 12, tickMajor: 6, label: '% FP', color: 'var(--a1)',
+            zones: '105-115:#4a3d0f, 115-120:#4d1f1f' },
+          { id: 'core', cap: 'Core assemblies', readout: 'none', icon: '☢️',
+            segments: '46:#a3e635, 31:#4be3c8, 15:#ffc233, 8:#162224',
+            legend: [['fresh', '#a3e635'], ['mid', '#4be3c8'], ['spent', '#ffc233'], ['void', '#162224']] },
+          { id: 'keff', cap: 'Reactivity', min: 0.94, max: 1.06, sweep: 240, start: 150,
+            readout: 'value', decimals: 4, ticks: 12, tickMajor: 6, label: 'k-eff',
+            color: 'var(--a4)', benchmark: 1 },
+        ],
+      },
+      { size: 'sm', items: rods },
+      {
+        size: 'md', items: [
+          { id: 'tin', cap: 'Coolant inlet', min: 200, max: 340, sweep: 270, readout: 'value',
+            ticks: 7, tickMajor: 7, label: '°C', color: 'var(--a4)' },
+          { id: 'tout', cap: 'Coolant outlet', min: 200, max: 380, sweep: 270, readout: 'value',
+            ticks: 9, tickMajor: 3, label: '°C', color: 'var(--a3)',
+            zones: '345-365:#4a3d0f, 365-380:#4d1f1f' },
+          { id: 'press', cap: 'Primary pressure', min: 0, max: 20, sweep: 270, readout: 'value',
+            decimals: 1, ticks: 10, tickMajor: 5, label: 'MPa', color: 'var(--a1)',
+            benchmark: 15.5, zones: '17.5-20:#4d1f1f' },
+          { id: 'flow', cap: 'Coolant flow', min: 0, max: 20000, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: 'kg/s', color: 'var(--a4)', zones: '0-9000:#4d1f1f' },
+          { id: 'boron', cap: 'Boron', min: 0, max: 2000, sweep: 270, readout: 'value',
+            ticks: 8, tickMajor: 4, label: 'ppm', color: 'var(--a2)' },
+          { id: 'xenon', cap: 'Xenon-135', min: 0, max: 100, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: '% eq', color: 'var(--a3)' },
+          { id: 'steam', cap: 'Steam generator', min: 0, max: 100, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: '% level', color: 'var(--a1)',
+            benchmark: 50, zones: '0-25:#4d1f1f, 80-100:#4d1f1f' },
+          { id: 'turb', cap: 'Turbine', min: 0, max: 3600, sweep: 270, readout: 'value',
+            ticks: 12, tickMajor: 6, label: 'rpm', color: 'var(--a2)', benchmark: 3000 },
+        ],
+      },
+    ],
+
+    // control rods lead; flux, power and temperature all follow from rod position,
+    // and xenon lags power the way it does in a real core
+    tick(t, set) {
+      const demand = 88 + wave(t, 61, 10);
+      const rodIn = clamp(46 - (demand - 88) * 1.4 + wave(t, 29, 4), 5, 95);
+      for (let i = 0; i < 8; i++) set(`rod${i}`, clamp(rodIn + wave(t, 23 + i * 3, 5, i), 0, 100));
+
+      const flux = clamp(demand + wave(t, 7, 1.4), 0, 120);
+      const thermal = flux / 100 * 3400;
+      const keff = 1 + (flux - demand) * 0.0006 + wave(t, 13, 0.0008);
+
+      set('thermal', thermal);
+      set('flux', flux, 1);
+      set('keff', keff, 4);
+      set('tin', 292 + wave(t, 37, 3));
+      set('tout', 292 + thermal / 3400 * 36 + wave(t, 11, 2));
+      set('press', 15.5 + wave(t, 19, 0.4), 1);
+      set('flow', 17600 + wave(t, 23, 400));
+      set('boron', clamp(900 - (demand - 88) * 30 + wave(t, 71, 40), 0, 2000));
+      set('xenon', 62 + wave(t, 61, 10, -1.2));   // lags the power wave by design
+      set('steam', 50 + wave(t, 17, 6));
+      set('turb', thermal / 3400 * 3000 + wave(t, 9, 12));
+
+      // mix() renormalises for us, so these are just relative weights
+      const fresh = 46 + wave(t, 113, 3);
+      set.seg('core', [[fresh, '#a3e635'], [31, '#4be3c8'], [15, '#ffc233'], [8, '#162224']]);
+
+      set.text('mode', flux > 105 ? 'OVERPOWER' : 'CRITICAL');
+      set.text('pwr', Math.round(thermal).toLocaleString() + ' MWth');
+      set.text('grid', Math.round(thermal * 0.33) + ' MWe');
+      set.text('k', keff.toFixed(4));
+      set.text('scram', flux > 108 ? '▲ HIGH FLUX — SCRAM ARMED' : '');
+    },
+  });
+</script>
+</body>
+</html>

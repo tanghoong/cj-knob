@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Food Security — cj-knob lab</title>
+<link rel="stylesheet" href="panel.css">
+<style>
+  :root {
+    --bg: #0d0f08; --panel: #161a0f; --edge: #262d18; --ink: #f0f4e2;
+    --dim: #8d977a; --track: #1c2213; --tick: #454f2c;
+    --a1: #a3c94a; --a2: #e8b04b; --a3: #d97b4a; --a4: #6bb6a0;
+    --bg-image: radial-gradient(1000px 540px at 50% -12%, #202813 0%, transparent 68%);
+  }
+  h1 { color: var(--a1); }
+</style>
+</head>
+<body>
+<script type="module">
+  import { buildPanel, wave, clamp } from './panel.js';
+
+  const CROPS = [
+    ['rice', '#e8e0b0'], ['wheat', '#e8b04b'], ['maize', '#f0c930'], ['soy', '#a3c94a'],
+    ['palm oil', '#d97b4a'], ['sugar', '#e0e0e0'], ['cassava', '#b89060'], ['pulses', '#6bb6a0'],
+  ];
+
+  buildPanel({
+    title: 'food systems model · global supply — simulation',
+    status: [
+      { id: 'season', lead: true, value: '—' },
+      { id: 'stock', label: 'stock-to-use', value: '—' },
+      { id: 'price', label: 'price index', value: '—' },
+      { id: 'undern', label: 'undernourished', value: '—' },
+      { id: 'alarm', flag: true, value: '' },
+    ],
+    rows: [
+      {
+        size: 'lg', items: [
+          { id: 'calories', cap: 'Calorie supply', min: 0, max: 4000, sweep: 270,
+            readout: 'value', ticks: 8, tickMajor: 4, label: 'kcal/person/day',
+            color: 'var(--a1)', benchmark: 2500, zones: '0-2100:#3d1e16' },
+          { id: 'plate', cap: 'Where calories come from', readout: 'none', icon: '🌾',
+            segments: '44:#e8b04b, 18:#a3c94a, 14:#d97b4a, 13:#6bb6a0, 11:#1c2213',
+            legend: [['cereals', '#e8b04b'], ['veg/fruit', '#a3c94a'], ['oils', '#d97b4a'],
+                     ['protein', '#6bb6a0'], ['other', '#1c2213']] },
+          { id: 'stocks', cap: 'Grain reserves', min: 0, max: 40, sweep: 270,
+            readout: 'value', decimals: 1, ticks: 8, tickMajor: 4, label: '% stock-to-use',
+            color: 'var(--a4)', benchmark: 20, zones: '0-14:#3d1e16' },
+          { id: 'priceindex', cap: 'Food price index', min: 60, max: 200, sweep: 270,
+            readout: 'value', decimals: 1, ticks: 7, tickMajor: 7, label: '2015 = 100',
+            color: 'var(--a2)', benchmark: 100, zones: '150-200:#3d1e16' },
+        ],
+      },
+      {
+        size: 'md',
+        items: CROPS.map(([name, color], i) => ({
+          id: `crop${i}`, cap: name, min: 0, max: 140, sweep: 270, readout: 'value',
+          ticks: 7, tickMajor: 7, label: '% of trend', color, benchmark: 100,
+          zones: '0-80:#3d1e16',
+        })),
+      },
+      {
+        size: 'md', items: [
+          { id: 'water', cap: 'Irrigation water', min: 0, max: 100, sweep: 270,
+            readout: 'value', ticks: 10, tickMajor: 5, label: '% available',
+            color: 'var(--a4)', zones: '0-35:#3d1e16' },
+          { id: 'fertiliser', cap: 'Fertiliser supply', min: 0, max: 140, sweep: 270,
+            readout: 'value', ticks: 7, tickMajor: 7, label: '% demand',
+            color: 'var(--a2)', benchmark: 100, zones: '0-70:#3d1e16' },
+          { id: 'waste', cap: 'Food lost & wasted', min: 0, max: 50, sweep: 270,
+            readout: 'value', decimals: 1, ticks: 10, tickMajor: 5, label: '%',
+            color: 'var(--a3)', zones: '30-50:#3d1e16' },
+          { id: 'undernourished', cap: 'Undernourished', min: 0, max: 20, sweep: 270,
+            readout: 'value', decimals: 1, ticks: 10, tickMajor: 5, label: '% pop',
+            color: 'var(--a3)', zones: '10-20:#3d1e16' },
+          { id: 'arable', cap: 'Cropland', min: 0, max: 2000, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: 'M ha', color: 'var(--a1)' },
+          { id: 'yieldgap', cap: 'Yield gap closed', min: 0, max: 100, sweep: 270,
+            readout: 'value', ticks: 10, tickMajor: 5, label: '%', color: 'var(--a1)' },
+          { id: 'trade', cap: 'Traded share', min: 0, max: 40, sweep: 270, readout: 'value',
+            decimals: 1, ticks: 8, tickMajor: 4, label: '% of supply', color: 'var(--a4)' },
+          { id: 'fisheries', cap: 'Fisheries yield', min: 0, max: 120, sweep: 270,
+            readout: 'value', ticks: 6, tickMajor: 3, label: 'M tonnes', color: 'var(--a4)' },
+        ],
+      },
+    ],
+
+    // a drought cycle: harvests fall, reserves draw down, prices spike with a lag,
+    // and undernourishment follows the price
+    tick(t, set) {
+      const SEASON = 90;
+      const u = t % SEASON;
+      const drought = clamp(Math.exp(-((u - 52) ** 2) / 260), 0, 1);
+
+      const harvest = 100 - drought * 26;
+      CROPS.forEach((_, i) => {
+        set(`crop${i}`, clamp(harvest + wave(t, 21 + i * 4, 11, i), 0, 140));
+      });
+
+      const stocks = clamp(24 - drought * 13, 0, 40);
+      const price = 106 + drought * 62;
+      const undern = 8.4 + drought * 5.6;
+
+      set('calories', clamp(2960 - drought * 320, 0, 4000));
+      set('stocks', stocks, 1);
+      set('priceindex', price, 1);
+      set('undernourished', undern, 1);
+      set('water', clamp(64 - drought * 38, 0, 100));
+      set('fertiliser', clamp(96 - drought * 22, 0, 140));
+      set('waste', 26.4 + wave(t, 61, 3), 1);
+      set('arable', 1580 + wave(t, 97, 24));
+      set('yieldgap', clamp(52 + wave(t, 73, 9), 0, 100));
+      set('trade', 23.6 + drought * 5, 1);
+      set('fisheries', 92 + wave(t, 53, 8));
+
+      const cereals = 44 - drought * 5;
+      set.seg('plate', [[cereals, '#e8b04b'], [18, '#a3c94a'], [14, '#d97b4a'],
+        [13, '#6bb6a0'], [11, '#1c2213']]);
+
+      set.text('season', drought > 0.4 ? 'DROUGHT — MAIN SEASON' : 'MAIN SEASON');
+      set.text('stock', stocks.toFixed(1) + ' %');
+      set.text('price', price.toFixed(1));
+      set.text('undern', undern.toFixed(1) + ' %');
+      set.text('alarm', stocks < 15 ? '▲ RESERVES BELOW SAFE THRESHOLD'
+        : price > 150 ? '▲ PRICE SHOCK' : '');
+    },
+  });
+</script>
+</body>
+</html>

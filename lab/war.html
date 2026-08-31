@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Campaign — cj-knob lab</title>
+<link rel="stylesheet" href="panel.css">
+<style>
+  :root {
+    --bg: #0c0b08; --panel: #15130e; --edge: #2c2718; --ink: #efe8d5;
+    --dim: #93876a; --track: #1d1a11; --tick: #4a4229;
+    --a1: #d8b44a; --a2: #7fa860; --a3: #d97a3c; --a4: #a8452f;
+    --bg-image:
+      radial-gradient(1000px 540px at 50% -12%, #221d10 0%, transparent 68%),
+      repeating-linear-gradient(45deg, transparent 0 22px, rgba(216,180,74,.015) 22px 24px);
+    --radius: 4px;
+  }
+  h1 { color: var(--a1); }
+  .strip b { color: var(--a1); }
+</style>
+</head>
+<body>
+<script type="module">
+  import { buildPanel, wave, clamp } from './panel.js';
+
+  // a fictional turn-based strategy game — eight map sectors held by the player
+  const SECTORS = ['Ashfen', 'Redmarch', 'Kellwood', 'Duncrag',
+                   'Vailholt', 'Norvik', 'Sablemoor', 'Greyford'];
+
+  buildPanel({
+    title: 'grand campaign · turn 47 · house cj — strategy game simulation',
+    status: [
+      { id: 'turn', lead: true, value: 'TURN 47 · SPRING' },
+      { id: 'front', label: 'front', value: '—' },
+      { id: 'supply', label: 'supply', value: '—' },
+      { id: 'morale', label: 'morale', value: '—' },
+      { id: 'event', flag: true, value: '' },
+    ],
+    rows: [
+      {
+        size: 'lg', items: [
+          { id: 'readiness', cap: 'Army readiness', min: 0, max: 100, sweep: 270,
+            readout: 'value', ticks: 10, tickMajor: 5, label: '%', color: 'var(--a2)',
+            zones: '0-30:#3d1a14, 30-50:#3d2a12', benchmark: 70 },
+          { id: 'forces', cap: 'Order of battle', readout: 'none', icon: '🛡️',
+            segments: '34:#7fa860, 26:#d8b44a, 22:#d97a3c, 18:#1d1a11',
+            legend: [['infantry', '#7fa860'], ['cavalry', '#d8b44a'], ['siege', '#d97a3c'], ['losses', '#1d1a11']] },
+          { id: 'territory', cap: 'Territory held', min: 0, max: 100, sweep: 270,
+            readout: 'value', ticks: 10, tickMajor: 5, label: '% of map', color: 'var(--a1)',
+            benchmark: 50 },
+          { id: 'treasury', cap: 'Treasury', min: 0, max: 200, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: 'k crowns', color: 'var(--a1)',
+            zones: '0-30:#3d1a14' },
+        ],
+      },
+      {
+        size: 'sm',
+        items: SECTORS.map((name, i) => ({
+          id: `s${i}`, cap: name, min: 0, max: 100, sweep: 270, readout: 'value',
+          ticks: 10, tickMajor: 5, label: '% held', color: 'var(--a2)',
+          zones: '0-35:#3d1a14',
+        })),
+      },
+      {
+        size: 'md', items: [
+          { id: 'morale', cap: 'Morale', min: 0, max: 100, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: '%', color: 'var(--a2)', zones: '0-30:#3d1a14' },
+          { id: 'supplyline', cap: 'Supply lines', min: 0, max: 100, sweep: 270,
+            readout: 'value', ticks: 10, tickMajor: 5, label: '%', color: 'var(--a1)',
+            zones: '0-40:#3d1a14' },
+          { id: 'rations', cap: 'Rations', min: 0, max: 60, sweep: 270, readout: 'value',
+            ticks: 6, tickMajor: 3, label: 'days', color: 'var(--a3)', zones: '0-10:#3d1a14' },
+          { id: 'attrition', cap: 'Attrition', min: 0, max: 20, sweep: 270, readout: 'value',
+            decimals: 1, ticks: 10, tickMajor: 5, label: '% / turn', color: 'var(--a4)',
+            zones: '10-15:#3d2a12, 15-20:#3d1a14' },
+          { id: 'recruits', cap: 'Levies raised', min: 0, max: 100, sweep: 270,
+            readout: 'value', ticks: 10, tickMajor: 5, label: '% quota', color: 'var(--a2)' },
+          { id: 'scouts', cap: 'Map revealed', min: 0, max: 100, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: '%', color: 'var(--a1)' },
+          { id: 'diplomacy', cap: 'Alliances', min: 0, max: 100, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: '% favour', color: 'var(--a1)' },
+          { id: 'fortify', cap: 'Fortifications', min: 0, max: 100, sweep: 270,
+            readout: 'value', ticks: 10, tickMajor: 5, label: '%', color: 'var(--a3)' },
+        ],
+      },
+    ],
+
+    // a campaign season: two offensives, each costing supply, morale and men,
+    // followed by a winter in which everything slowly recovers
+    tick(t, set) {
+      const SEASON = 120;
+      const u = t % SEASON;
+      let push = 0;
+      for (const at of [26, 72]) push += Math.exp(-((u - at) ** 2) / 90);
+      push = clamp(push, 0, 1);
+
+      const supply = clamp(88 - push * 52 - (u / SEASON) * 18, 0, 100);
+      const morale = clamp(74 - push * 34 + supply * 0.14, 0, 100);
+      const readiness = clamp(morale * 0.7 + supply * 0.3, 0, 100);
+
+      set('readiness', readiness);
+      set('morale', morale);
+      set('supplyline', supply);
+      set('rations', clamp(supply * 0.5, 0, 60));
+      set('attrition', 1.2 + push * 12, 1);
+      set('recruits', clamp(48 + wave(t, 53, 26), 0, 100));
+      set('scouts', clamp(40 + (u / SEASON) * 52, 0, 100));
+      set('diplomacy', clamp(58 + wave(t, 71, 18), 0, 100));
+      set('fortify', clamp(66 - push * 26 + wave(t, 37, 8), 0, 100));
+      set('territory', clamp(52 + Math.sin(t / SEASON * 6.28) * 14, 0, 100));
+      set('treasury', clamp(120 - push * 70 + wave(t, 61, 22), 0, 200));
+
+      SECTORS.forEach((_, i) => {
+        set(`s${i}`, clamp(72 - push * 40 * ((i % 3) / 2 + 0.4) + wave(t, 17 + i * 3, 16, i), 0, 100));
+      });
+
+      const losses = 18 + push * 22;
+      set.seg('forces', [[34, '#7fa860'], [26, '#d8b44a'], [22, '#d97a3c'], [losses, '#1d1a11']]);
+
+      set.text('turn', `TURN ${47 + Math.floor(t / SEASON)} · ${u < 60 ? 'SPRING' : 'AUTUMN'}`);
+      set.text('front', push > 0.5 ? 'OFFENSIVE' : 'CONSOLIDATING');
+      set.text('supply', supply.toFixed(0) + ' %');
+      set.text('morale', morale.toFixed(0) + ' %');
+      set.text('event', supply < 32 ? '▲ SUPPLY LINES OVEREXTENDED'
+        : push > 0.7 ? '◆ OFFENSIVE UNDER WAY' : '');
+    },
+  });
+</script>
+</body>
+</html>

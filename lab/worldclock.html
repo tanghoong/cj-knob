@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>World Clock — cj-knob lab</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0c1017;
+    --board: #141b26;
+    --edge: #232e3d;
+    --ink: #f0e6d2;
+    --dim: #8794a8;
+    --hour: #e8b64c;
+    --min: #64b5f6;
+    --sec: #ef6c6c;
+    --track: #1e2836;
+    --night: #0f1622;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; background: var(--bg); color: var(--ink);
+    font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    padding: 1rem; display: flex; flex-direction: column; gap: .85rem;
+    background-image: radial-gradient(1100px 600px at 50% -10%, #1a2433 0%, transparent 70%);
+  }
+  @media (min-width: 900px) and (min-height: 640px) {
+    body { height: 100vh; overflow: hidden; }
+    .board { min-height: 0; }
+  }
+
+  header {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 1.4rem;
+    padding-bottom: .1rem;
+  }
+  h1 {
+    margin: 0; font-size: 13px; letter-spacing: .28em; text-transform: uppercase;
+    color: var(--hour);
+  }
+  .utc { font-size: 12px; color: var(--dim); letter-spacing: .1em; }
+  .utc b { color: var(--ink); font-weight: 500; }
+
+  .legend { display: flex; gap: 1rem; font-size: 10.5px; color: var(--dim); letter-spacing: .1em; }
+  .legend i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: .35rem; }
+
+  .board {
+    flex: 1; display: grid; gap: .7rem;
+    grid-template-columns: repeat(auto-fit, minmax(164px, 1fr));
+    grid-auto-rows: minmax(0, 1fr);
+    align-content: stretch;
+  }
+
+  .clock {
+    background: var(--board); border: 1px solid var(--edge); border-radius: 10px;
+    padding: .8rem .5rem .65rem; display: grid; justify-items: center; align-content: center;
+    gap: .5rem; position: relative; overflow: hidden;
+  }
+  /* the local night shows as a cooler face, the way a station board dims the sleeping cities */
+  .clock[data-night] { background: var(--night); }
+  .clock[data-night] .city { color: var(--dim); }
+
+  .face { display: grid; place-items: center; }
+  .face > * { grid-area: 1 / 1; }
+
+  .digital {
+    font-size: 15px; font-weight: 600; letter-spacing: -.02em;
+    font-variant-numeric: tabular-nums; text-align: center; line-height: 1.1;
+  }
+  .digital small { display: block; font-size: 9px; font-weight: 400; color: var(--dim); letter-spacing: .1em; }
+
+  .city {
+    font-size: 11px; letter-spacing: .16em; text-transform: uppercase; text-align: center;
+  }
+  .off { font-size: 9.5px; color: var(--dim); letter-spacing: .06em; white-space: nowrap; }
+
+  cj-knob {
+    --cj-track: var(--track);
+    --cj-duration: 0ms;
+    --cj-tick: #38455a;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Departures Hall — World Time</h1>
+  <div class="utc">UTC <b id="utc">—</b></div>
+  <div class="legend">
+    <span><i style="background:var(--hour)"></i>hour</span>
+    <span><i style="background:var(--min)"></i>minute</span>
+    <span><i style="background:var(--sec)"></i>second</span>
+  </div>
+</header>
+
+<div class="board" id="board"></div>
+
+<script type="module">
+  import '../src/cj-knob.js';
+
+  const CITIES = [
+    { name: 'Kuala Lumpur', tz: 'Asia/Kuala_Lumpur' },
+    { name: 'Singapore',    tz: 'Asia/Singapore' },
+    { name: 'Tokyo',        tz: 'Asia/Tokyo' },
+    { name: 'Sydney',       tz: 'Australia/Sydney' },
+    { name: 'Dubai',        tz: 'Asia/Dubai' },
+    { name: 'London',       tz: 'Europe/London' },
+    { name: 'Paris',        tz: 'Europe/Paris' },
+    { name: 'New York',     tz: 'America/New_York' },
+    { name: 'São Paulo',    tz: 'America/Sao_Paulo' },
+    { name: 'Los Angeles',  tz: 'America/Los_Angeles' },
+    { name: 'Reykjavík',    tz: 'Atlantic/Reykjavik' },
+    { name: 'Auckland',     tz: 'Pacific/Auckland' },
+    { name: 'Hong Kong',    tz: 'Asia/Hong_Kong' },
+    { name: 'Mumbai',       tz: 'Asia/Kolkata' },
+    { name: 'Istanbul',     tz: 'Europe/Istanbul' },
+    { name: 'Berlin',       tz: 'Europe/Berlin' },
+    { name: 'Johannesburg', tz: 'Africa/Johannesburg' },
+    { name: 'Chicago',      tz: 'America/Chicago' },
+    { name: 'Honolulu',     tz: 'Pacific/Honolulu' },
+    { name: 'Anchorage',    tz: 'America/Anchorage' },
+  ];
+
+  const board = document.getElementById('board');
+  const pad = (n) => String(n).padStart(2, '0');
+
+  // Intl gives us the wall-clock parts for any zone without shipping a timezone database
+  const partsFor = (tz) => {
+    const fmt = new Intl.DateTimeFormat('en-GB', {
+      timeZone: tz, hour12: false,
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+    });
+    const label = new Intl.DateTimeFormat('en-GB', {
+      timeZone: tz, weekday: 'short', day: '2-digit', month: 'short',
+    });
+    return (d) => {
+      const p = Object.fromEntries(fmt.formatToParts(d).map((x) => [x.type, x.value]));
+      return {
+        h: +p.hour % 24, m: +p.minute, s: +p.second,
+        day: label.format(d),
+        // the zone's wall clock expressed as a UTC instant — subtracting two of these
+        // gives the true signed offset, including the ones past ±12 and the half-hours
+        stamp: Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour % 24, +p.minute, +p.second),
+      };
+    };
+  };
+
+  const localRead = partsFor(Intl.DateTimeFormat().resolvedOptions().timeZone);
+
+  const fmtOffset = (hours) => {
+    if (Math.abs(hours) < 0.02) return 'local time';
+    const sign = hours > 0 ? '+' : '−';
+    const abs = Math.abs(hours);
+    const h = Math.floor(abs);
+    const m = Math.round((abs - h) * 60);
+    return `${sign}${h}${m ? ':' + String(m).padStart(2, '0') : ''} h`;
+  };
+
+  const clocks = CITIES.map(({ name, tz }) => {
+    const el = document.createElement('div');
+    el.className = 'clock';
+    el.innerHTML = `
+      <div class="face">
+        <cj-knob readout="none" max="12" data-h ticks="12" tick-major="3"
+                 style="--cj-size:118px;--cj-thickness:4;--cj-value:var(--hour)"></cj-knob>
+        <cj-knob readout="none" max="60" data-m
+                 style="--cj-size:92px;--cj-thickness:5;--cj-value:var(--min)"></cj-knob>
+        <cj-knob readout="none" max="60" data-s
+                 style="--cj-size:66px;--cj-thickness:6;--cj-value:var(--sec)"></cj-knob>
+        <div class="digital" data-t>--:--</div>
+      </div>
+      <div class="city">${name}</div>
+      <div class="off"><span data-d>—</span> · <span data-o>—</span></div>`;
+    board.append(el);
+    return {
+      el, name,
+      read: partsFor(tz),
+      h: el.querySelector('[data-h]'), m: el.querySelector('[data-m]'), s: el.querySelector('[data-s]'),
+      t: el.querySelector('[data-t]'), d: el.querySelector('[data-d]'), o: el.querySelector('[data-o]'),
+    };
+  });
+
+  function frame() {
+    const now = new Date();
+    const ms = now.getMilliseconds() / 1000;
+    const here = localRead(now).stamp;
+
+    for (const c of clocks) {
+      const { h, m, s, day, stamp } = c.read(now);
+      const sec = s + ms;
+      c.s.value = sec.toFixed(2);
+      c.m.value = (m + sec / 60).toFixed(3);
+      c.h.value = ((h % 12) + (m + sec / 60) / 60).toFixed(4);
+      c.t.textContent = `${pad(h)}:${pad(m)}`;
+      c.d.textContent = day;
+
+      c.o.textContent = fmtOffset((stamp - here) / 3600000);
+
+      if (h < 6 || h >= 20) c.el.setAttribute('data-night', '');
+      else c.el.removeAttribute('data-night');
+    }
+
+    document.getElementById('utc').textContent =
+      `${pad(now.getUTCHours())}:${pad(now.getUTCMinutes())}:${pad(now.getUTCSeconds())}`;
+
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+</script>
+
+</body>
+</html>

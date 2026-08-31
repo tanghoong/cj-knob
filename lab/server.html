@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Server — cj-knob lab</title>
+<link rel="stylesheet" href="panel.css">
+<style>
+  :root {
+    --bg: #0a0e0c; --panel: #101713; --edge: #1c2a21; --ink: #dff3e6;
+    --dim: #6f8b7c; --track: #16211a; --tick: #2f4638;
+    --a1: #39d98a; --a2: #6ee7b7; --a3: #ffd166; --a4: #58b8ff;
+    --bg-image: radial-gradient(900px 500px at 50% -12%, #12251b 0%, transparent 68%);
+  }
+</style>
+</head>
+<body>
+<script type="module">
+  import { buildPanel, wave, clamp } from './panel.js';
+
+  // eight physical cores, generated rather than typed out eight times
+  const cores = Array.from({ length: 8 }, (_, i) => ({
+    id: `c${i}`, cap: `core ${i}`, min: 0, max: 100, sweep: 270,
+    readout: 'value', ticks: 10, tickMajor: 5, label: '%',
+    color: 'var(--a1)', zones: '85-100:#ff4d5e',
+  }));
+
+  buildPanel({
+    title: 'host cj-prod-01 · linux 6.9 · 32 vCPU / 128 GiB — simulation',
+    status: [
+      { id: 'up', label: 'uptime', value: '—' },
+      { id: 'load', label: 'load', value: '—' },
+      { id: 'proc', label: 'procs', value: '—' },
+      { id: 'conn', label: 'conns', value: '—' },
+      { id: 'alert', flag: true, value: '' },
+    ],
+    rows: [
+      {
+        size: 'lg', items: [
+          { id: 'cpu', cap: 'CPU total', min: 0, max: 100, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: '%', color: 'var(--a1)',
+            zones: '70-88:#ffd166, 88-100:#ff4d5e' },
+          { id: 'mem', cap: 'Memory', readout: 'none', icon: '🧠',
+            segments: '48:#39d98a, 22:#58b8ff, 12:#ffd166, 18:#16211a',
+            legend: [['apps', '#39d98a'], ['cache', '#58b8ff'], ['buf', '#ffd166'], ['free', '#16211a']] },
+          { id: 'disk', cap: 'Root volume', min: 0, max: 100, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: '% used', color: 'var(--a4)',
+            zones: '80-92:#ffd166, 92-100:#ff4d5e', benchmark: 90 },
+          { id: 'net', cap: 'Network', readout: 'none', icon: '🌐',
+            segments: '58:#58b8ff, 42:#39d98a',
+            legend: [['in', '#58b8ff'], ['out', '#39d98a']] },
+        ],
+      },
+      { size: 'sm', items: cores },
+      {
+        size: 'md', items: [
+          { id: 'l1', cap: 'Load 1m', min: 0, max: 32, sweep: 270, readout: 'value',
+            decimals: 2, ticks: 8, tickMajor: 4, label: '', color: 'var(--a1)',
+            zones: '24-32:#ff4d5e', benchmark: 32 },
+          { id: 'l5', cap: 'Load 5m', min: 0, max: 32, sweep: 270, readout: 'value',
+            decimals: 2, ticks: 8, tickMajor: 4, label: '', color: 'var(--a2)' },
+          { id: 'l15', cap: 'Load 15m', min: 0, max: 32, sweep: 270, readout: 'value',
+            decimals: 2, ticks: 8, tickMajor: 4, label: '', color: 'var(--a2)' },
+          { id: 'swap', cap: 'Swap', min: 0, max: 100, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: '%', color: 'var(--a3)', zones: '40-100:#4d2027' },
+          { id: 'iow', cap: 'I/O wait', min: 0, max: 40, sweep: 270, readout: 'value',
+            decimals: 1, ticks: 8, tickMajor: 4, label: '%', color: 'var(--a3)',
+            zones: '20-30:#ffd166, 30-40:#ff4d5e' },
+          { id: 'iops', cap: 'Disk IOPS', min: 0, max: 20000, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: 'ops/s', color: 'var(--a4)' },
+          { id: 'temp', cap: 'Package temp', min: 20, max: 100, sweep: 270, readout: 'value',
+            ticks: 8, tickMajor: 4, label: '°C', color: 'var(--a1)',
+            zones: '80-90:#ffd166, 90-100:#ff4d5e' },
+          { id: 'fan', cap: 'Fan', min: 0, max: 8000, sweep: 270, readout: 'value',
+            ticks: 8, tickMajor: 4, label: 'rpm', color: 'var(--a2)' },
+        ],
+      },
+    ],
+
+    // one host: the cores lead, and everything downstream is derived from them
+    tick(t, set) {
+      const base = 46 + wave(t, 23, 22) + wave(t, 5, 6);
+      let sum = 0;
+      for (let i = 0; i < 8; i++) {
+        const v = clamp(base + wave(t, 7 + i * 1.7, 18, i), 2, 100);
+        sum += v;
+        set(`c${i}`, v);
+        set.attr(`c${i}`, 'color', v > 88 ? 'var(--bad)' : v > 70 ? 'var(--a3)' : 'var(--a1)');
+      }
+      const cpu = sum / 8;
+      const load = cpu / 100 * 32;
+
+      set('cpu', cpu);
+      set('l1', load, 2);
+      set('l5', load * 0.86 + 1.2, 2);
+      set('l15', load * 0.72 + 2.1, 2);
+      set('disk', 71 + wave(t, 97, 4));
+      set('swap', Math.max(0, (cpu - 78) * 1.6));
+      set('iow', clamp(cpu / 14 + wave(t, 11, 2), 0, 40), 1);
+      set('iops', 4200 + cpu * 90 + wave(t, 6, 900));
+      set('temp', 38 + cpu * 0.42);
+      set('fan', 1800 + cpu * 46);
+
+      const apps = 40 + cpu * 0.22, cache = 22 + wave(t, 41, 5);
+      set.seg('mem', [[apps, '#39d98a'], [cache, '#58b8ff'], [12, '#ffd166'],
+        [100 - apps - cache - 12, '#16211a']]);
+      const inb = 50 + wave(t, 13, 22);
+      set.seg('net', [[inb, '#58b8ff'], [100 - inb, '#39d98a']]);
+
+      const up = 1382400 + Math.floor(t);
+      set.text('up', `${Math.floor(up / 86400)}d ${Math.floor(up / 3600) % 24}h`);
+      set.text('load', load.toFixed(2));
+      set.text('proc', String(340 + Math.round(wave(t, 17, 24))));
+      set.text('conn', String(1200 + Math.round(cpu * 14)));
+      set.text('alert', cpu > 86 ? '▲ CPU SATURATION' : '');
+    },
+  });
+</script>
+</body>
+</html>

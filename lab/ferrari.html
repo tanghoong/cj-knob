@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Race — cj-knob lab</title>
+<link rel="stylesheet" href="panel.css">
+<style>
+  :root {
+    --bg: #0c0405; --panel: #17090b; --edge: #3a1216; --ink: #fff2f2;
+    --dim: #a8767a; --track: #2a1114; --tick: #5a2429;
+    --a1: #ff2d2d; --a2: #ffd400; --a3: #ffffff; --a4: #46d17a;
+    --bg-image:
+      radial-gradient(1000px 520px at 50% -12%, #3a0d12 0%, transparent 66%),
+      repeating-linear-gradient(90deg, transparent 0 38px, rgba(255,255,255,.02) 38px 40px);
+    --radius: 6px;
+  }
+  h1 { color: var(--a2); letter-spacing: .3em; }
+  .strip b { color: var(--a2); }
+  .strip .lead { color: var(--a3); font-weight: 700; }
+</style>
+</head>
+<body>
+<script type="module">
+  import { buildPanel, wave, clamp, clamp01 } from './panel.js';
+
+  const GEAR = [0, 70, 110, 148, 192, 238, 282, 320, 345];
+
+  buildPanel({
+    title: 'Scuderia CJ · SF-26 · Monza — race simulation',
+    status: [
+      { id: 'lap', lead: true, value: 'LAP 1 / 53' },
+      { id: 'pos', label: 'pos', value: '—' },
+      { id: 'last', label: 'last', value: '—' },
+      { id: 'best', label: 'best', value: '—' },
+      { id: 'gap', label: 'gap ahead', value: '—' },
+      { id: 'sector', flag: true, value: '' },
+    ],
+    rows: [
+      {
+        size: 'lg', items: [
+          { id: 'speed', cap: 'Speed', min: 0, max: 360, sweep: 270, readout: 'value',
+            ticks: 12, tickMajor: 3, label: 'km/h', color: 'var(--a2)' },
+          { id: 'rpm', cap: 'Engine', min: 0, max: 15000, sweep: 270, readout: 'value',
+            ticks: 15, tickMajor: 5, label: 'rpm', color: 'var(--a1)',
+            zones: '12500-14000:#5c4a00, 14000-15000:#5a1216', benchmark: 14000 },
+          { id: 'gear', cap: 'Gear', min: 0, max: 8, sweep: 270, readout: 'value',
+            ticks: 8, tickMajor: 1, label: '', color: 'var(--a3)' },
+          { id: 'ers', cap: 'ERS deploy', readout: 'none', icon: '⚡',
+            segments: '58:#ffd400, 42:#2a1114',
+            legend: [['deployed', '#ffd400'], ['harvest', '#2a1114']] },
+        ],
+      },
+      {
+        size: 'md', items: [
+          { id: 'throttle', cap: 'Throttle', min: 0, max: 100, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: '%', color: 'var(--a4)' },
+          { id: 'brake', cap: 'Brake', min: 0, max: 100, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: '%', color: 'var(--a1)' },
+          { id: 'steer', cap: 'Steering', min: -180, max: 180, sweep: 180, readout: 'value',
+            ticks: 8, tickMajor: 4, label: 'deg', color: 'var(--a3)', benchmark: 0 },
+          { id: 'glat', cap: 'Lateral g', min: -6, max: 6, sweep: 240, start: 150,
+            readout: 'value', decimals: 1, ticks: 12, tickMajor: 6, label: 'g',
+            color: 'var(--a2)', benchmark: 0 },
+          { id: 'drs', cap: 'DRS', min: 0, max: 1, sweep: 180, readout: 'none',
+            icon: '🪽', color: 'var(--a4)' },
+          { id: 'fuel', cap: 'Fuel', min: 0, max: 110, sweep: 270, readout: 'value',
+            decimals: 1, ticks: 11, tickMajor: 5, label: 'kg', color: 'var(--a2)',
+            zones: '0-8:#5a1216' },
+          { id: 'oil', cap: 'Oil temp', min: 60, max: 160, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: '°C', color: 'var(--a4)',
+            zones: '140-152:#5c4a00, 152-160:#5a1216' },
+          { id: 'water', cap: 'Water temp', min: 60, max: 140, sweep: 270, readout: 'value',
+            ticks: 8, tickMajor: 4, label: '°C', color: 'var(--a4)',
+            zones: '120-132:#5c4a00, 132-140:#5a1216' },
+        ],
+      },
+      {
+        size: 'sm', items: [
+          { id: 'tfl', cap: 'Tyre FL', min: 60, max: 140, sweep: 270, readout: 'value',
+            ticks: 8, tickMajor: 4, label: '°C', color: 'var(--a2)', zones: '120-140:#5a1216' },
+          { id: 'tfr', cap: 'Tyre FR', min: 60, max: 140, sweep: 270, readout: 'value',
+            ticks: 8, tickMajor: 4, label: '°C', color: 'var(--a2)', zones: '120-140:#5a1216' },
+          { id: 'trl', cap: 'Tyre RL', min: 60, max: 140, sweep: 270, readout: 'value',
+            ticks: 8, tickMajor: 4, label: '°C', color: 'var(--a2)', zones: '120-140:#5a1216' },
+          { id: 'trr', cap: 'Tyre RR', min: 60, max: 140, sweep: 270, readout: 'value',
+            ticks: 8, tickMajor: 4, label: '°C', color: 'var(--a2)', zones: '120-140:#5a1216' },
+          { id: 'wfl', cap: 'Wear FL', min: 0, max: 100, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: '%', color: 'var(--a4)', zones: '0-20:#5a1216' },
+          { id: 'wfr', cap: 'Wear FR', min: 0, max: 100, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: '%', color: 'var(--a4)', zones: '0-20:#5a1216' },
+          { id: 'wrl', cap: 'Wear RL', min: 0, max: 100, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: '%', color: 'var(--a4)', zones: '0-20:#5a1216' },
+          { id: 'wrr', cap: 'Wear RR', min: 0, max: 100, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: '%', color: 'var(--a4)', zones: '0-20:#5a1216' },
+        ],
+      },
+    ],
+
+    // one lap of Monza on a loop: throttle and brake drive everything downstream,
+    // so the gears, g-forces and tyre temps all agree with each other
+    tick(t, set) {
+      const LAP = 82;
+      const u = (t % LAP) / LAP;            // 0..1 around the lap
+      const lap = 1 + Math.floor(t / LAP);
+
+      // six braking zones around the circuit
+      const zones = [0.13, 0.28, 0.41, 0.55, 0.69, 0.88];
+      let brake = 0;
+      for (const z of zones) brake = Math.max(brake, 100 * Math.exp(-((u - z) ** 2) / 0.00012));
+      const throttle = clamp(100 - brake * 1.15, 0, 100);
+
+      const speed = clamp(75 + 265 * (throttle / 100) - brake * 0.9 + wave(t, 3, 6), 60, 355);
+      const gear = GEAR.filter((g) => speed >= g).length - 1;
+      const rpm = 5200 + (speed - GEAR[Math.max(0, gear)]) / 45 * 9000;
+
+      let glat = 0;
+      for (const z of zones) glat += 4.4 * Math.exp(-((u - z - 0.02) ** 2) / 0.0004) * (z > 0.5 ? -1 : 1);
+
+      set('speed', speed);
+      set('rpm', clamp(rpm, 3000, 15000));
+      set('gear', clamp(gear, 1, 8));
+      set('throttle', throttle);
+      set('brake', brake);
+      set('steer', clamp(glat * 26, -180, 180));
+      set('glat', clamp(glat, -6, 6), 1);
+      set('drs', u > 0.9 || (u > 0.02 && u < 0.11) ? 1 : 0);
+      set('fuel', clamp(105 - (t / LAP) * 1.9, 0, 110), 1);
+      set('oil', 118 + throttle * 0.14 + wave(t, 9, 3));
+      set('water', 96 + throttle * 0.12 + wave(t, 11, 3));
+
+      const heat = 88 + throttle * 0.12 + Math.abs(glat) * 5;
+      set('tfl', heat + (glat < 0 ? 9 : 0) + wave(t, 4, 2));
+      set('tfr', heat + (glat > 0 ? 9 : 0) + wave(t, 4, 2, 1));
+      set('trl', heat + (glat < 0 ? 6 : 0) + throttle * 0.05);
+      set('trr', heat + (glat > 0 ? 6 : 0) + throttle * 0.05);
+
+      const wear = clamp(100 - (t / LAP) * 3.4, 0, 100);
+      set('wfl', wear + 3); set('wfr', wear + 1);
+      set('wrl', wear - 2); set('wrr', wear - 4);
+
+      const ers = 50 + wave(t, 7, 44);
+      set.seg('ers', [[ers, '#ffd400'], [100 - ers, '#2a1114']]);
+
+      const lapTime = 79.2 + wave(t, 137, 1.4);
+      set.text('lap', `LAP ${Math.min(lap, 53)} / 53`);
+      set.text('pos', 'P' + (2 + Math.round(wave(t, 190, 1.4))));
+      set.text('last', lapTime.toFixed(3));
+      set.text('best', '78.914');
+      set.text('gap', (1.2 + wave(t, 47, 1.1)).toFixed(3) + 's');
+      set.text('sector', brake > 70 ? '◆ HEAVY BRAKING' : u > 0.9 ? '◆ DRS ENABLED' : '');
+    },
+  });
+</script>
+</body>
+</html>

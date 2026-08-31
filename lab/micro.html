@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Micro — cj-knob lab</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0b0d11;
+    --cell: #12161d;
+    --edge: #1e242e;
+    --ink: #e6ebf2;
+    --dim: #79879a;
+    --ok: #3ddc97;
+    --warn: #ffc44d;
+    --bad: #ff5f6d;
+    --info: #56b8ff;
+    --track: #1b212b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; background: var(--bg); color: var(--ink);
+    font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    padding: .75rem; display: flex; flex-direction: column; gap: .55rem;
+  }
+  @media (min-width: 900px) and (min-height: 640px) {
+    body { height: 100vh; overflow: hidden; }
+    .wall { min-height: 0; overflow: auto; }
+  }
+
+  header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 1.1rem; }
+  h1 { margin: 0; font-size: 11px; letter-spacing: .26em; text-transform: uppercase; color: var(--dim); }
+  .tot { font-size: 11px; letter-spacing: .1em; color: var(--dim); }
+  .tot b { color: var(--ink); font-weight: 600; }
+  .tot .bad { color: var(--bad); }
+  .tot .warn { color: var(--warn); }
+
+  .legend { display: flex; gap: .9rem; font-size: 10px; color: var(--dim); letter-spacing: .08em; }
+  .legend i { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: .3rem; }
+
+  /* the whole point of this page: how small the dial goes and stay readable */
+  .wall {
+    flex: 1; display: grid; gap: .3rem;
+    grid-template-columns: repeat(auto-fill, minmax(74px, 1fr));
+    align-content: start;
+  }
+  .node {
+    background: var(--cell); border: 1px solid var(--edge); border-radius: 6px;
+    padding: .3rem .2rem .25rem; display: grid; justify-items: center; gap: .15rem;
+  }
+  .node[data-state="warn"] { border-color: #4a3a17; }
+  .node[data-state="bad"]  { border-color: #4d2028; background: #17121a; }
+  .id { font-size: 8.5px; letter-spacing: .1em; color: var(--dim); }
+
+  cj-knob {
+    --cj-size: 54px;
+    --cj-thickness: 9;
+    --cj-track: var(--track);
+    --cj-text: var(--ink);
+    --cj-muted: var(--dim);
+    --cj-duration: 700ms;
+    --cj-num-size: 13px;
+  }
+
+  .strip {
+    display: grid; gap: .45rem; grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+  }
+  .sum {
+    background: var(--cell); border: 1px solid var(--edge); border-radius: 8px;
+    padding: .5rem .35rem .45rem; display: grid; justify-items: center; gap: .35rem;
+  }
+  .sum cj-knob { --cj-size: 84px; --cj-thickness: 7; --cj-num-size: 19px; }
+  .cap { font-size: 9px; letter-spacing: .14em; color: var(--dim); text-transform: uppercase; }
+  .mix { display: flex; gap: .5rem; font-size: 8.5px; color: var(--dim); }
+  .mix i { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: .2rem; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Rack Wall — 96 nodes at 54&nbsp;px</h1>
+  <div class="tot">
+    <span>online <b id="t-on">—</b></span>
+    &nbsp;·&nbsp;
+    <span>warning <b class="warn" id="t-warn">—</b></span>
+    &nbsp;·&nbsp;
+    <span>critical <b class="bad" id="t-bad">—</b></span>
+    &nbsp;·&nbsp;
+    <span>mean load <b id="t-avg">—</b></span>
+  </div>
+  <div class="legend">
+    <span><i style="background:var(--ok)"></i>&lt;70</span>
+    <span><i style="background:var(--warn)"></i>70–89</span>
+    <span><i style="background:var(--bad)"></i>≥90</span>
+  </div>
+</header>
+
+<div class="strip">
+  <div class="sum">
+    <cj-knob id="s-cpu" sweep="270" ticks="10" tick-major="5" color="var(--info)" label="cpu"></cj-knob>
+    <div class="cap">Fleet CPU</div>
+  </div>
+  <div class="sum">
+    <cj-knob id="s-mem" sweep="270" ticks="10" tick-major="5" color="var(--ok)" label="mem"></cj-knob>
+    <div class="cap">Fleet memory</div>
+  </div>
+  <div class="sum">
+    <cj-knob id="s-net" sweep="270" ticks="10" tick-major="5" color="var(--warn)" label="net"></cj-knob>
+    <div class="cap">Egress</div>
+  </div>
+  <div class="sum">
+    <cj-knob id="s-mix" readout="none"
+             segments="46:#56b8ff, 33:#3ddc97, 21:#ffc44d"><span slot="icon">🗄️</span></cj-knob>
+    <div class="cap">Workload mix</div>
+    <div class="mix">
+      <span><i style="background:#56b8ff"></i>web</span>
+      <span><i style="background:#3ddc97"></i>db</span>
+      <span><i style="background:#ffc44d"></i>job</span>
+    </div>
+  </div>
+  <div class="sum">
+    <cj-knob id="s-disk" sweep="270" ticks="10" tick-major="5" color="var(--info)" label="disk"></cj-knob>
+    <div class="cap">Storage</div>
+  </div>
+  <div class="sum">
+    <cj-knob id="s-p99" min="0" max="500" sweep="270" readout="value" ticks="10" tick-major="5"
+             color="var(--ok)" zones="250-400:#ffc44d, 400-500:#ff5f6d" label="ms"></cj-knob>
+    <div class="cap">p99 latency</div>
+  </div>
+</div>
+
+<div class="wall" id="wall"></div>
+
+<script type="module">
+  import '../src/cj-knob.js';
+
+  const N = 96;
+  const wall = document.getElementById('wall');
+  const $ = (id) => document.getElementById(id);
+
+  const nodes = Array.from({ length: N }, (_, i) => {
+    const el = document.createElement('div');
+    el.className = 'node';
+    el.innerHTML = `
+      <cj-knob readout="percent" value="0"></cj-knob>
+      <div class="id">${String(Math.floor(i / 12) + 1)}-${String(i % 12 + 1).padStart(2, '0')}</div>`;
+    wall.append(el);
+    return {
+      el,
+      knob: el.querySelector('cj-knob'),
+      base: 25 + Math.random() * 55,
+      period: 5 + Math.random() * 22,
+      phase: Math.random() * 7,
+      amp: 8 + Math.random() * 22,
+    };
+  });
+
+  const t0 = performance.now();
+  let last = 0;
+
+  function frame(now) {
+    // 96 dials do not need 60 fps — a server wall updates about twice a second
+    if (now - last < 480) return requestAnimationFrame(frame);
+    last = now;
+    const t = (now - t0) / 1000;
+
+    let warn = 0, bad = 0, sum = 0;
+    for (const n of nodes) {
+      const v = Math.max(0, Math.min(100, n.base + Math.sin(t / n.period + n.phase) * n.amp));
+      sum += v;
+      const state = v >= 90 ? 'bad' : v >= 70 ? 'warn' : 'ok';
+      if (state === 'bad') bad++; else if (state === 'warn') warn++;
+      n.knob.value = v.toFixed(0);
+      n.knob.setAttribute('color',
+        state === 'bad' ? 'var(--bad)' : state === 'warn' ? 'var(--warn)' : 'var(--ok)');
+      if (n.el.dataset.state !== state) n.el.dataset.state = state;
+    }
+
+    const avg = sum / N;
+    $('t-on').textContent = N;
+    $('t-warn').textContent = warn;
+    $('t-bad').textContent = bad;
+    $('t-avg').textContent = avg.toFixed(1) + ' %';
+
+    $('s-cpu').value = avg.toFixed(0);
+    $('s-mem').value = (avg * 0.86 + 12).toFixed(0);
+    $('s-net').value = (avg * 0.7 + 18).toFixed(0);
+    $('s-disk').value = (54 + Math.sin(t / 31) * 9).toFixed(0);
+    $('s-p99').value = (90 + avg * 2.4).toFixed(0);
+
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+</script>
+
+</body>
+</html>
