@@ -1,0 +1,52 @@
+{
+  "name": "cj-knob",
+  "version": "1.0.0",
+  "description": "A zero-dependency SVG knob, gauge and meter web component.",
+  "type": "module",
+  "main": "./src/cj-knob.js",
+  "module": "./src/cj-knob.js",
+  "types": "./types/cj-knob.d.ts",
+  "exports": {
+    ".": {
+      "types": "./types/cj-knob.d.ts",
+      "default": "./src/cj-knob.js"
+    }
+  },
+  "files": [
+    "src",
+    "types",
+    "README.md"
+  ],
+  "sideEffects": [
+    "./src/cj-knob.js"
+  ],
+  "keywords": [
+    "knob",
+    "gauge",
+    "meter",
+    "dial",
+    "progress",
+    "radial",
+    "svg",
+    "web-component",
+    "custom-element"
+  ],
+  "author": "tanghoong",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tanghoong/cj-knob.git"
+  },
+  "homepage": "https://github.com/tanghoong/cj-knob#readme",
+  "bugs": {
+    "url": "https://github.com/tanghoong/cj-knob/issues"
+  },
+  "scripts": {
+    "dev": "npx --yes serve -l 8765 .",
+    "check": "node --check src/cj-knob.js",
+    "test": "node test/knob.test.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.62.0"
+  }
+}
