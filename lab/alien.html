@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Xenology — cj-knob lab</title>
+<link rel="stylesheet" href="panel.css">
+<style>
+  :root {
+    --bg: #060d09; --panel: #0c1710; --edge: #17331f; --ink: #d9ffe6;
+    --dim: #6d9b7e; --track: #10241a; --tick: #275c39;
+    --a1: #4dff9e; --a2: #a6ff4d; --a3: #ffe14d; --a4: #b04dff;
+    --bg-image:
+      radial-gradient(900px 560px at 50% -10%, rgba(77,255,158,.1), transparent 64%),
+      repeating-linear-gradient(0deg, transparent 0 2px, rgba(77,255,158,.022) 2px 3px);
+    --radius: 3px;
+  }
+  h1 { color: var(--a1); letter-spacing: .32em; }
+  .strip b { color: var(--a1); }
+  cj-knob::part(value) { filter: drop-shadow(0 0 3px currentColor); }
+</style>
+</head>
+<body>
+<script type="module">
+  import { buildPanel, wave, clamp } from './panel.js';
+
+  const GLYPHS = ['⟁', '⟒', '⏃', '⌇', '⏁', '⍜', '⏚', '⋔'];
+
+  buildPanel({
+    title: 'xenobiology station kepler-442b · specimen 07 — simulation',
+    status: [
+      { id: 'status', lead: true, value: 'CONTAINED' },
+      { id: 'bio', label: 'biosign', value: '—' },
+      { id: 'atm', label: 'atmosphere', value: '—' },
+      { id: 'trans', label: 'translation', value: '—' },
+      { id: 'alarm', flag: true, value: '' },
+    ],
+    rows: [
+      {
+        size: 'lg', items: [
+          { id: 'biosign', cap: 'Biosignature', min: 0, max: 100, sweep: 270, readout: 'value',
+            decimals: 1, ticks: 10, tickMajor: 5, label: '% match', color: 'var(--a1)',
+            benchmark: 70 },
+          { id: 'genome', cap: 'Genome composition', readout: 'none', icon: '🧬',
+            segments: '38:#4dff9e, 27:#a6ff4d, 21:#b04dff, 14:#10241a',
+            legend: [['known', '#4dff9e'], ['analogue', '#a6ff4d'], ['novel', '#b04dff'], ['noise', '#10241a']] },
+          { id: 'translate', cap: 'Language model', min: 0, max: 100, sweep: 270,
+            readout: 'value', decimals: 1, ticks: 10, tickMajor: 5, label: '% decoded',
+            color: 'var(--a4)' },
+          { id: 'hostility', cap: 'Threat index', min: 0, max: 10, sweep: 240, start: 150,
+            readout: 'value', decimals: 1, ticks: 10, tickMajor: 5, label: 'index',
+            color: 'var(--a3)', zones: '6-8:#4a3d10, 8-10:#4a1420', benchmark: 5 },
+        ],
+      },
+      {
+        size: 'sm',
+        items: GLYPHS.map((g, i) => ({
+          id: `sig${i}`, cap: `carrier ${i + 1}`, readout: 'none', icon: g,
+          min: 0, max: 100, sweep: 360, ticks: 12,
+          color: i % 3 === 0 ? 'var(--a4)' : i % 3 === 1 ? 'var(--a1)' : 'var(--a2)',
+        })),
+      },
+      {
+        size: 'md', items: [
+          { id: 'o2', cap: 'Atmos O₂', min: 0, max: 40, sweep: 270, readout: 'value',
+            decimals: 1, ticks: 8, tickMajor: 4, label: '%', color: 'var(--a1)',
+            zones: '0-14:#4a1420', benchmark: 21 },
+          { id: 'meth', cap: 'Methane', min: 0, max: 100, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: 'ppm', color: 'var(--a2)' },
+          { id: 'grav', cap: 'Surface gravity', min: 0, max: 3, sweep: 270, readout: 'value',
+            decimals: 2, ticks: 6, tickMajor: 3, label: 'g', color: 'var(--a1)', benchmark: 1 },
+          { id: 'rad', cap: 'Radiation', min: 0, max: 500, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: 'mSv/y', color: 'var(--a3)',
+            zones: '200-350:#4a3d10, 350-500:#4a1420' },
+          { id: 'containment', cap: 'Containment', min: 0, max: 100, sweep: 270,
+            readout: 'value', ticks: 10, tickMajor: 5, label: '%', color: 'var(--a1)',
+            zones: '0-40:#4a1420', benchmark: 90 },
+          { id: 'metab', cap: 'Metabolic rate', min: 0, max: 400, sweep: 270, readout: 'value',
+            ticks: 8, tickMajor: 4, label: '% human', color: 'var(--a4)' },
+          { id: 'temp', cap: 'Body temp', min: -60, max: 120, sweep: 270, readout: 'value',
+            ticks: 9, tickMajor: 3, label: '°C', color: 'var(--a2)', benchmark: 37 },
+          { id: 'psi', cap: 'Anomalous field', min: 0, max: 100, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: 'µT', color: 'var(--a4)', zones: '70-100:#4a1420' },
+        ],
+      },
+    ],
+
+    // the specimen wakes on a slow cycle: metabolism rises, the field spikes,
+    // containment strains, and the language model gains ground the whole time
+    tick(t, set) {
+      const arousal = clamp(0.2 + 0.8 * Math.max(0, Math.sin(t / 41)), 0, 1);
+
+      set('biosign', 62 + arousal * 32 + wave(t, 7, 3), 1);
+      set('translate', clamp((t % 300) / 300 * 96, 0, 100), 1);
+      set('hostility', 2.4 + arousal * 6.2, 1);
+      set('metab', 90 + arousal * 250);
+      set('temp', 12 + arousal * 46);
+      set('psi', 18 + arousal * 74);
+      set('containment', clamp(98 - arousal * 52, 0, 100));
+      set('o2', 17.4 + wave(t, 29, 2.4), 1);
+      set('meth', 42 + wave(t, 23, 26));
+      set('grav', 1.34 + wave(t, 61, 0.04), 2);
+      set('rad', 148 + arousal * 180);
+
+      GLYPHS.forEach((_, i) => {
+        set(`sig${i}`, clamp(30 + arousal * 55 + wave(t, 3 + i * 1.3, 34, i * 2), 0, 100));
+      });
+
+      const novel = 21 + arousal * 16;
+      set.seg('genome', [[38, '#4dff9e'], [27, '#a6ff4d'], [novel, '#b04dff'], [14, '#10241a']]);
+
+      set.text('status', arousal > 0.72 ? 'BREACH RISK' : arousal > 0.4 ? 'ACTIVE' : 'CONTAINED');
+      set.text('bio', (62 + arousal * 32).toFixed(0) + ' %');
+      set.text('atm', '17.4 % O₂ · 1.34 g');
+      set.text('trans', clamp((t % 300) / 300 * 96, 0, 100).toFixed(0) + ' %');
+      set.text('alarm', arousal > 0.72 ? '▲ CONTAINMENT FIELD DEGRADING' : '');
+    },
+  });
+</script>
+</body>
+</html>

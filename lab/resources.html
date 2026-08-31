@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>World Resources — cj-knob lab</title>
+<link rel="stylesheet" href="panel.css">
+<style>
+  :root {
+    --bg: #071012; --panel: #0e1c1f; --edge: #17323a; --ink: #dff1f4;
+    --dim: #6d9199; --track: #12262b; --tick: #2a5560;
+    --a1: #3fd3c6; --a2: #8fd14f; --a3: #f5b544; --a4: #6aa6ff;
+    --bg-image: radial-gradient(1000px 560px at 50% -12%, #0f2b31 0%, transparent 68%);
+  }
+  h1 { color: var(--a1); }
+</style>
+</head>
+<body>
+<script type="module">
+  import { buildPanel, wave, clamp } from './panel.js';
+
+  buildPanel({
+    title: 'planetary resource model · year 2087 — simulation',
+    status: [
+      { id: 'year', lead: true, value: '—' },
+      { id: 'pop', label: 'population', value: '—' },
+      { id: 'temp', label: 'anomaly', value: '—' },
+      { id: 'overshoot', label: 'earths used', value: '—' },
+      { id: 'alarm', flag: true, value: '' },
+    ],
+    rows: [
+      {
+        size: 'lg', items: [
+          { id: 'energy', cap: 'Energy mix', readout: 'none', icon: '⚡',
+            segments: '34:#8fd14f, 22:#3fd3c6, 16:#6aa6ff, 28:#4a3a1a',
+            legend: [['solar/wind', '#8fd14f'], ['hydro', '#3fd3c6'], ['nuclear', '#6aa6ff'], ['fossil', '#4a3a1a']] },
+          { id: 'anomaly', cap: 'Temperature anomaly', min: 0, max: 4, sweep: 270,
+            readout: 'value', decimals: 2, ticks: 8, tickMajor: 4, label: '°C vs 1850',
+            color: 'var(--a3)', benchmark: 1.5, zones: '2-3:#4a3a1a, 3-4:#4a1f24' },
+          { id: 'freshwater', cap: 'Fresh water', min: 0, max: 100, sweep: 270,
+            readout: 'value', ticks: 10, tickMajor: 5, label: '% renewable',
+            color: 'var(--a4)', zones: '0-30:#4a1f24', benchmark: 60 },
+          { id: 'biodiversity', cap: 'Biodiversity index', min: 0, max: 100, sweep: 270,
+            readout: 'value', ticks: 10, tickMajor: 5, label: '% of 1970',
+            color: 'var(--a2)', zones: '0-35:#4a1f24' },
+        ],
+      },
+      {
+        size: 'md', items: [
+          { id: 'arable', cap: 'Arable land', min: 0, max: 100, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: '% usable', color: 'var(--a2)', zones: '0-30:#4a1f24' },
+          { id: 'forest', cap: 'Forest cover', min: 0, max: 60, sweep: 270, readout: 'value',
+            decimals: 1, ticks: 6, tickMajor: 3, label: '% land', color: 'var(--a2)',
+            zones: '0-20:#4a1f24' },
+          { id: 'fish', cap: 'Fish stocks', min: 0, max: 100, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: '% sustainable', color: 'var(--a1)',
+            zones: '0-35:#4a1f24' },
+          { id: 'soil', cap: 'Topsoil', min: 0, max: 100, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: '% intact', color: 'var(--a3)', zones: '0-40:#4a1f24' },
+          { id: 'co2', cap: 'Atmospheric CO₂', min: 280, max: 700, sweep: 270,
+            readout: 'value', ticks: 7, tickMajor: 7, label: 'ppm', color: 'var(--a3)',
+            benchmark: 350, zones: '500-700:#4a1f24' },
+          { id: 'sealevel', cap: 'Sea level', min: 0, max: 120, sweep: 270, readout: 'value',
+            ticks: 12, tickMajor: 6, label: 'cm', color: 'var(--a4)', zones: '80-120:#4a1f24' },
+          { id: 'lithium', cap: 'Lithium reserve', min: 0, max: 100, sweep: 270,
+            readout: 'value', ticks: 10, tickMajor: 5, label: '% left', color: 'var(--a1)',
+            zones: '0-25:#4a1f24' },
+          { id: 'phosphate', cap: 'Phosphate', min: 0, max: 100, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: '% left', color: 'var(--a1)', zones: '0-25:#4a1f24' },
+        ],
+      },
+      {
+        size: 'md', items: [
+          { id: 'food', cap: 'Calorie supply', min: 0, max: 4000, sweep: 270,
+            readout: 'value', ticks: 8, tickMajor: 4, label: 'kcal/day', color: 'var(--a2)',
+            benchmark: 2500, zones: '0-2100:#4a1f24' },
+          { id: 'recycle', cap: 'Materials recycled', min: 0, max: 100, sweep: 270,
+            readout: 'value', ticks: 10, tickMajor: 5, label: '%', color: 'var(--a1)' },
+          { id: 'grid', cap: 'Grid renewables', min: 0, max: 100, sweep: 270,
+            readout: 'value', ticks: 10, tickMajor: 5, label: '%', color: 'var(--a2)',
+            benchmark: 80 },
+          { id: 'waste', cap: 'Waste per capita', min: 0, max: 3, sweep: 270,
+            readout: 'value', decimals: 2, ticks: 6, tickMajor: 3, label: 't/yr',
+            color: 'var(--a3)', zones: '2-3:#4a1f24' },
+          { id: 'air', cap: 'Air quality', min: 0, max: 200, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: 'AQI', color: 'var(--a1)',
+            zones: '100-150:#4a3a1a, 150-200:#4a1f24', benchmark: 50 },
+          { id: 'water-stress', cap: 'Water stress', min: 0, max: 100, sweep: 270,
+            readout: 'value', ticks: 10, tickMajor: 5, label: '% pop', color: 'var(--a4)',
+            zones: '60-80:#4a3a1a, 80-100:#4a1f24' },
+          { id: 'footprint', cap: 'Ecological footprint', min: 0, max: 4, sweep: 270,
+            readout: 'value', decimals: 2, ticks: 8, tickMajor: 4, label: 'earths',
+            color: 'var(--a3)', benchmark: 1, zones: '2-4:#4a1f24' },
+          { id: 'population', cap: 'Population', min: 0, max: 12, sweep: 270,
+            readout: 'value', decimals: 2, ticks: 12, tickMajor: 6, label: 'billion',
+            color: 'var(--a4)' },
+        ],
+      },
+    ],
+
+    // a slow century: population and emissions rise together until the energy mix
+    // turns over, then the anomaly plateaus and the biosphere begins to recover
+    tick(t, set) {
+      const YEAR = 6;                     // six seconds per simulated year
+      const year = 2087 + Math.floor(t / YEAR);
+      const era = clamp((t / YEAR) / 60, 0, 1);   // 60 years of model
+
+      const renew = clamp(34 + era * 52, 0, 100);
+      const fossil = clamp(28 - era * 26, 0, 100);
+      const co2 = 468 + era * 90 - era * era * 120;
+      const anomaly = 1.62 + era * 0.9 - era * era * 0.55;
+      const pop = 9.4 + era * 1.6 - era * era * 0.7;
+
+      set('anomaly', anomaly, 2);
+      set('co2', co2);
+      set('population', pop, 2);
+      set('freshwater', clamp(58 - era * 22 + era * era * 14, 0, 100));
+      set('biodiversity', clamp(52 - era * 20 + era * era * 16, 0, 100));
+      set('arable', clamp(64 - era * 16, 0, 100));
+      set('forest', clamp(29 - era * 6 + era * era * 5, 0, 60), 1);
+      set('fish', clamp(46 - era * 14 + era * era * 12, 0, 100));
+      set('soil', clamp(58 - era * 18, 0, 100));
+      set('sealevel', clamp(34 + era * 52, 0, 120));
+      set('lithium', clamp(72 - era * 44, 0, 100));
+      set('phosphate', clamp(66 - era * 38, 0, 100));
+      set('food', clamp(2860 - era * 240 + wave(t, 23, 60), 0, 4000));
+      set('recycle', clamp(38 + era * 44, 0, 100));
+      set('grid', renew);
+      set('waste', clamp(1.42 - era * 0.5, 0, 3), 2);
+      set('air', clamp(92 - era * 44 + wave(t, 11, 8), 0, 200));
+      set('water-stress', clamp(46 + era * 26 - era * era * 18, 0, 100));
+
+      const footprint = 1.74 + era * 0.4 - era * era * 0.8;
+      set('footprint', clamp(footprint, 0, 4), 2);
+
+      set.seg('energy', [[renew, '#8fd14f'], [22, '#3fd3c6'], [16 + era * 10, '#6aa6ff'],
+        [Math.max(2, fossil), '#4a3a1a']]);
+
+      set.text('year', String(year));
+      set.text('pop', pop.toFixed(2) + ' bn');
+      set.text('temp', '+' + anomaly.toFixed(2) + ' °C');
+      set.text('overshoot', footprint.toFixed(2));
+      set.text('alarm', anomaly > 2.2 ? '▲ ABOVE 2 °C PATHWAY'
+        : footprint > 2 ? '▲ ECOLOGICAL OVERSHOOT' : '');
+    },
+  });
+</script>
+</body>
+</html>

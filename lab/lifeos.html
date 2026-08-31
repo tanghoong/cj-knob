@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Life OS — cj-knob lab</title>
+<link rel="stylesheet" href="panel.css">
+<style>
+  :root {
+    --bg: #faf9f7; --panel: #ffffff; --edge: #e8e4dd; --ink: #1c1a17;
+    --dim: #7a736a; --track: #efece7; --tick: #cfc8bd;
+    --a1: #d97706; --a2: #0f9d76; --a3: #7c5cff; --a4: #2f7ae5;
+    --radius: 16px;
+    --cell-shadow: 0 1px 2px rgba(28,26,23,.05);
+    color-scheme: light;
+    --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  h1 { color: var(--dim); letter-spacing: .2em; }
+  .strip b { color: var(--a2); }
+</style>
+</head>
+<body>
+<script type="module">
+  import { buildPanel, wave, clamp } from './panel.js';
+
+  const AREAS = [
+    ['health', '#0f9d76', '💪'], ['career', '#2f7ae5', '💼'], ['learning', '#7c5cff', '📚'],
+    ['finance', '#d97706', '💰'], ['relationships', '#e05c8a', '❤️'], ['creative', '#0ea5b7', '🎨'],
+    ['home', '#8b7355', '🏡'], ['rest', '#6366f1', '🌙'],
+  ];
+
+  buildPanel({
+    title: 'life os · week 36 of 52 — simulation',
+    status: [
+      { id: 'week', lead: true, value: 'WEEK 36 / 52' },
+      { id: 'streak', label: 'streak', value: '—' },
+      { id: 'done', label: 'done today', value: '—' },
+      { id: 'focus', label: 'deep work', value: '—' },
+      { id: 'nudge', flag: true, value: '' },
+    ],
+    rows: [
+      {
+        size: 'lg', items: [
+          { id: 'balance', cap: 'Life balance', readout: 'none', icon: '⚖️',
+            segments: '18:#0f9d76, 26:#2f7ae5, 14:#7c5cff, 12:#d97706, 16:#e05c8a, 14:#6366f1',
+            legend: [['health', '#0f9d76'], ['career', '#2f7ae5'], ['learn', '#7c5cff'],
+                     ['money', '#d97706'], ['people', '#e05c8a'], ['rest', '#6366f1']] },
+          { id: 'year', cap: 'Year elapsed', min: 0, max: 100, sweep: 270, readout: 'value',
+            decimals: 1, ticks: 12, tickMajor: 3, label: '% of 2026', color: 'var(--a1)',
+            benchmark: 69 },
+          { id: 'goals', cap: 'Annual goals', min: 0, max: 12, sweep: 270, readout: 'value',
+            ticks: 12, tickMajor: 3, label: 'of 12 met', color: 'var(--a2)', benchmark: 8 },
+          { id: 'energy', cap: 'Energy budget', min: 0, max: 100, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: '% left', color: 'var(--a3)',
+            zones: '0-20:#fde8ea', benchmark: 40 },
+        ],
+      },
+      {
+        size: 'md',
+        items: AREAS.map(([name, color, icon]) => ({
+          id: name, cap: name, min: 0, max: 100, sweep: 270, readout: 'value',
+          ticks: 10, tickMajor: 5, label: '%', color, zones: '0-35:#fdeaea',
+        })),
+      },
+      {
+        size: 'md', items: [
+          { id: 'deep', cap: 'Deep work', min: 0, max: 8, sweep: 270, readout: 'value',
+            decimals: 1, ticks: 8, tickMajor: 4, label: 'h today', color: 'var(--a4)',
+            benchmark: 4 },
+          { id: 'habits', cap: 'Habits kept', min: 0, max: 9, sweep: 270, readout: 'value',
+            ticks: 9, tickMajor: 3, label: 'of 9', color: 'var(--a2)', benchmark: 7 },
+          { id: 'inbox', cap: 'Inbox', min: 0, max: 200, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: 'unread', color: 'var(--a1)',
+            zones: '120-160:#fdf0d5, 160-200:#fdeaea' },
+          { id: 'tasks', cap: 'Task completion', min: 0, max: 100, sweep: 270,
+            readout: 'value', ticks: 10, tickMajor: 5, label: '%', color: 'var(--a2)' },
+          { id: 'reading', cap: 'Reading', min: 0, max: 40, sweep: 270, readout: 'value',
+            ticks: 8, tickMajor: 4, label: 'books/yr', color: 'var(--a3)', benchmark: 24 },
+          { id: 'social', cap: 'Time with people', min: 0, max: 20, sweep: 270,
+            readout: 'value', decimals: 1, ticks: 10, tickMajor: 5, label: 'h/wk',
+            color: 'var(--a3)', zones: '0-4:#fdeaea' },
+          { id: 'screen', cap: 'Screen time', min: 0, max: 12, sweep: 270, readout: 'value',
+            decimals: 1, ticks: 12, tickMajor: 6, label: 'h/day', color: 'var(--a1)',
+            zones: '7-9:#fdf0d5, 9-12:#fdeaea', benchmark: 5 },
+          { id: 'savings', cap: 'Savings rate', min: 0, max: 60, sweep: 270, readout: 'value',
+            ticks: 6, tickMajor: 3, label: '%', color: 'var(--a2)', benchmark: 30 },
+        ],
+      },
+    ],
+
+    // a week seen from above: weekdays fill with work and drain energy,
+    // the weekend refills rest and people, and the yearly clock ticks all through
+    tick(t, set) {
+      const WEEK = 140;
+      const day = (t % WEEK) / WEEK * 7;
+      const weekend = day > 5;
+      const workload = weekend ? 0.15 : 0.55 + wave(t, 9, 0.3);
+
+      set('year', 68.6 + (t / 3600) * 0.2, 1);
+      set('goals', clamp(7 + Math.floor(wave(t, 190, 1.6)), 0, 12));
+      set('energy', clamp(weekend ? 78 + wave(t, 13, 12) : 84 - day * 11, 0, 100));
+      set('deep', clamp(weekend ? 0.6 : 3.4 + wave(t, 11, 1.8), 0, 8), 1);
+      set('habits', clamp(Math.round(7 + wave(t, 31, 1.8)), 0, 9));
+      set('inbox', clamp(weekend ? 96 + day * 18 : 42 + workload * 90, 0, 200));
+      set('tasks', clamp(weekend ? 40 : 62 + wave(t, 17, 24), 0, 100));
+      set('reading', clamp(19 + wave(t, 210, 3), 0, 40));
+      set('social', clamp(weekend ? 11 + wave(t, 7, 3) : 3.4 + wave(t, 13, 1.4), 0, 20), 1);
+      set('screen', clamp(weekend ? 4.2 : 6.8 + wave(t, 19, 1.4), 0, 12), 1);
+      set('savings', clamp(34 + wave(t, 97, 6), 0, 60));
+
+      const score = {
+        health: weekend ? 82 : 64 - workload * 14,
+        career: 58 + workload * 34,
+        learning: weekend ? 74 : 46 + wave(t, 23, 14),
+        finance: 72 + wave(t, 61, 8),
+        relationships: weekend ? 88 : 44 + wave(t, 29, 12),
+        creative: weekend ? 76 : 38 + wave(t, 19, 16),
+        home: weekend ? 80 : 52 + wave(t, 37, 10),
+        rest: weekend ? 86 : clamp(72 - day * 8, 0, 100),
+      };
+      for (const [name] of AREAS) set(name, clamp(score[name], 0, 100));
+
+      set.seg('balance', AREAS.slice(0, 6).map(([n, c]) => [score[n], c]));
+
+      set.text('week', `WEEK ${36 + Math.floor(t / WEEK)} / 52`);
+      set.text('streak', `${12 + Math.floor(t / WEEK)} days`);
+      set.text('done', `${Math.round(clamp(weekend ? 40 : 62 + wave(t, 17, 24), 0, 100) / 100 * 11)} / 11`);
+      set.text('focus', clamp(weekend ? 0.6 : 3.4 + wave(t, 11, 1.8), 0, 8).toFixed(1) + ' h');
+      set.text('nudge', score.rest < 45 ? '◆ REST IS LOW — PROTECT THE EVENING'
+        : score.relationships < 42 ? '◆ NOBODY CALLED THIS WEEK' : '');
+    },
+  });
+</script>
+</body>
+</html>

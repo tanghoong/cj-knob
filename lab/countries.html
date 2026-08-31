@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Countries — cj-knob lab</title>
+<link rel="stylesheet" href="panel.css">
+<style>
+  :root {
+    --bg: #0b0e14; --panel: #131824; --edge: #212a3c; --ink: #e9eefa;
+    --dim: #78859e; --track: #1a2130; --tick: #37425a;
+    --a1: #5b9cff; --a2: #4fd1a5; --a3: #ffc247; --a4: #c084fc;
+    --bg-image: radial-gradient(1000px 540px at 50% -12%, #16203a 0%, transparent 68%);
+  }
+  h1 { color: var(--a1); }
+</style>
+</head>
+<body>
+<script type="module">
+  import { buildPanel, wave, clamp } from './panel.js';
+
+  // a comparison board: twelve countries, each dial one composite development index
+  const COUNTRIES = [
+    ['🇲🇾 Malaysia', 80.7, '#4fd1a5'], ['🇸🇬 Singapore', 94.9, '#5b9cff'],
+    ['🇮🇩 Indonesia', 71.3, '#ffc247'], ['🇹🇭 Thailand', 80.3, '#c084fc'],
+    ['🇻🇳 Vietnam', 72.6, '#4fd1a5'], ['🇵🇭 Philippines', 71.0, '#ffc247'],
+    ['🇯🇵 Japan', 92.5, '#5b9cff'], ['🇰🇷 South Korea', 92.9, '#c084fc'],
+    ['🇨🇳 China', 78.8, '#ffc247'], ['🇮🇳 India', 64.4, '#4fd1a5'],
+    ['🇦🇺 Australia', 94.6, '#5b9cff'], ['🇳🇿 New Zealand', 93.9, '#c084fc'],
+  ];
+
+  buildPanel({
+    title: 'country comparison board · composite development index — simulated figures',
+    status: [
+      { id: 'sel', lead: true, value: 'ASIA-PACIFIC · 12 COUNTRIES' },
+      { id: 'mean', label: 'mean HDI', value: '—' },
+      { id: 'top', label: 'highest', value: '—' },
+      { id: 'spread', label: 'spread', value: '—' },
+      { id: 'note', flag: true, value: 'figures are illustrative, not official statistics' },
+    ],
+    rows: [
+      {
+        size: 'lg', items: [
+          { id: 'income', cap: 'Income group mix', readout: 'none', icon: '🌏',
+            segments: '33:#5b9cff, 25:#4fd1a5, 25:#ffc247, 17:#1a2130',
+            legend: [['high', '#5b9cff'], ['upper-mid', '#4fd1a5'], ['lower-mid', '#ffc247'], ['low', '#1a2130']] },
+          { id: 'gdp', cap: 'Regional GDP', min: 0, max: 40, sweep: 270, readout: 'value',
+            decimals: 1, ticks: 8, tickMajor: 4, label: '$ trillion', color: 'var(--a1)' },
+          { id: 'growth', cap: 'Mean growth', min: -4, max: 10, sweep: 270, readout: 'value',
+            decimals: 1, ticks: 7, tickMajor: 7, label: '% yr', color: 'var(--a2)',
+            benchmark: 0, zones: '-4-0:#3d1c1c' },
+          { id: 'urban', cap: 'Urbanisation', min: 0, max: 100, sweep: 270, readout: 'value',
+            decimals: 1, ticks: 10, tickMajor: 5, label: '% urban', color: 'var(--a4)' },
+        ],
+      },
+      {
+        size: 'md',
+        items: COUNTRIES.slice(0, 8).map(([name, base, color], i) => ({
+          id: `c${i}`, cap: name, min: 40, max: 100, sweep: 270, readout: 'value',
+          decimals: 1, ticks: 6, tickMajor: 3, label: 'HDI', color,
+        })),
+      },
+      {
+        size: 'md',
+        items: COUNTRIES.slice(8).map(([name, base, color], i) => ({
+          id: `c${i + 8}`, cap: name, min: 40, max: 100, sweep: 270, readout: 'value',
+          decimals: 1, ticks: 6, tickMajor: 3, label: 'HDI', color,
+        })).concat([
+          { id: 'life', cap: 'Life expectancy', min: 50, max: 90, sweep: 270,
+            readout: 'value', decimals: 1, ticks: 8, tickMajor: 4, label: 'years',
+            color: 'var(--a2)' },
+          { id: 'school', cap: 'Years of schooling', min: 0, max: 20, sweep: 270,
+            readout: 'value', decimals: 1, ticks: 10, tickMajor: 5, label: 'years',
+            color: 'var(--a4)' },
+          { id: 'gini', cap: 'Gini coefficient', min: 20, max: 60, sweep: 270,
+            readout: 'value', decimals: 1, ticks: 8, tickMajor: 4, label: '',
+            color: 'var(--a3)', zones: '45-60:#3d1c1c', benchmark: 35 },
+          { id: 'internet', cap: 'Internet use', min: 0, max: 100, sweep: 270,
+            readout: 'value', decimals: 1, ticks: 10, tickMajor: 5, label: '% pop',
+            color: 'var(--a1)' },
+        ]),
+      },
+    ],
+
+    tick(t, set) {
+      let sum = 0, best = ['', 0];
+      COUNTRIES.forEach(([name, base], i) => {
+        const v = clamp(base + wave(t, 60 + i * 7, 1.4, i), 40, 100);
+        sum += v;
+        if (v > best[1]) best = [name, v];
+        set(`c${i}`, v, 1);
+      });
+      const mean = sum / COUNTRIES.length;
+      const lo = Math.min(...COUNTRIES.map(([, b]) => b));
+
+      set('gdp', 31.4 + wave(t, 47, 1.8), 1);
+      set('growth', 3.8 + wave(t, 37, 1.6), 1);
+      set('urban', 56.2 + wave(t, 83, 2), 1);
+      set('life', 74.8 + wave(t, 91, 1.2), 1);
+      set('school', 12.4 + wave(t, 77, 0.6), 1);
+      set('gini', 38.6 + wave(t, 63, 2.4), 1);
+      set('internet', 71.3 + wave(t, 53, 3), 1);
+
+      set.seg('income', [[33, '#5b9cff'], [25, '#4fd1a5'], [25, '#ffc247'], [17, '#1a2130']]);
+
+      set.text('mean', mean.toFixed(1));
+      set.text('top', best[0]);
+      set.text('spread', (best[1] - lo).toFixed(1) + ' pts');
+    },
+  });
+</script>
+</body>
+</html>

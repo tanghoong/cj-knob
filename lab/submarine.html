@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Submarine — cj-knob lab</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #030f14;
+    --panel: #082027;
+    --edge: #0e3641;
+    --teal: #24e0c5;
+    --amb: #ffb52e;
+    --red: #ff5a5a;
+    --pale: #7fd8cf;
+    --ink: #d9f2ee;
+    --dim: #5b8b8a;
+    --track: #0c2a32;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; background: var(--bg); color: var(--ink);
+    font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    padding: .75rem; display: flex; flex-direction: column; gap: .6rem;
+    background-image:
+      radial-gradient(900px 600px at 20% 0%, #0b2f3a 0%, transparent 65%),
+      radial-gradient(700px 500px at 90% 100%, #072a2a 0%, transparent 60%);
+  }
+  @media (min-width: 900px) and (min-height: 640px) {
+    body { height: 100vh; overflow: hidden; }
+    .row { min-height: 0; }
+    .primary { flex: 1.5; }
+    .secondary, .tertiary { flex: 1; }
+    .primary cj-knob { --cj-size: min(226px, 29vh); }
+    .secondary cj-knob, .tertiary cj-knob { --cj-size: min(114px, 14vh); }
+  }
+
+  h1 { font-size: 12px; letter-spacing: .2em; color: var(--dim); margin: 0; font-weight: 500; }
+
+  .strip {
+    display: flex; flex-wrap: wrap; gap: 1.25rem; align-items: baseline;
+    padding: .55rem .9rem; background: var(--panel);
+    border: 1px solid var(--edge); border-radius: 8px;
+    font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
+  }
+  .strip b { color: var(--teal); font-weight: 600; }
+  .strip .t { color: var(--dim); }
+  .strip .alarm { color: var(--amb); }
+
+  .row { display: grid; gap: .6rem; }
+  .primary { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+  .secondary, .tertiary { grid-template-columns: repeat(auto-fit, minmax(114px, 1fr)); }
+
+  /* porthole: a riveted bezel around every dial */
+  .inst {
+    background:
+      radial-gradient(120% 100% at 50% 0%, #0d2e37 0%, var(--panel) 60%);
+    border: 1px solid var(--edge); border-radius: 14px;
+    padding: .6rem .4rem .5rem; display: grid; justify-items: center; align-content: center;
+    gap: .4rem; position: relative; overflow: hidden;
+    box-shadow: inset 0 0 0 1px rgba(36,224,197,.05), inset 0 12px 28px rgba(0,0,0,.45);
+  }
+  .inst::after {
+    content: ''; position: absolute; inset: 5px; border-radius: 10px; pointer-events: none;
+    background:
+      radial-gradient(circle at 8px 8px, rgba(127,216,207,.35) 0 1.5px, transparent 2px),
+      radial-gradient(circle at calc(100% - 8px) 8px, rgba(127,216,207,.35) 0 1.5px, transparent 2px),
+      radial-gradient(circle at 8px calc(100% - 8px), rgba(127,216,207,.35) 0 1.5px, transparent 2px),
+      radial-gradient(circle at calc(100% - 8px) calc(100% - 8px), rgba(127,216,207,.35) 0 1.5px, transparent 2px);
+  }
+  .cap { font-size: 10px; letter-spacing: .14em; color: var(--dim); text-transform: uppercase; }
+
+  cj-knob {
+    --cj-track: var(--track);
+    --cj-text: var(--ink);
+    --cj-muted: var(--dim);
+    --cj-tick: #2a6a6b;
+    --cj-duration: 260ms;
+    --cj-easing: linear;
+    --cj-size: 114px;
+    --cj-thickness: 7;
+  }
+  .primary cj-knob { --cj-size: 190px; --cj-thickness: 6; }
+
+  /* active sonar: a short arc sweeping a full circle for ever */
+  @keyframes sonar { to { rotate: 360deg; } }
+  .sonar-sweep { animation: sonar 3.4s linear infinite; }
+  .sonar { position: relative; display: grid; place-items: center; }
+  .sonar > * { grid-area: 1 / 1; }
+</style>
+</head>
+<body>
+
+<h1>SSN-1013 · SUBMERGED OPERATIONS</h1>
+
+<div class="strip">
+  <span><span class="t">Boat</span> <b>CJ NAUTILUS</b></span>
+  <span><span class="t">Depth</span> <b id="s-depth">—</b></span>
+  <span><span class="t">Bearing</span> <b id="s-brg">—</b></span>
+  <span><span class="t">Speed</span> <b id="s-spd">—</b></span>
+  <span><span class="t">Trim</span> <b id="s-trim">—</b></span>
+  <span class="alarm" id="s-alarm">&nbsp;</span>
+</div>
+
+<div class="row primary">
+  <div class="inst">
+    <cj-knob id="depth" min="0" max="600" value="240" sweep="270" readout="value"
+             ticks="12" tick-major="4" color="var(--teal)"
+             zones="0-40:#ffb52e, 450-540:#ffb52e, 540-600:#ff5a5a"
+             benchmark="500" label="metres"></cj-knob>
+    <div class="cap">Depth · crush 540</div>
+  </div>
+  <div class="inst">
+    <cj-knob id="hull" min="0" max="80" value="25" sweep="270" readout="value" decimals="1"
+             ticks="8" tick-major="4" color="var(--pale)"
+             zones="60-70:#ffb52e, 70-80:#ff5a5a" label="bar"></cj-knob>
+    <div class="cap">Hull pressure</div>
+  </div>
+  <div class="inst">
+    <div class="sonar">
+      <cj-knob id="sonar-ring" readout="none" ticks="24" tick-major="6" value="0"
+               color="transparent" style="--cj-thickness:4"></cj-knob>
+      <cj-knob class="sonar-sweep" readout="none" sweep="26" value="100"
+               color="var(--teal)" style="--cj-track:transparent;--cj-thickness:9"></cj-knob>
+      <cj-knob id="brg" readout="value" unit="°" min="0" max="360" value="0"
+               color="transparent" style="--cj-track:transparent;--cj-size:190px"
+               label="contact"></cj-knob>
+    </div>
+    <div class="cap">Active sonar</div>
+  </div>
+  <div class="inst">
+    <cj-knob id="trim" min="-15" max="15" value="0" sweep="180" readout="value" decimals="1"
+             ticks="6" tick-major="3" color="var(--amb)" benchmark="0" label="deg"></cj-knob>
+    <div class="cap">Trim angle</div>
+  </div>
+</div>
+
+<div class="row secondary">
+  <div class="inst">
+    <cj-knob id="ballast-f" min="0" max="100" value="62" sweep="270" readout="value"
+             ticks="10" tick-major="5" color="var(--teal)" label="%"></cj-knob>
+    <div class="cap">Ballast fwd</div>
+  </div>
+  <div class="inst">
+    <cj-knob id="ballast-a" min="0" max="100" value="58" sweep="270" readout="value"
+             ticks="10" tick-major="5" color="var(--teal)" label="%"></cj-knob>
+    <div class="cap">Ballast aft</div>
+  </div>
+  <div class="inst">
+    <cj-knob id="o2" min="0" max="25" value="20.9" sweep="270" readout="value" decimals="1"
+             ticks="5" tick-major="5" color="var(--pale)"
+             zones="0-17:#ff5a5a, 17-19:#ffb52e" label="% O₂"></cj-knob>
+    <div class="cap">Oxygen</div>
+  </div>
+  <div class="inst">
+    <cj-knob id="co2" min="0" max="10000" value="2400" sweep="270" readout="value"
+             ticks="10" tick-major="5" color="var(--teal)"
+             zones="5000-8000:#ffb52e, 8000-10000:#ff5a5a" label="ppm"></cj-knob>
+    <div class="cap">CO₂ scrubber</div>
+  </div>
+  <div class="inst">
+    <cj-knob id="batt" readout="none" label="fwd · aft · aux"
+             segments="41:#24e0c5, 33:#7fd8cf, 14:#ffb52e"></cj-knob>
+    <div class="cap">Battery bank</div>
+  </div>
+  <div class="inst">
+    <cj-knob id="reactor" min="0" max="120" value="74" sweep="270" readout="value"
+             ticks="12" tick-major="4" color="var(--amb)"
+             zones="100-110:#ffb52e, 110-120:#ff5a5a" label="%"></cj-knob>
+    <div class="cap">Reactor</div>
+  </div>
+  <div class="inst">
+    <cj-knob id="spd" min="0" max="35" value="12" sweep="270" readout="value" decimals="1"
+             ticks="7" tick-major="7" color="var(--teal)" label="knots"></cj-knob>
+    <div class="cap">Speed</div>
+  </div>
+  <div class="inst">
+    <cj-knob id="shaft" min="0" max="200" value="96" sweep="270" readout="value"
+             ticks="10" tick-major="5" color="var(--pale)" label="rpm"></cj-knob>
+    <div class="cap">Shaft</div>
+  </div>
+</div>
+
+<div class="row tertiary">
+  <div class="inst">
+    <cj-knob id="hum" min="0" max="100" value="61" sweep="270" readout="value"
+             ticks="10" tick-major="5" color="var(--pale)" label="%"></cj-knob>
+    <div class="cap">Humidity</div>
+  </div>
+  <div class="inst">
+    <cj-knob id="temps" min="0" max="40" value="19" sweep="270" readout="value"
+             ticks="8" tick-major="4" color="var(--teal)" label="°C"></cj-knob>
+    <div class="cap">Sea temp</div>
+  </div>
+  <div class="inst">
+    <cj-knob id="fresh" min="0" max="100" value="78" sweep="270" readout="value"
+             ticks="10" tick-major="5" color="var(--teal)" zones="0-20:#ff5a5a" label="%"></cj-knob>
+    <div class="cap">Fresh water</div>
+  </div>
+  <div class="inst">
+    <cj-knob id="torp" readout="none" label="1·2·3·4"
+             segments="25:#24e0c5, 25:#24e0c5, 25:#0c2a32, 25:#0c2a32"></cj-knob>
+    <div class="cap">Tubes loaded</div>
+  </div>
+  <div class="inst">
+    <cj-knob id="noise" min="0" max="140" value="62" sweep="270" readout="value"
+             ticks="7" tick-major="7" color="var(--teal)"
+             zones="90-115:#ffb52e, 115-140:#ff5a5a" label="dB"></cj-knob>
+    <div class="cap">Radiated noise</div>
+  </div>
+  <div class="inst">
+    <cj-knob id="rudder" min="-35" max="35" value="0" sweep="180" readout="value"
+             ticks="7" tick-major="7" color="var(--amb)" benchmark="0" label="deg"></cj-knob>
+    <div class="cap">Rudder</div>
+  </div>
+  <div class="inst">
+    <cj-knob id="planes" min="-25" max="25" value="-3" sweep="180" readout="value"
+             ticks="5" tick-major="5" color="var(--amb)" benchmark="0" label="deg"></cj-knob>
+    <div class="cap">Dive planes</div>
+  </div>
+  <div class="inst">
+    <cj-knob id="air" min="0" max="4500" value="3100" sweep="270" readout="value"
+             ticks="9" tick-major="3" color="var(--pale)"
+             zones="0-1200:#ff5a5a" label="psi"></cj-knob>
+    <div class="cap">HP air bank</div>
+  </div>
+</div>
+
+<script type="module">
+  import '../src/cj-knob.js';
+
+  const $ = (id) => document.getElementById(id);
+  const wave = (t, period, amp, phase = 0) => Math.sin(t / period + phase) * amp;
+  const t0 = performance.now();
+
+  function frame(now) {
+    const t = (now - t0) / 1000;
+
+    const depth = 240 + wave(t, 17, 120) + wave(t, 4, 8);
+    const hull = 1 + depth / 10.05;                 // pressure follows depth, as it must
+    const spd = 12 + wave(t, 13, 5);
+    const trim = wave(t, 17, 120) / 17 * -0.9;      // trim tracks the rate of depth change
+    const brg = (t * 360 / 3.4) % 360;              // the sonar head's current bearing
+
+    $('depth').value = depth.toFixed(0);
+    $('hull').value = hull.toFixed(1);
+    $('spd').value = spd.toFixed(1);
+    $('trim').value = trim.toFixed(1);
+    $('brg').value = brg.toFixed(0);
+    $('shaft').value = (spd * 8).toFixed(0);
+    $('reactor').value = (60 + spd * 1.2 + wave(t, 9, 3)).toFixed(0);
+    $('ballast-f').value = (62 + wave(t, 23, 9)).toFixed(0);
+    $('ballast-a').value = (58 + wave(t, 23, 9, 0.6)).toFixed(0);
+    $('o2').value = (20.9 + wave(t, 41, 0.8)).toFixed(1);
+    $('co2').value = (2400 + wave(t, 37, 900)).toFixed(0);
+    $('hum').value = (61 + wave(t, 29, 8)).toFixed(0);
+    $('temps').value = (19 - depth / 60).toFixed(0);
+    $('noise').value = (40 + spd * 2.4 + wave(t, 7, 4)).toFixed(0);
+    $('rudder').value = wave(t, 19, 18).toFixed(0);
+    $('planes').value = (trim * 2).toFixed(0);
+    $('air').value = (3100 + wave(t, 53, 260)).toFixed(0);
+
+    $('s-depth').textContent = Math.round(depth) + ' m';
+    $('s-brg').textContent = String(Math.round(brg)).padStart(3, '0') + '°';
+    $('s-spd').textContent = spd.toFixed(1) + ' kt';
+    $('s-trim').textContent = trim.toFixed(1) + '°';
+    $('s-alarm').textContent = depth > 420 ? '◆ APPROACHING TEST DEPTH' : '';
+
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+</script>
+
+</body>
+</html>

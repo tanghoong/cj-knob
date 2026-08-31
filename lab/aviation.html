@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aviation — cj-knob lab</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #070b0f;
+    --panel: #0e141b;
+    --edge: #1c2733;
+    --grn: #2ee6a0;
+    --amb: #ffb020;
+    --red: #ff4d5e;
+    --cyn: #4cc4ff;
+    --ink: #dfe8f2;
+    --dim: #6d7f92;
+    --track: #18222d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; background: var(--bg); color: var(--ink);
+    font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    padding: .75rem; display: flex; flex-direction: column; gap: .6rem;
+    background-image:
+      radial-gradient(1100px 500px at 50% -12%, #10202c 0%, transparent 70%),
+      repeating-linear-gradient(0deg, transparent 0 3px, rgba(255,255,255,.014) 3px 4px);
+  }
+  /* on a real screen the panel fills the glass; on anything small it just scrolls */
+  @media (min-width: 900px) and (min-height: 640px) {
+    body { height: 100vh; overflow: hidden; }
+    .row { min-height: 0; }
+    .primary { flex: 1.45; }
+    .secondary, .tertiary { flex: 1; }
+    .primary cj-knob { --cj-size: min(224px, 29vh); }
+    .secondary cj-knob, .tertiary cj-knob { --cj-size: min(112px, 14vh); }
+  }
+
+  .strip {
+    display: flex; flex-wrap: wrap; gap: 1.25rem; align-items: baseline;
+    padding: .55rem .9rem; background: var(--panel);
+    border: 1px solid var(--edge); border-radius: 8px;
+    font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
+  }
+  .strip b { color: var(--grn); font-weight: 600; letter-spacing: .04em; }
+  .strip .t { color: var(--dim); }
+  .strip .warn { color: var(--amb); }
+
+  .row { display: grid; gap: .6rem; }
+  .primary { grid-template-columns: repeat(auto-fit, minmax(178px, 1fr)); }
+  .secondary, .tertiary { grid-template-columns: repeat(auto-fit, minmax(112px, 1fr)); }
+
+  .inst {
+    background: var(--panel); border: 1px solid var(--edge); border-radius: 10px;
+    padding: .6rem .4rem .5rem; display: grid; justify-items: center; align-content: center;
+    gap: .4rem; position: relative; overflow: hidden;
+  }
+  .inst::before {
+    content: ''; position: absolute; inset: 0;
+    background: radial-gradient(80% 60% at 50% 0%, rgba(76,196,255,.06), transparent 70%);
+    pointer-events: none;
+  }
+  .cap {
+    font-size: 10px; letter-spacing: .14em; color: var(--dim); text-transform: uppercase;
+  }
+
+  cj-knob {
+    --cj-track: var(--track);
+    --cj-text: var(--ink);
+    --cj-muted: var(--dim);
+    --cj-tick: #3f5568;
+    --cj-duration: 220ms;
+    --cj-easing: linear;
+  }
+  .primary cj-knob { --cj-size: 168px; --cj-thickness: 6; }
+  .secondary cj-knob { --cj-size: 104px; --cj-thickness: 7; }
+
+  h1 { font-size: 12px; letter-spacing: .2em; color: var(--dim); margin: 0; font-weight: 500; }
+</style>
+</head>
+<body>
+
+<h1>PRIMARY FLIGHT &amp; ENGINE — A320 SIM</h1>
+
+<div class="strip">
+  <span><span class="t">FLT</span> <b>CJ1013</b></span>
+  <span><span class="t">PHASE</span> <b id="phase">CRUISE</b></span>
+  <span><span class="t">ALT</span> <b id="s-alt">—</b></span>
+  <span><span class="t">IAS</span> <b id="s-ias">—</b></span>
+  <span><span class="t">HDG</span> <b id="s-hdg">—</b></span>
+  <span><span class="t">FUEL</span> <b id="s-fuel">—</b></span>
+  <span class="warn" id="s-warn">&nbsp;</span>
+</div>
+
+<div class="row primary">
+  <div class="inst">
+    <cj-knob id="ias" min="0" max="400" value="280" sweep="270" readout="value" decimals="0"
+             ticks="16" tick-major="4" color="var(--cyn)"
+             zones="0-120:#ff4d5e, 120-160:#ffb020, 320-360:#ffb020, 360-400:#ff4d5e"
+             label="knots"></cj-knob>
+    <div class="cap">Airspeed</div>
+  </div>
+  <div class="inst">
+    <cj-knob id="alt" min="0" max="42000" value="35000" sweep="270" readout="value" decimals="0"
+             ticks="14" tick-major="7" color="var(--grn)" label="feet"></cj-knob>
+    <div class="cap">Altitude</div>
+  </div>
+  <div class="inst">
+    <cj-knob id="vsi" min="-2000" max="2000" value="0" sweep="240" start="150" readout="value"
+             ticks="8" tick-major="4" color="var(--cyn)" benchmark="0" label="ft/min"></cj-knob>
+    <div class="cap">Vertical speed</div>
+  </div>
+  <div class="inst">
+    <cj-knob id="hdg" min="0" max="360" value="94" sweep="360" readout="value" unit="°"
+             ticks="36" tick-major="9" color="var(--amb)" label="magnetic"></cj-knob>
+    <div class="cap">Heading</div>
+  </div>
+</div>
+
+<div class="row secondary">
+  <div class="inst">
+    <cj-knob id="n1" min="0" max="110" value="88" sweep="270" readout="value" decimals="1"
+             ticks="11" tick-major="5" color="var(--grn)"
+             zones="100-110:#ff4d5e" label="%"></cj-knob>
+    <div class="cap">N1 · Eng 1</div>
+  </div>
+  <div class="inst">
+    <cj-knob id="n2" min="0" max="110" value="91" sweep="270" readout="value" decimals="1"
+             ticks="11" tick-major="5" color="var(--grn)"
+             zones="100-110:#ff4d5e" label="%"></cj-knob>
+    <div class="cap">N2 · Eng 1</div>
+  </div>
+  <div class="inst">
+    <cj-knob id="egt" min="0" max="900" value="612" sweep="270" readout="value"
+             ticks="9" tick-major="3" color="var(--amb)"
+             zones="700-800:#ffb020, 800-900:#ff4d5e" label="°C"></cj-knob>
+    <div class="cap">EGT</div>
+  </div>
+  <div class="inst">
+    <cj-knob id="ff" min="0" max="3000" value="1840" sweep="270" readout="value"
+             ticks="6" tick-major="3" color="var(--cyn)" label="kg/h"></cj-knob>
+    <div class="cap">Fuel flow</div>
+  </div>
+  <div class="inst">
+    <cj-knob id="oilp" min="0" max="100" value="64" sweep="270" readout="value"
+             ticks="10" tick-major="5" color="var(--grn)"
+             zones="0-25:#ff4d5e, 25-40:#ffb020" label="psi"></cj-knob>
+    <div class="cap">Oil press</div>
+  </div>
+  <div class="inst">
+    <cj-knob id="oilt" min="0" max="180" value="96" sweep="270" readout="value"
+             ticks="9" tick-major="3" color="var(--grn)"
+             zones="150-180:#ff4d5e" label="°C"></cj-knob>
+    <div class="cap">Oil temp</div>
+  </div>
+  <div class="inst">
+    <cj-knob id="fuel" readout="none" label="L·C·R"
+             segments="34:#2ee6a0, 41:#4cc4ff, 25:#8b7bff"></cj-knob>
+    <div class="cap">Tank split</div>
+  </div>
+  <div class="inst">
+    <cj-knob id="flap" min="0" max="40" value="0" sweep="180" readout="value"
+             ticks="4" tick-major="1" color="var(--amb)" label="deg"></cj-knob>
+    <div class="cap">Flaps</div>
+  </div>
+</div>
+
+<div class="row tertiary">
+  <div class="inst">
+    <cj-knob id="hydg" min="0" max="3500" value="3010" sweep="270" readout="value"
+             ticks="7" tick-major="7" color="var(--grn)" zones="0-1500:#ff4d5e" label="psi"></cj-knob>
+    <div class="cap">Hyd · Green</div>
+  </div>
+  <div class="inst">
+    <cj-knob id="hydy" min="0" max="3500" value="2985" sweep="270" readout="value"
+             ticks="7" tick-major="7" color="var(--amb)" zones="0-1500:#ff4d5e" label="psi"></cj-knob>
+    <div class="cap">Hyd · Yellow</div>
+  </div>
+  <div class="inst">
+    <cj-knob id="cab" min="0" max="10000" value="6800" sweep="270" readout="value"
+             ticks="10" tick-major="5" color="var(--cyn)" zones="8500-10000:#ff4d5e" label="ft"></cj-knob>
+    <div class="cap">Cabin alt</div>
+  </div>
+  <div class="inst">
+    <cj-knob id="dp" min="-1" max="9" value="7.4" sweep="270" readout="value" decimals="1"
+             ticks="10" tick-major="5" color="var(--grn)" zones="8-9:#ffb020" label="psi"></cj-knob>
+    <div class="cap">Cabin Δp</div>
+  </div>
+  <div class="inst">
+    <cj-knob id="apu" min="0" max="110" value="0" sweep="270" readout="value"
+             ticks="11" tick-major="5" color="var(--dim)" label="%"></cj-knob>
+    <div class="cap">APU N1</div>
+  </div>
+  <div class="inst">
+    <cj-knob id="brk" min="0" max="500" value="118" sweep="270" readout="value"
+             ticks="10" tick-major="5" color="var(--grn)"
+             zones="300-400:#ffb020, 400-500:#ff4d5e" label="°C"></cj-knob>
+    <div class="cap">Brake temp</div>
+  </div>
+  <div class="inst">
+    <cj-knob id="elec" readout="none" label="gen · apu"
+             segments="46:#2ee6a0, 44:#4cc4ff, 10:#3f5568"></cj-knob>
+    <div class="cap">Elec load</div>
+  </div>
+  <div class="inst">
+    <cj-knob id="aoa" min="-5" max="20" value="2.4" sweep="240" start="150" readout="value" decimals="1"
+             ticks="5" tick-major="1" color="var(--cyn)" zones="14-20:#ff4d5e" label="deg"></cj-knob>
+    <div class="cap">Angle of attack</div>
+  </div>
+</div>
+
+<script type="module">
+  import '../src/cj-knob.js';
+
+  const $ = (id) => document.getElementById(id);
+  const inst = {
+    ias: $('ias'), alt: $('alt'), vsi: $('vsi'), hdg: $('hdg'),
+    n1: $('n1'), n2: $('n2'), egt: $('egt'), ff: $('ff'),
+    oilp: $('oilp'), oilt: $('oilt'), fuel: $('fuel'),
+  };
+
+  // a lazy flight model: everything drifts on its own sine, nothing is random per frame
+  // so the needles move like instruments rather than like noise
+  const wave = (t, period, amp, phase = 0) => Math.sin(t / period + phase) * amp;
+  const t0 = performance.now();
+  let fuelLeft = 100;
+
+  function frame(now) {
+    const t = (now - t0) / 1000;
+
+    const ias = 280 + wave(t, 7, 14) + wave(t, 2.3, 4);
+    const alt = 35000 + wave(t, 11, 420);
+    const vsi = wave(t, 11, 420 / 11 * 60);           // derivative of the altitude wave
+    const hdg = (94 + wave(t, 23, 40) + 360) % 360;
+    const n1 = 88 + wave(t, 9, 2.2);
+    const n2 = 91 + wave(t, 9, 1.8, 0.4);
+    const egt = 612 + wave(t, 13, 26);
+    const ff = 1840 + wave(t, 9, 90);
+
+    inst.ias.value = ias.toFixed(0);
+    inst.alt.value = alt.toFixed(0);
+    inst.vsi.value = vsi.toFixed(0);
+    inst.hdg.value = hdg.toFixed(0);
+    inst.n1.value = n1.toFixed(1);
+    inst.n2.value = n2.toFixed(1);
+    inst.egt.value = egt.toFixed(0);
+    inst.ff.value = ff.toFixed(0);
+    inst.oilp.value = (64 + wave(t, 17, 5)).toFixed(0);
+    inst.oilt.value = (96 + wave(t, 19, 7)).toFixed(0);
+    $('hydg').value = (3010 + wave(t, 5, 40)).toFixed(0);
+    $('hydy').value = (2985 + wave(t, 6, 40, 1)).toFixed(0);
+    $('cab').value = (6800 + wave(t, 21, 90)).toFixed(0);
+    $('dp').value = (7.4 + wave(t, 21, 0.25)).toFixed(1);
+    $('brk').value = (118 + wave(t, 29, 22)).toFixed(0);
+    $('aoa').value = (2.4 + wave(t, 8, 1.1)).toFixed(1);
+
+    fuelLeft = Math.max(0, fuelLeft - 0.0016);
+    const l = fuelLeft * 0.34, c = fuelLeft * 0.41, r = fuelLeft * 0.25;
+    inst.fuel.setAttribute('segments',
+      `${l.toFixed(1)}:#2ee6a0, ${c.toFixed(1)}:#4cc4ff, ${r.toFixed(1)}:#8b7bff`);
+
+    $('s-alt').textContent = Math.round(alt).toLocaleString() + ' ft';
+    $('s-ias').textContent = Math.round(ias) + ' kt';
+    $('s-hdg').textContent = String(Math.round(hdg)).padStart(3, '0') + '°';
+    $('s-fuel').textContent = fuelLeft.toFixed(1) + ' %';
+    $('s-warn').textContent = vsi < -260 ? '▲ DESCENT RATE' : vsi > 260 ? '▲ CLIMB' : '';
+
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+</script>
+
+</body>
+</html>

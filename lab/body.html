@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Body — cj-knob lab</title>
+<link rel="stylesheet" href="panel.css">
+<style>
+  :root {
+    --bg: #f7f8fa; --panel: #ffffff; --edge: #e5e8ee; --ink: #12151c;
+    --dim: #6b7280; --track: #eceff4; --tick: #c8cfd9;
+    --a1: #ef4f6b; --a2: #17a673; --a3: #f0a020; --a4: #4b8bf5;
+    --radius: 14px;
+    --cell-shadow: 0 1px 2px rgba(16,24,40,.05);
+    color-scheme: light;
+    --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  h1 { color: var(--dim); }
+  .strip b { color: var(--a2); }
+</style>
+</head>
+<body>
+<script type="module">
+  import { buildPanel, wave, clamp } from './panel.js';
+
+  buildPanel({
+    title: 'body condition · 24-hour window — simulation',
+    status: [
+      { id: 'phase', lead: true, value: '—' },
+      { id: 'hr', label: 'heart rate', value: '—' },
+      { id: 'steps', label: 'steps', value: '—' },
+      { id: 'kcal', label: 'burn', value: '—' },
+      { id: 'note', flag: true, value: '' },
+    ],
+    rows: [
+      {
+        size: 'lg', items: [
+          { id: 'hr', cap: 'Heart rate', min: 40, max: 200, sweep: 270, readout: 'value',
+            ticks: 8, tickMajor: 4, label: 'bpm', color: 'var(--a1)',
+            zones: '150-175:#fdf0d5, 175-200:#fde8ea', benchmark: 62 },
+          { id: 'rings', cap: 'Daily rings', readout: 'none', icon: '🏃',
+            segments: '42:#ef4f6b, 33:#17a673, 25:#4b8bf5',
+            legend: [['move', '#ef4f6b'], ['exercise', '#17a673'], ['stand', '#4b8bf5']] },
+          { id: 'spo2', cap: 'Blood oxygen', min: 85, max: 100, sweep: 270, readout: 'value',
+            ticks: 5, tickMajor: 5, label: '% SpO₂', color: 'var(--a4)',
+            zones: '85-92:#fde8ea, 92-95:#fdf0d5', benchmark: 96 },
+          { id: 'hydration', cap: 'Hydration', min: 0, max: 3000, sweep: 270, readout: 'value',
+            ticks: 6, tickMajor: 3, label: 'ml', color: 'var(--a4)', benchmark: 2500 },
+        ],
+      },
+      {
+        size: 'md', items: [
+          { id: 'hrv', cap: 'HRV', min: 0, max: 140, sweep: 270, readout: 'value',
+            ticks: 7, tickMajor: 7, label: 'ms', color: 'var(--a2)', zones: '0-25:#fde8ea' },
+          { id: 'bp', cap: 'Systolic', min: 80, max: 180, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: 'mmHg', color: 'var(--a1)',
+            zones: '130-145:#fdf0d5, 145-180:#fde8ea', benchmark: 120 },
+          { id: 'temp', cap: 'Core temp', min: 34, max: 40, sweep: 270, readout: 'value',
+            decimals: 1, ticks: 6, tickMajor: 3, label: '°C', color: 'var(--a3)',
+            zones: '38-40:#fde8ea', benchmark: 36.8 },
+          { id: 'resp', cap: 'Respiration', min: 0, max: 40, sweep: 270, readout: 'value',
+            ticks: 8, tickMajor: 4, label: '/min', color: 'var(--a4)' },
+          { id: 'glucose', cap: 'Glucose', min: 3, max: 12, sweep: 270, readout: 'value',
+            decimals: 1, ticks: 9, tickMajor: 3, label: 'mmol/L', color: 'var(--a3)',
+            zones: '3-4:#fde8ea, 8-12:#fdf0d5', benchmark: 5.5 },
+          { id: 'stress', cap: 'Stress', min: 0, max: 100, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: '%', color: 'var(--a1)',
+            zones: '70-85:#fdf0d5, 85-100:#fde8ea' },
+          { id: 'vo2', cap: 'VO₂ max', min: 20, max: 70, sweep: 270, readout: 'value',
+            decimals: 1, ticks: 10, tickMajor: 5, label: 'ml/kg', color: 'var(--a2)' },
+          { id: 'recovery', cap: 'Recovery', min: 0, max: 100, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: '%', color: 'var(--a2)',
+            zones: '0-33:#fde8ea', benchmark: 66 },
+        ],
+      },
+      {
+        size: 'md', items: [
+          { id: 'sleep', cap: 'Sleep stages', readout: 'none', icon: '😴',
+            segments: '22:#4b8bf5, 46:#7aa7f7, 18:#17a673, 14:#eceff4',
+            legend: [['deep', '#4b8bf5'], ['light', '#7aa7f7'], ['REM', '#17a673'], ['awake', '#eceff4']] },
+          { id: 'sleepdur', cap: 'Sleep duration', min: 0, max: 12, sweep: 270,
+            readout: 'value', decimals: 1, ticks: 12, tickMajor: 6, label: 'h',
+            color: 'var(--a4)', benchmark: 8, zones: '0-5:#fde8ea' },
+          { id: 'steps', cap: 'Steps', min: 0, max: 15000, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: '', color: 'var(--a2)', benchmark: 10000 },
+          { id: 'kcal', cap: 'Active burn', min: 0, max: 1200, sweep: 270, readout: 'value',
+            ticks: 6, tickMajor: 3, label: 'kcal', color: 'var(--a1)', benchmark: 600 },
+          { id: 'body', cap: 'Body composition', readout: 'none', icon: '⚖️',
+            segments: '42:#ef4f6b, 18:#f0a020, 34:#4b8bf5, 6:#eceff4',
+            legend: [['muscle', '#ef4f6b'], ['fat', '#f0a020'], ['water', '#4b8bf5'], ['bone', '#eceff4']] },
+          { id: 'load', cap: 'Training load', min: 0, max: 200, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: 'TSS', color: 'var(--a3)',
+            zones: '150-200:#fde8ea', benchmark: 100 },
+          { id: 'posture', cap: 'Posture score', min: 0, max: 100, sweep: 270,
+            readout: 'value', ticks: 10, tickMajor: 5, label: '%', color: 'var(--a2)' },
+          { id: 'readiness', cap: 'Readiness', min: 0, max: 100, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: '%', color: 'var(--a2)',
+            zones: '0-40:#fde8ea', benchmark: 75 },
+        ],
+      },
+    ],
+
+    // one simulated day compressed into three minutes: sleep, a morning run,
+    // a working day, an evening wind-down. Everything hangs off that clock.
+    tick(t, set) {
+      const DAY = 180;
+      const hour = (t % DAY) / DAY * 24;
+      const asleep = hour < 6.5;
+      const running = hour > 7 && hour < 8;
+      const exertion = running ? 1 : asleep ? 0 : 0.22 + wave(t, 11, 0.12);
+
+      const hr = asleep ? 52 + wave(t, 9, 4) : 62 + exertion * 96 + wave(t, 5, 4);
+      set('hr', hr);
+      set('hrv', asleep ? 96 + wave(t, 13, 12) : clamp(66 - exertion * 34, 0, 140));
+      set('bp', asleep ? 106 : 118 + exertion * 26);
+      set('temp', asleep ? 36.3 : 36.8 + exertion * 0.9, 1);
+      set('resp', asleep ? 12 : 15 + exertion * 16);
+      set('spo2', asleep ? 96 : 98 - exertion * 2);
+      set('glucose', 5.4 + (hour > 8 && hour < 9 ? 2.6 : 0) + wave(t, 17, 0.5), 1);
+      set('stress', asleep ? 8 : clamp(30 + exertion * 40 + wave(t, 23, 14), 0, 100));
+      set('vo2', 46.2 + wave(t, 97, 1.2), 1);
+      set('recovery', asleep ? clamp(30 + hour / 6.5 * 60, 0, 100) : clamp(88 - exertion * 40, 0, 100));
+
+      set('sleepdur', asleep ? hour + 0.5 : 7.2, 1);
+      set('steps', clamp(asleep ? 0 : (hour - 6.5) / 17.5 * 11200, 0, 15000));
+      set('kcal', clamp(asleep ? 0 : (hour - 6.5) / 17.5 * 720, 0, 1200));
+      set('hydration', clamp(asleep ? 0 : (hour - 6.5) / 17.5 * 2300, 0, 3000));
+      set('load', clamp(running ? 140 : 40 + exertion * 60, 0, 200));
+      set('posture', clamp(74 - (hour > 9 && hour < 18 ? (hour - 9) * 2.4 : 0), 0, 100));
+      set('readiness', clamp(82 - exertion * 30 + wave(t, 41, 8), 0, 100));
+
+      const deep = asleep ? 22 + wave(t, 19, 6) : 22;
+      set.seg('sleep', [[deep, '#4b8bf5'], [46, '#7aa7f7'], [18, '#17a673'], [14, '#eceff4']]);
+      set.seg('body', [[42, '#ef4f6b'], [18, '#f0a020'], [34, '#4b8bf5'], [6, '#eceff4']]);
+
+      const move = clamp(asleep ? 4 : (hour - 6.5) / 17.5 * 100, 0, 100);
+      set.seg('rings', [[move, '#ef4f6b'], [clamp(move * 0.8, 0, 100), '#17a673'],
+        [clamp(move * 0.6, 0, 100), '#4b8bf5']]);
+
+      set.text('phase', asleep ? 'SLEEPING' : running ? 'EXERCISE' : hour > 21 ? 'WIND-DOWN' : 'AWAKE');
+      set.text('hr', Math.round(hr) + ' bpm');
+      set.text('steps', Math.round(clamp(asleep ? 0 : (hour - 6.5) / 17.5 * 11200, 0, 15000)).toLocaleString());
+      set.text('kcal', Math.round(clamp(asleep ? 0 : (hour - 6.5) / 17.5 * 720, 0, 1200)) + ' kcal');
+      set.text('note', running ? '◆ ZONE 4 — 58 min' : asleep ? '◆ DEEP SLEEP' : '');
+    },
+  });
+</script>
+</body>
+</html>

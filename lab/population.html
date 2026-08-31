@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Population — cj-knob lab</title>
+<link rel="stylesheet" href="panel.css">
+<style>
+  :root {
+    --bg: #0d0b12; --panel: #16131f; --edge: #272033; --ink: #efeaf7;
+    --dim: #8c82a3; --track: #1d1828; --tick: #443a5c;
+    --a1: #a78bfa; --a2: #5eead4; --a3: #fbbf24; --a4: #f472b6;
+    --bg-image: radial-gradient(1000px 540px at 50% -12%, #221a33 0%, transparent 68%);
+  }
+  h1 { color: var(--a1); }
+</style>
+</head>
+<body>
+<script type="module">
+  import { buildPanel, wave, clamp } from './panel.js';
+
+  const COHORTS = [
+    ['0–14', '#5eead4'], ['15–24', '#a78bfa'], ['25–39', '#fbbf24'], ['40–54', '#f472b6'],
+    ['55–64', '#60a5fa'], ['65–79', '#fb923c'], ['80+', '#94a3b8'], ['100+', '#e2e8f0'],
+  ];
+
+  buildPanel({
+    title: 'demographic model · world population — simulated projection',
+    status: [
+      { id: 'year', lead: true, value: '—' },
+      { id: 'total', label: 'total', value: '—' },
+      { id: 'growth', label: 'growth', value: '—' },
+      { id: 'median', label: 'median age', value: '—' },
+      { id: 'note', flag: true, value: 'illustrative projection, not official data' },
+    ],
+    rows: [
+      {
+        size: 'lg', items: [
+          { id: 'total', cap: 'World population', min: 0, max: 12, sweep: 270,
+            readout: 'value', decimals: 3, ticks: 12, tickMajor: 6, label: 'billion',
+            color: 'var(--a1)', benchmark: 8 },
+          { id: 'pyramid', cap: 'Age structure', readout: 'none', icon: '👥',
+            segments: '25:#5eead4, 16:#a78bfa, 21:#fbbf24, 18:#f472b6, 10:#60a5fa, 10:#fb923c',
+            legend: [['0–14', '#5eead4'], ['15–24', '#a78bfa'], ['25–39', '#fbbf24'],
+                     ['40–54', '#f472b6'], ['55–64', '#60a5fa'], ['65+', '#fb923c']] },
+          { id: 'fertility', cap: 'Fertility rate', min: 0, max: 6, sweep: 270,
+            readout: 'value', decimals: 2, ticks: 12, tickMajor: 6, label: 'births/woman',
+            color: 'var(--a2)', benchmark: 2.1, zones: '0-1.6:#3a1f2e' },
+          { id: 'dependency', cap: 'Dependency ratio', min: 0, max: 100, sweep: 270,
+            readout: 'value', decimals: 1, ticks: 10, tickMajor: 5, label: 'per 100',
+            color: 'var(--a3)', zones: '70-100:#3a1f2e' },
+        ],
+      },
+      {
+        size: 'md',
+        items: COHORTS.map(([name, color], i) => ({
+          id: `g${i}`, cap: name, min: 0, max: 30, sweep: 270, readout: 'value',
+          decimals: 1, ticks: 6, tickMajor: 3, label: '% pop', color,
+        })),
+      },
+      {
+        size: 'md', items: [
+          { id: 'births', cap: 'Births', min: 0, max: 160, sweep: 270, readout: 'value',
+            ticks: 8, tickMajor: 4, label: 'million/yr', color: 'var(--a2)' },
+          { id: 'deaths', cap: 'Deaths', min: 0, max: 160, sweep: 270, readout: 'value',
+            ticks: 8, tickMajor: 4, label: 'million/yr', color: 'var(--a4)' },
+          { id: 'life', cap: 'Life expectancy', min: 40, max: 100, sweep: 270,
+            readout: 'value', decimals: 1, ticks: 6, tickMajor: 3, label: 'years',
+            color: 'var(--a2)' },
+          { id: 'median', cap: 'Median age', min: 0, max: 60, sweep: 270, readout: 'value',
+            decimals: 1, ticks: 6, tickMajor: 3, label: 'years', color: 'var(--a1)' },
+          { id: 'urban', cap: 'Urban share', min: 0, max: 100, sweep: 270, readout: 'value',
+            decimals: 1, ticks: 10, tickMajor: 5, label: '%', color: 'var(--a3)' },
+          { id: 'migration', cap: 'Net migration', min: -20, max: 20, sweep: 240, start: 150,
+            readout: 'value', decimals: 1, ticks: 8, tickMajor: 4, label: 'm/yr',
+            color: 'var(--a1)', benchmark: 0 },
+          { id: 'density', cap: 'Density', min: 0, max: 120, sweep: 270, readout: 'value',
+            ticks: 12, tickMajor: 6, label: '/km²', color: 'var(--a4)' },
+          { id: 'literacy', cap: 'Adult literacy', min: 0, max: 100, sweep: 270,
+            readout: 'value', decimals: 1, ticks: 10, tickMajor: 5, label: '%',
+            color: 'var(--a2)', benchmark: 90 },
+        ],
+      },
+    ],
+
+    // a projection: growth slows, the pyramid inverts, median age climbs
+    tick(t, set) {
+      const YEAR = 5;
+      const year = 2026 + Math.floor(t / YEAR);
+      const era = clamp((t / YEAR) / 74, 0, 1);   // out to 2100
+
+      const total = 8.18 + era * 2.1 - era * era * 0.55;
+      const fert = 2.24 - era * 0.62;
+      const median = 30.9 + era * 11.4;
+
+      set('total', total, 3);
+      set('fertility', clamp(fert, 0, 6), 2);
+      set('median', median, 1);
+      set('life', 73.4 + era * 8.6, 1);
+      set('births', clamp(134 - era * 40, 0, 160));
+      set('deaths', clamp(62 + era * 52, 0, 160));
+      set('urban', clamp(57.3 + era * 22, 0, 100), 1);
+      set('migration', wave(t, 43, 6), 1);
+      set('density', clamp(total * 7.7, 0, 120));
+      set('literacy', clamp(87.2 + era * 9, 0, 100), 1);
+
+      // the cohorts must always add up to 100 % of the population
+      const share = [
+        clamp(24.8 - era * 9, 0, 30), clamp(15.6 - era * 3.4, 0, 30),
+        clamp(21.2 - era * 2.6, 0, 30), clamp(17.6 + era * 0.4, 0, 30),
+        clamp(9.8 + era * 2.4, 0, 30), clamp(8.6 + era * 8.4, 0, 30),
+        clamp(2.3 + era * 3.4, 0, 30), clamp(0.1 + era * 0.5, 0, 30),
+      ];
+      const sum = share.reduce((a, b) => a + b, 0);
+      share.forEach((v, i) => set(`g${i}`, v / sum * 100, 1));
+
+      const young = share[0] / sum * 100;
+      const old = (share[5] + share[6] + share[7]) / sum * 100;
+      set('dependency', (young + old) / (100 - young - old) * 100, 1);
+
+      set.seg('pyramid', COHORTS.slice(0, 6).map(([, c], i) => [share[i], c]));
+
+      set.text('year', String(year));
+      set.text('total', total.toFixed(3) + ' bn');
+      set.text('growth', (0.84 - era * 0.9).toFixed(2) + ' % / yr');
+      set.text('median', median.toFixed(1) + ' yrs');
+    },
+  });
+</script>
+</body>
+</html>

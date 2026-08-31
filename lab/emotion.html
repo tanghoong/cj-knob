@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Emotion — cj-knob lab</title>
+<link rel="stylesheet" href="panel.css">
+<style>
+  :root {
+    --bg: #12101a; --panel: #1b1826; --edge: #2b2740; --ink: #f2eefc;
+    --dim: #9b93b8; --track: #262238; --tick: #453e63;
+    --a1: #ffd166; --a2: #7ee0c0; --a3: #ff8fab; --a4: #9d8cff;
+    --bg-image:
+      radial-gradient(800px 500px at 18% 0%, rgba(157,140,255,.14), transparent 62%),
+      radial-gradient(800px 500px at 82% 100%, rgba(255,143,171,.12), transparent 62%);
+    --radius: 16px;
+  }
+  h1 { color: var(--a4); letter-spacing: .22em; }
+</style>
+</head>
+<body>
+<script type="module">
+  import { buildPanel, wave, clamp } from './panel.js';
+
+  // Plutchik's eight primaries, each with its conventional hue
+  const PRIMARY = [
+    ['joy', '#ffd166', '😊'], ['trust', '#7ee0c0', '🤝'],
+    ['fear', '#7dd3fc', '😰'], ['surprise', '#c4b5fd', '😮'],
+    ['sadness', '#60a5fa', '😢'], ['disgust', '#a3e635', '😖'],
+    ['anger', '#ff6b6b', '😠'], ['anticipation', '#fbbf24', '👀'],
+  ];
+
+  buildPanel({
+    title: 'affective state model · session 4471 — simulation',
+    status: [
+      { id: 'mood', lead: true, value: '—' },
+      { id: 'val', label: 'valence', value: '—' },
+      { id: 'aro', label: 'arousal', value: '—' },
+      { id: 'dom', label: 'dominance', value: '—' },
+      { id: 'note', flag: true, value: '' },
+    ],
+    rows: [
+      {
+        size: 'lg', items: [
+          { id: 'valence', cap: 'Valence', min: -1, max: 1, sweep: 240, start: 150,
+            readout: 'value', decimals: 2, ticks: 8, tickMajor: 4, label: 'neg ↔ pos',
+            color: 'var(--a2)', benchmark: 0 },
+          { id: 'arousal', cap: 'Arousal', min: 0, max: 1, sweep: 240, start: 150,
+            readout: 'value', decimals: 2, ticks: 8, tickMajor: 4, label: 'calm ↔ high',
+            color: 'var(--a3)' },
+          { id: 'blend', cap: 'Emotional blend', readout: 'none', icon: '🎭',
+            segments: '30:#ffd166, 24:#7ee0c0, 20:#9d8cff, 26:#262238',
+            legend: [['joy', '#ffd166'], ['trust', '#7ee0c0'], ['anticip', '#9d8cff'], ['other', '#262238']] },
+          { id: 'regulation', cap: 'Self-regulation', min: 0, max: 100, sweep: 270,
+            readout: 'value', ticks: 10, tickMajor: 5, label: '%', color: 'var(--a4)',
+            benchmark: 60, zones: '0-30:#4a2030' },
+        ],
+      },
+      {
+        size: 'md',
+        items: PRIMARY.map(([name, color, icon]) => ({
+          id: name, cap: name, min: 0, max: 100, sweep: 270, readout: 'value',
+          ticks: 10, tickMajor: 5, label: '%', color, icon: undefined,
+        })),
+      },
+      {
+        size: 'md', items: [
+          { id: 'stress', cap: 'Stress load', min: 0, max: 100, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: '%', color: 'var(--a3)',
+            zones: '70-85:#4a3a20, 85-100:#4a2030' },
+          { id: 'focus', cap: 'Focus', min: 0, max: 100, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: '%', color: 'var(--a2)' },
+          { id: 'energy', cap: 'Energy', min: 0, max: 100, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: '%', color: 'var(--a1)' },
+          { id: 'hrv', cap: 'HRV', min: 0, max: 140, sweep: 270, readout: 'value',
+            ticks: 7, tickMajor: 7, label: 'ms', color: 'var(--a2)', zones: '0-30:#4a2030' },
+          { id: 'social', cap: 'Social battery', min: 0, max: 100, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: '%', color: 'var(--a4)', zones: '0-20:#4a2030' },
+          { id: 'empathy', cap: 'Empathy', min: 0, max: 100, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: '%', color: 'var(--a2)' },
+          { id: 'sleep', cap: 'Sleep debt', min: 0, max: 12, sweep: 270, readout: 'value',
+            decimals: 1, ticks: 6, tickMajor: 3, label: 'h', color: 'var(--a1)',
+            zones: '6-9:#4a3a20, 9-12:#4a2030' },
+          { id: 'resil', cap: 'Resilience', min: 0, max: 100, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: '%', color: 'var(--a4)' },
+        ],
+      },
+    ],
+
+    // a day's mood: one slow valence wave with arousal riding on top, and the eight
+    // primaries derived from where that lands in the valence/arousal plane
+    tick(t, set) {
+      const valence = Math.sin(t / 37) * 0.62 + wave(t, 7, 0.08);
+      const arousal = 0.5 + Math.sin(t / 23 + 1) * 0.34;
+      const dominance = 0.5 + Math.sin(t / 43 + 2) * 0.28;
+
+      set('valence', valence, 2);
+      set('arousal', arousal, 2);
+
+      const pos = clamp((valence + 1) / 2, 0, 1);
+      const hot = arousal;
+      const level = {
+        joy: pos * hot * 100,
+        trust: pos * (1 - hot) * 110,
+        fear: (1 - pos) * hot * 85,
+        surprise: hot * 45 + wave(t, 5, 12),
+        sadness: (1 - pos) * (1 - hot) * 100,
+        disgust: (1 - pos) * 42 + wave(t, 17, 8),
+        anger: (1 - pos) * hot * 70,
+        anticipation: pos * 55 + hot * 24,
+      };
+      for (const [name] of PRIMARY) set(name, clamp(level[name], 0, 100));
+
+      const top = Object.entries(level).sort((a, b) => b[1] - a[1]);
+      set.seg('blend', top.slice(0, 3).map(([n, v], i) =>
+        [v, PRIMARY.find((p) => p[0] === n)[1]]).concat([[
+          Math.max(6, 100 - top.slice(0, 3).reduce((a, x) => a + x[1], 0)), '#262238']]));
+
+      const stress = clamp((1 - pos) * 70 + hot * 30, 0, 100);
+      set('stress', stress);
+      set('focus', clamp(74 - stress * 0.45 + wave(t, 13, 8), 0, 100));
+      set('energy', clamp(68 - stress * 0.3 + wave(t, 29, 14), 0, 100));
+      set('hrv', clamp(74 - stress * 0.5 + wave(t, 11, 9), 0, 140));
+      set('social', clamp(80 - (t % 180) / 180 * 55, 0, 100));
+      set('empathy', clamp(72 + valence * 18, 0, 100));
+      set('sleep', clamp(2.4 + wave(t, 97, 2), 0, 12), 1);
+      set('resil', clamp(70 + valence * 15 - stress * 0.15, 0, 100));
+      set('regulation', clamp(72 + valence * 12 - stress * 0.28 + wave(t, 31, 6), 0, 100));
+
+      set.text('mood', top[0][0].toUpperCase());
+      set.text('val', valence.toFixed(2));
+      set.text('aro', arousal.toFixed(2));
+      set.text('dom', dominance.toFixed(2));
+      set.text('note', stress > 78 ? '◆ ELEVATED STRESS — SUGGEST BREAK' : '');
+    },
+  });
+</script>
+</body>
+</html>

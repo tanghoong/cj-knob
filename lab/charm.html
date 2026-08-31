@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Charm Stats — cj-knob lab</title>
+<link rel="stylesheet" href="panel.css">
+<style>
+  :root {
+    --bg: #1a1220; --panel: #241a2d; --edge: #3a2b47; --ink: #fdeffa;
+    --dim: #b399c4; --track: #302340; --tick: #55416b;
+    --a1: #ff8ec7; --a2: #ffd166; --a3: #8ee6ff; --a4: #c79bff;
+    --bg-image:
+      radial-gradient(800px 520px at 20% 0%, rgba(255,142,199,.16), transparent 62%),
+      radial-gradient(800px 520px at 82% 100%, rgba(199,155,255,.14), transparent 62%);
+    --radius: 18px;
+  }
+  h1 { color: var(--a1); letter-spacing: .2em; }
+  .strip b { color: var(--a1); }
+</style>
+</head>
+<body>
+<script type="module">
+  import { buildPanel, wave, clamp } from './panel.js';
+
+  // a visual-novel / social-sim character sheet: these are a fictional player
+  // character's social stats, the same way a JRPG tracks strength and agility
+  const STATS = [
+    ['charisma', '#ff8ec7'], ['wit', '#ffd166'], ['empathy', '#8ee6ff'],
+    ['style', '#c79bff'], ['confidence', '#ff9f6b'], ['humour', '#a3e635'],
+    ['grace', '#7ee0c0'], ['presence', '#ff6ba6'],
+  ];
+
+  // the cast, and how far each friendship has come
+  const CAST = [
+    ['Yuki', '#ff8ec7', '🌸'], ['Rin', '#8ee6ff', '🎧'], ['Kaede', '#ffd166', '📖'],
+    ['Sora', '#c79bff', '🎮'], ['Mei', '#a3e635', '🌿'], ['Aoi', '#7ee0c0', '☕'],
+  ];
+
+  buildPanel({
+    title: 'social sim · character sheet · chapter 3 — game simulation',
+    status: [
+      { id: 'rank', lead: true, value: '—' },
+      { id: 'day', label: 'day', value: '—' },
+      { id: 'ap', label: 'action points', value: '—' },
+      { id: 'top', label: 'closest', value: '—' },
+      { id: 'event', flag: true, value: '' },
+    ],
+    rows: [
+      {
+        size: 'lg', items: [
+          { id: 'charm', cap: 'Overall charm', min: 0, max: 100, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: 'CHM', color: 'var(--a1)', benchmark: 70 },
+          { id: 'spread', cap: 'Stat spread', readout: 'none', icon: '✨',
+            segments: '22:#ff8ec7, 18:#ffd166, 20:#8ee6ff, 16:#c79bff, 24:#302340',
+            legend: [['charisma', '#ff8ec7'], ['wit', '#ffd166'], ['empathy', '#8ee6ff'],
+                     ['style', '#c79bff'], ['unspent', '#302340']] },
+          { id: 'reputation', cap: 'Reputation', min: 0, max: 100, sweep: 270,
+            readout: 'value', ticks: 10, tickMajor: 5, label: '%', color: 'var(--a4)',
+            zones: '0-25:#4a2030' },
+          { id: 'energy', cap: 'Social energy', min: 0, max: 100, sweep: 270,
+            readout: 'value', ticks: 10, tickMajor: 5, label: '%', color: 'var(--a3)',
+            zones: '0-20:#4a2030', benchmark: 50 },
+        ],
+      },
+      {
+        size: 'md',
+        items: STATS.map(([name, color]) => ({
+          id: name, cap: name, min: 0, max: 100, sweep: 270, readout: 'value',
+          ticks: 10, tickMajor: 5, label: 'pts', color,
+        })),
+      },
+      {
+        size: 'md',
+        items: CAST.map(([name, color, icon]) => ({
+          id: `c-${name}`, cap: name, min: 0, max: 10, sweep: 270, readout: 'value',
+          ticks: 10, tickMajor: 5, label: '♥ lv', color, icon,
+        })).concat([
+          { id: 'quests', cap: 'Side stories', min: 0, max: 18, sweep: 270, readout: 'value',
+            ticks: 9, tickMajor: 3, label: 'of 18', color: 'var(--a2)' },
+          { id: 'luck', cap: 'Luck', min: 0, max: 100, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: '%', color: 'var(--a4)' },
+        ]),
+      },
+    ],
+
+    // a chapter's worth of in-game days: stats grind upward, social energy drains
+    // through each day and refills overnight, affinities climb at different rates
+    tick(t, set) {
+      const DAY = 40;
+      const day = Math.floor(t / DAY) + 1;
+      const u = (t % DAY) / DAY;
+      const progress = clamp(t / 900, 0, 1);
+
+      const level = {};
+      STATS.forEach(([name], i) => {
+        level[name] = clamp(24 + progress * 62 + wave(t, 60 + i * 11, 7, i), 0, 100);
+        set(name, level[name]);
+      });
+
+      const charm = STATS.reduce((a, [n]) => a + level[n], 0) / STATS.length;
+      set('charm', charm);
+      set('reputation', clamp(charm * 0.9 + wave(t, 71, 8), 0, 100));
+      set('energy', clamp(96 - u * 74, 0, 100));
+      set('quests', clamp(Math.floor(progress * 16), 0, 18));
+      set('luck', clamp(50 + wave(t, 13, 34), 0, 100));
+
+      let best = ['—', 0];
+      CAST.forEach(([name], i) => {
+        const aff = clamp(progress * (10 - i * 0.9) + wave(t, 47 + i * 9, 0.7, i), 0, 10);
+        set(`c-${name}`, aff, 0);
+        if (aff > best[1]) best = [name, aff];
+      });
+
+      set.seg('spread', [[level.charisma, '#ff8ec7'], [level.wit, '#ffd166'],
+        [level.empathy, '#8ee6ff'], [level.style, '#c79bff'],
+        [Math.max(20, 340 - charm * 3), '#302340']]);
+
+      const rank = charm > 84 ? 'S' : charm > 72 ? 'A' : charm > 58 ? 'B' : charm > 42 ? 'C' : 'D';
+      set.text('rank', `RANK ${rank}`);
+      set.text('day', `DAY ${day}`);
+      set.text('ap', `${Math.max(0, Math.round(3 - u * 3))} / 3`);
+      set.text('top', `${best[0]} ♥${Math.floor(best[1])}`);
+      set.text('event', clamp(96 - u * 74, 0, 100) < 22 ? '◆ TOO TIRED — REST TO RECOVER AP'
+        : best[1] > 7.5 ? `◆ ${best[0].toUpperCase()} EVENT UNLOCKED` : '');
+    },
+  });
+</script>
+</body>
+</html>

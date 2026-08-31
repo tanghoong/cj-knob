@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Faith Demographics — cj-knob lab</title>
+<link rel="stylesheet" href="panel.css">
+<style>
+  :root {
+    --bg: #0c0a10; --panel: #15121c; --edge: #262030; --ink: #efeaf5;
+    --dim: #8d84a0; --track: #1c1826; --tick: #423a55;
+    --a1: #d9b45c; --a2: #6fb3c9; --a3: #b98cd9; --a4: #7fc79a;
+    --bg-image: radial-gradient(1000px 540px at 50% -12%, #1e1830 0%, transparent 68%);
+  }
+  h1 { color: var(--a1); }
+</style>
+</head>
+<body>
+<script type="module">
+  import { buildPanel, wave, clamp } from './panel.js';
+
+  // World religious demographics, as a neutral statistical board.
+  // Shares are illustrative and rounded — this is a data-visualisation demo,
+  // not a source, and it makes no claim about any tradition.
+  const TRADITIONS = [
+    ['Christianity', 31.1, '#6fb3c9'],
+    ['Islam', 24.9, '#7fc79a'],
+    ['Unaffiliated', 15.6, '#8d84a0'],
+    ['Hinduism', 15.2, '#d9b45c'],
+    ['Buddhism', 6.6, '#e0975c'],
+    ['Folk religions', 5.6, '#b98cd9'],
+    ['Judaism', 0.2, '#8ba6d9'],
+    ['Other', 0.8, '#c9c2d6'],
+  ];
+
+  buildPanel({
+    title: 'world religious demographics · share of population — illustrative figures',
+    status: [
+      { id: 'year', lead: true, value: '—' },
+      { id: 'largest', label: 'largest', value: '—' },
+      { id: 'fastest', label: 'fastest growing', value: '—' },
+      { id: 'median', label: 'median age', value: '—' },
+      { id: 'note', flag: true, value: 'rounded illustrative shares, not a census' },
+    ],
+    rows: [
+      {
+        size: 'lg', items: [
+          { id: 'world', cap: 'Global composition', readout: 'none', icon: '🌐',
+            segments: TRADITIONS.map(([, v, c]) => `${v}:${c}`).join(', '),
+            legend: TRADITIONS.slice(0, 5).map(([n, , c]) => [n.split(' ')[0], c]) },
+          { id: 'adherents', cap: 'Total adherents', min: 0, max: 10, sweep: 270,
+            readout: 'value', decimals: 2, ticks: 10, tickMajor: 5, label: 'billion',
+            color: 'var(--a1)' },
+          { id: 'diversity', cap: 'Religious diversity', min: 0, max: 10, sweep: 270,
+            readout: 'value', decimals: 2, ticks: 10, tickMajor: 5, label: 'index',
+            color: 'var(--a3)', benchmark: 5 },
+          { id: 'freedom', cap: 'Restriction index', min: 0, max: 10, sweep: 270,
+            readout: 'value', decimals: 2, ticks: 10, tickMajor: 5, label: 'gov. limits',
+            color: 'var(--a2)', zones: '6-8:#3a2f16, 8-10:#3a1c22' },
+        ],
+      },
+      {
+        size: 'md',
+        items: TRADITIONS.map(([name, share, color], i) => ({
+          id: `r${i}`, cap: name, min: 0, max: 40, sweep: 270, readout: 'value',
+          decimals: 1, ticks: 8, tickMajor: 4, label: '% world', color,
+        })),
+      },
+      {
+        size: 'md', items: [
+          { id: 'growth', cap: 'Mean growth', min: -2, max: 4, sweep: 240, start: 150,
+            readout: 'value', decimals: 2, ticks: 6, tickMajor: 3, label: '% / decade',
+            color: 'var(--a4)', benchmark: 0 },
+          { id: 'medianage', cap: 'Median age', min: 0, max: 60, sweep: 270,
+            readout: 'value', decimals: 1, ticks: 6, tickMajor: 3, label: 'years',
+            color: 'var(--a1)' },
+          { id: 'switching', cap: 'Net switching', min: -10, max: 10, sweep: 240, start: 150,
+            readout: 'value', decimals: 1, ticks: 8, tickMajor: 4, label: 'M / decade',
+            color: 'var(--a3)', benchmark: 0 },
+          { id: 'urbanshare', cap: 'Urban adherents', min: 0, max: 100, sweep: 270,
+            readout: 'value', decimals: 1, ticks: 10, tickMajor: 5, label: '%',
+            color: 'var(--a2)' },
+          { id: 'attend', cap: 'Weekly attendance', min: 0, max: 100, sweep: 270,
+            readout: 'value', decimals: 1, ticks: 10, tickMajor: 5, label: '% of adherents',
+            color: 'var(--a4)' },
+          { id: 'youth', cap: 'Under 25', min: 0, max: 60, sweep: 270, readout: 'value',
+            decimals: 1, ticks: 6, tickMajor: 3, label: '% of adherents',
+            color: 'var(--a3)' },
+          { id: 'regions', cap: 'By region', readout: 'none', icon: '🗺️',
+            segments: '59:#d9b45c, 16:#7fc79a, 13:#6fb3c9, 7:#b98cd9, 5:#8ba6d9',
+            legend: [['Asia', '#d9b45c'], ['Africa', '#7fc79a'], ['Europe', '#6fb3c9'],
+                     ['Americas', '#b98cd9'], ['Other', '#8ba6d9']] },
+          { id: 'plural', cap: 'Pluralism score', min: 0, max: 100, sweep: 270,
+            readout: 'value', ticks: 10, tickMajor: 5, label: '%', color: 'var(--a2)' },
+        ],
+      },
+    ],
+
+    tick(t, set) {
+      const DECADE = 12;
+      const year = 2026 + Math.floor(t / DECADE) * 10;
+      const era = clamp((t / DECADE) / 8, 0, 1);   // eight decades to 2100
+
+      // shares drift slowly, and are renormalised so they always total 100 %
+      const drift = [-1.4, 4.2, 0.6, -0.6, -1.6, -1.1, 0, -0.1];
+      const shares = TRADITIONS.map(([, v], i) =>
+        Math.max(0, v + drift[i] * era + wave(t, 90 + i * 11, 0.25, i)));
+      const sum = shares.reduce((a, b) => a + b, 0);
+      const norm = shares.map((v) => v / sum * 100);
+
+      norm.forEach((v, i) => set(`r${i}`, v, 1));
+      set.seg('world', TRADITIONS.map(([, , c], i) => [norm[i], c]));
+
+      const total = 8.18 + era * 2.0;
+      set('adherents', total * (1 - norm[2] / 100), 2);
+      set('diversity', 6.2 + era * 0.5, 2);
+      set('freedom', 4.6 + wave(t, 47, 1.1), 2);
+      set('growth', 0.86 - era * 0.5, 2);
+      set('medianage', 30.9 + era * 9.4, 1);
+      set('switching', -3.4 + wave(t, 61, 2), 1);
+      set('urbanshare', 57.4 + era * 20, 1);
+      set('attend', 38.2 - era * 8 + wave(t, 53, 3), 1);
+      set('youth', 41.6 - era * 9, 1);
+      set('plural', clamp(58 + era * 14, 0, 100));
+
+      set.seg('regions', [[59 - era * 6, '#d9b45c'], [16 + era * 9, '#7fc79a'],
+        [13 - era * 3, '#6fb3c9'], [7, '#b98cd9'], [5, '#8ba6d9']]);
+
+      const order = norm.map((v, i) => [TRADITIONS[i][0], v, drift[i]]).sort((a, b) => b[1] - a[1]);
+      set.text('year', String(year));
+      set.text('largest', `${order[0][0]} ${order[0][1].toFixed(1)}%`);
+      set.text('fastest', TRADITIONS[1][0]);
+      set.text('median', (30.9 + era * 9.4).toFixed(1) + ' yrs');
+    },
+  });
+</script>
+</body>
+</html>

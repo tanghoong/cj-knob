@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Singapore Index — cj-knob lab</title>
+<link rel="stylesheet" href="panel.css">
+<style>
+  :root {
+    --bg: #0d0a0c; --panel: #171215; --edge: #2a1f24; --ink: #fdf3f4;
+    --dim: #a08b90; --track: #201a1d; --tick: #4e3a40;
+    --a1: #ef4056; --a2: #f5f5f5; --a3: #f0a830; --a4: #55b8e0;
+    --bg-image:
+      radial-gradient(1000px 540px at 50% -12%, #2b1218 0%, transparent 68%);
+  }
+  h1 { color: var(--a1); }
+  .strip b { color: var(--a2); }
+</style>
+</head>
+<body>
+<script type="module">
+  import { buildPanel, wave, clamp } from './panel.js';
+
+  buildPanel({
+    title: '🇸🇬 singapore · national indicators board — simulated figures',
+    status: [
+      { id: 'quarter', lead: true, value: 'Q3 2026' },
+      { id: 'gdp', label: 'GDP growth', value: '—' },
+      { id: 'cpi', label: 'inflation', value: '—' },
+      { id: 'sti', label: 'STI', value: '—' },
+      { id: 'note', flag: true, value: 'illustrative figures, not official statistics' },
+    ],
+    rows: [
+      {
+        size: 'lg', items: [
+          { id: 'gdp', cap: 'GDP growth', min: -6, max: 10, sweep: 240, start: 150,
+            readout: 'value', decimals: 1, ticks: 8, tickMajor: 4, label: '% yoy',
+            color: 'var(--a1)', benchmark: 0, zones: '-6-0:#3d1820' },
+          { id: 'sectors', cap: 'Economy by sector', readout: 'none', icon: '🏙️',
+            segments: '22:#ef4056, 20:#55b8e0, 14:#f0a830, 13:#8b7bd8, 31:#201a1d',
+            legend: [['manufacturing', '#ef4056'], ['finance', '#55b8e0'],
+                     ['trade', '#f0a830'], ['tourism', '#8b7bd8'], ['other', '#201a1d']] },
+          { id: 'cpi', cap: 'Core inflation', min: -2, max: 8, sweep: 270, readout: 'value',
+            decimals: 1, ticks: 10, tickMajor: 5, label: '% yoy', color: 'var(--a3)',
+            benchmark: 2, zones: '4-6:#3d3218, 6-8:#3d1820' },
+          { id: 'sti', cap: 'Straits Times Index', min: 2500, max: 4500, sweep: 270,
+            readout: 'value', ticks: 8, tickMajor: 4, label: 'pts', color: 'var(--a4)' },
+        ],
+      },
+      {
+        size: 'md', items: [
+          { id: 'unemployment', cap: 'Unemployment', min: 0, max: 8, sweep: 270,
+            readout: 'value', decimals: 1, ticks: 8, tickMajor: 4, label: '%',
+            color: 'var(--a1)', benchmark: 2, zones: '4-8:#3d1820' },
+          { id: 'pmi', cap: 'PMI', min: 40, max: 60, sweep: 270, readout: 'value',
+            decimals: 1, ticks: 10, tickMajor: 5, label: '', color: 'var(--a4)',
+            benchmark: 50, zones: '40-50:#3d1820' },
+          { id: 'nodx', cap: 'Non-oil exports', min: -20, max: 20, sweep: 240, start: 150,
+            readout: 'value', decimals: 1, ticks: 8, tickMajor: 4, label: '% yoy',
+            color: 'var(--a3)', benchmark: 0 },
+          { id: 'sgd', cap: 'SGD / USD', min: 1.15, max: 1.55, sweep: 270,
+            readout: 'value', decimals: 3, ticks: 8, tickMajor: 4, label: '',
+            color: 'var(--a2)' },
+          { id: 'hdb', cap: 'HDB resale index', min: 100, max: 220, sweep: 270,
+            readout: 'value', decimals: 1, ticks: 12, tickMajor: 6, label: '2009 = 100',
+            color: 'var(--a1)' },
+          { id: 'private', cap: 'Private property', min: 100, max: 260, sweep: 270,
+            readout: 'value', decimals: 1, ticks: 8, tickMajor: 4, label: 'index',
+            color: 'var(--a3)' },
+          { id: 'tourists', cap: 'Visitor arrivals', min: 0, max: 20, sweep: 270,
+            readout: 'value', decimals: 1, ticks: 10, tickMajor: 5, label: 'M / yr',
+            color: 'var(--a4)' },
+          { id: 'port', cap: 'Port throughput', min: 0, max: 45, sweep: 270,
+            readout: 'value', decimals: 1, ticks: 9, tickMajor: 3, label: 'M TEU',
+            color: 'var(--a2)' },
+        ],
+      },
+      {
+        size: 'md', items: [
+          { id: 'population', cap: 'Population', min: 0, max: 8, sweep: 270,
+            readout: 'value', decimals: 2, ticks: 8, tickMajor: 4, label: 'million',
+            color: 'var(--a1)' },
+          { id: 'fertility', cap: 'Fertility rate', min: 0, max: 3, sweep: 270,
+            readout: 'value', decimals: 2, ticks: 6, tickMajor: 3, label: 'per woman',
+            color: 'var(--a3)', benchmark: 2.1, zones: '0-1.2:#3d1820' },
+          { id: 'age', cap: 'Median age', min: 20, max: 60, sweep: 270, readout: 'value',
+            decimals: 1, ticks: 8, tickMajor: 4, label: 'years', color: 'var(--a4)' },
+          { id: 'cpf', cap: 'CPF balances', min: 0, max: 800, sweep: 270, readout: 'value',
+            ticks: 8, tickMajor: 4, label: 'S$ bn', color: 'var(--a2)' },
+          { id: 'reserves', cap: 'Official reserves', min: 0, max: 600, sweep: 270,
+            readout: 'value', ticks: 6, tickMajor: 3, label: 'US$ bn', color: 'var(--a4)' },
+          { id: 'solar', cap: 'Solar deployed', min: 0, max: 2000, sweep: 270,
+            readout: 'value', ticks: 10, tickMajor: 5, label: 'MWp', color: 'var(--a3)' },
+          { id: 'transit', cap: 'Public transport', min: 0, max: 100, sweep: 270,
+            readout: 'value', decimals: 1, ticks: 10, tickMajor: 5, label: '% of trips',
+            color: 'var(--a4)', benchmark: 75 },
+          { id: 'green', cap: 'Green cover', min: 0, max: 100, sweep: 270, readout: 'value',
+            decimals: 1, ticks: 10, tickMajor: 5, label: '% land', color: 'var(--a2)' },
+        ],
+      },
+    ],
+
+    tick(t, set) {
+      const cycle = Math.sin(t / 43);
+
+      set('gdp', 2.6 + cycle * 2.4, 1);
+      set('cpi', 2.4 + cycle * 1.1, 1);
+      set('sti', 3720 + cycle * 240 + wave(t, 7, 30));
+      set('unemployment', 2.1 - cycle * 0.5, 1);
+      set('pmi', 50.6 + cycle * 3.2, 1);
+      set('nodx', 4.2 + cycle * 11, 1);
+      set('sgd', 1.316 - cycle * 0.05, 3);
+      set('hdb', 186 + wave(t, 91, 5), 1);
+      set('private', 208 + wave(t, 87, 6), 1);
+      set('tourists', 15.4 + cycle * 2.2, 1);
+      set('port', 39.2 + cycle * 2.6, 1);
+      set('population', 6.04 + wave(t, 200, 0.06), 2);
+      set('fertility', 0.97 + wave(t, 170, 0.05), 2);
+      set('age', 43.2 + wave(t, 210, 0.4), 1);
+      set('cpf', 612 + wave(t, 130, 14));
+      set('reserves', 384 + cycle * 22);
+      set('solar', 1280 + wave(t, 150, 90));
+      set('transit', 74.6 + wave(t, 97, 2), 1);
+      set('green', 47.2 + wave(t, 180, 1.4), 1);
+
+      const mfg = 22 + cycle * 2;
+      set.seg('sectors', [[mfg, '#ef4056'], [20, '#55b8e0'], [14, '#f0a830'],
+        [13, '#8b7bd8'], [31, '#201a1d']]);
+
+      set.text('gdp', (2.6 + cycle * 2.4).toFixed(1) + ' %');
+      set.text('cpi', (2.4 + cycle * 1.1).toFixed(1) + ' %');
+      set.text('sti', Math.round(3720 + cycle * 240).toLocaleString());
+    },
+  });
+</script>
+</body>
+</html>

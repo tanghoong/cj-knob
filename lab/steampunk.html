@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Steampunk — cj-knob lab</title>
+<style>
+  :root {
+    color-scheme: light;
+    --wood: #2a1c10;
+    --plate: #6b4a24;
+    --brass: #c9962c;
+    --brass-hi: #f0cc72;
+    --face: #f2e3c2;
+    --face-sh: #d8c199;
+    --ink: #2b1c0c;
+    --dim: #7a5a30;
+    --red: #a8271c;
+    --green: #4a6b28;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; color: var(--ink);
+    font: 13px/1.4 "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    padding: .9rem; display: flex; flex-direction: column; gap: .7rem;
+    background:
+      radial-gradient(1200px 700px at 50% -10%, #4a3218 0%, transparent 70%),
+      repeating-linear-gradient(94deg, #241708 0 6px, #2c1d0d 6px 13px),
+      var(--wood);
+  }
+  @media (min-width: 900px) and (min-height: 640px) {
+    body { height: 100vh; overflow: hidden; }
+    .row { min-height: 0; }
+    .primary { flex: 1.25; }
+    .secondary { flex: 1; }
+    .primary cj-knob { --cj-size: min(252px, 32vh); }
+    .secondary cj-knob { --cj-size: min(122px, 15vh); }
+  }
+
+  h1 {
+    margin: 0; font-size: 15px; letter-spacing: .28em; text-transform: uppercase;
+    color: var(--brass-hi); text-shadow: 0 1px 0 #3a2611;
+  }
+
+  .plaque {
+    display: flex; flex-wrap: wrap; gap: 1.5rem; align-items: baseline;
+    padding: .5rem 1rem; border-radius: 4px;
+    background: linear-gradient(#7d5828, #5a3d1b);
+    border: 1px solid #3a2611;
+    box-shadow: inset 0 1px 0 #a5762f, 0 2px 6px rgba(0,0,0,.5);
+    font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: #f0dcae;
+  }
+  .plaque b { color: #fff3d4; }
+
+  .row { display: grid; gap: .7rem; }
+  .primary { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+  .secondary { grid-template-columns: repeat(auto-fit, minmax(122px, 1fr)); }
+
+  /* a brass bezel with rivets, wrapped around a cream enamel dial face */
+  .gauge { min-height: 0;
+    display: grid; justify-items: center; align-content: center; gap: .45rem;
+    padding: .7rem .5rem .6rem; border-radius: 12px;
+    background: linear-gradient(#8a6329, #5d4019);
+    border: 1px solid #33210f;
+    box-shadow: inset 0 1px 0 #b9873a, inset 0 -8px 18px rgba(0,0,0,.35), 0 3px 8px rgba(0,0,0,.45);
+    position: relative;
+  }
+  .gauge::after {
+    content: ''; position: absolute; inset: 6px; border-radius: 8px; pointer-events: none;
+    background:
+      radial-gradient(circle at 7px 7px, #f0cc72 0 2px, transparent 2.6px),
+      radial-gradient(circle at calc(100% - 7px) 7px, #f0cc72 0 2px, transparent 2.6px),
+      radial-gradient(circle at 7px calc(100% - 7px), #f0cc72 0 2px, transparent 2.6px),
+      radial-gradient(circle at calc(100% - 7px) calc(100% - 7px), #f0cc72 0 2px, transparent 2.6px);
+    opacity: .75;
+  }
+  .dial {
+    border-radius: 50%; padding: 4px;
+    background: radial-gradient(circle at 34% 26%, #fffaf0 0%, var(--face) 48%, var(--face-sh) 100%);
+    box-shadow: inset 0 0 0 3px #b98a35, inset 0 3px 10px rgba(90,60,20,.35), 0 2px 5px rgba(0,0,0,.4);
+    display: grid; place-items: center;
+  }
+  .cap {
+    font-size: 10px; letter-spacing: .18em; text-transform: uppercase;
+    color: #f0dcae; text-shadow: 0 1px 0 #33210f;
+  }
+
+  cj-knob {
+    --cj-track: #cdb894;
+    --cj-value: var(--red);
+    --cj-text: var(--ink);
+    --cj-muted: var(--dim);
+    --cj-tick: #6b4a24;
+    --cj-tick-width: 1;
+    --cj-duration: 420ms;
+    --cj-size: 122px;
+    --cj-thickness: 6;
+  }
+  .primary cj-knob { --cj-size: 190px; --cj-thickness: 5; }
+</style>
+</head>
+<body>
+
+<h1>Boiler House № 4 — Gauge Board</h1>
+
+<div class="plaque">
+  <span>Works Pressure <b id="p-psi">—</b></span>
+  <span>Steam <b id="p-temp">—</b></span>
+  <span>Flywheel <b id="p-rpm">—</b></span>
+  <span>Water <b id="p-water">—</b></span>
+  <span id="p-alarm"></span>
+</div>
+
+<div class="row primary">
+  <div class="gauge">
+    <div class="dial">
+      <cj-knob id="psi" min="0" max="250" value="164" sweep="270" readout="value"
+               ticks="10" tick-major="2" color="#a8271c"
+               zones="200-225:#c9962c, 225-250:#a8271c" benchmark="180"
+               label="lbs / sq in"></cj-knob>
+    </div>
+    <div class="cap">Boiler pressure</div>
+  </div>
+  <div class="gauge">
+    <div class="dial">
+      <cj-knob id="temp" min="0" max="400" value="286" sweep="270" readout="value"
+               ticks="8" tick-major="2" color="#a8271c"
+               zones="340-370:#c9962c, 370-400:#a8271c" label="degrees F"></cj-knob>
+    </div>
+    <div class="cap">Steam temperature</div>
+  </div>
+  <div class="gauge">
+    <div class="dial">
+      <cj-knob id="rpm" min="0" max="120" value="74" sweep="270" readout="value"
+               ticks="12" tick-major="2" color="#4a6b28"
+               zones="100-110:#c9962c, 110-120:#a8271c" label="revolutions"></cj-knob>
+    </div>
+    <div class="cap">Flywheel</div>
+  </div>
+  <div class="gauge">
+    <div class="dial">
+      <cj-knob id="water" min="0" max="100" value="68" sweep="270" readout="value"
+               ticks="10" tick-major="5" color="#2f5d7a"
+               zones="0-25:#a8271c, 25-40:#c9962c" benchmark="60" label="gauge glass"></cj-knob>
+    </div>
+    <div class="cap">Water level</div>
+  </div>
+</div>
+
+<div class="row secondary">
+  <div class="gauge">
+    <div class="dial">
+      <cj-knob id="vac" min="-30" max="0" value="-22" sweep="240" start="150" readout="value"
+               ticks="6" tick-major="3" color="#2f5d7a" label="in Hg"></cj-knob>
+    </div>
+    <div class="cap">Condenser</div>
+  </div>
+  <div class="gauge">
+    <div class="dial">
+      <cj-knob id="furnace" min="0" max="2000" value="1340" sweep="270" readout="value"
+               ticks="8" tick-major="4" color="#a8271c" label="°F"></cj-knob>
+    </div>
+    <div class="cap">Furnace</div>
+  </div>
+  <div class="gauge">
+    <div class="dial">
+      <cj-knob id="gov" min="0" max="100" value="52" sweep="270" readout="value"
+               ticks="10" tick-major="5" color="#4a6b28" label="cut-off"></cj-knob>
+    </div>
+    <div class="cap">Governor</div>
+  </div>
+  <div class="gauge">
+    <div class="dial">
+      <cj-knob id="coal" readout="none" label="bunker"
+               segments="38:#3a2a18, 27:#6b4a24, 21:#c9962c"></cj-knob>
+    </div>
+    <div class="cap">Coal bunkers</div>
+  </div>
+  <div class="gauge">
+    <div class="dial">
+      <cj-knob id="draft" min="0" max="2" value="0.9" sweep="270" readout="value" decimals="2"
+               ticks="8" tick-major="4" color="#2f5d7a" label="in H₂O"></cj-knob>
+    </div>
+    <div class="cap">Draught</div>
+  </div>
+  <div class="gauge">
+    <div class="dial">
+      <cj-knob id="feed" min="0" max="300" value="186" sweep="270" readout="value"
+               ticks="6" tick-major="3" color="#a8271c" label="psi"></cj-knob>
+    </div>
+    <div class="cap">Feed pump</div>
+  </div>
+  <div class="gauge">
+    <div class="dial">
+      <cj-knob id="belt" min="0" max="60" value="41" sweep="270" readout="value"
+               ticks="6" tick-major="6" color="#4a6b28" label="ft/s"></cj-knob>
+    </div>
+    <div class="cap">Belt speed</div>
+  </div>
+  <div class="gauge">
+    <div class="dial">
+      <cj-knob id="lube" min="0" max="100" value="83" sweep="270" readout="value"
+               ticks="10" tick-major="5" color="#7a5a30" zones="0-20:#a8271c" label="reservoir"></cj-knob>
+    </div>
+    <div class="cap">Lubricator</div>
+  </div>
+</div>
+
+<script type="module">
+  import '../src/cj-knob.js';
+
+  const $ = (id) => document.getElementById(id);
+  const wave = (t, period, amp, phase = 0) => Math.sin(t / period + phase) * amp;
+  const t0 = performance.now();
+
+  function frame(now) {
+    const t = (now - t0) / 1000;
+
+    // one boiler: pressure leads, everything else follows it
+    const psi = 164 + wave(t, 19, 38) + wave(t, 3.1, 5);
+    const rpm = 74 + (psi - 164) * 0.42;
+    const temp = 286 + (psi - 164) * 0.5;
+
+    $('psi').value = psi.toFixed(0);
+    $('temp').value = temp.toFixed(0);
+    $('rpm').value = rpm.toFixed(0);
+    $('water').value = (68 + wave(t, 13, 14)).toFixed(0);
+    $('vac').value = (-22 + wave(t, 23, 4)).toFixed(0);
+    $('furnace').value = (1340 + wave(t, 17, 190)).toFixed(0);
+    $('gov').value = (52 + (psi - 164) * -0.3).toFixed(0);
+    $('draft').value = (0.9 + wave(t, 11, 0.25)).toFixed(2);
+    $('feed').value = (psi + 22).toFixed(0);
+    $('belt').value = (rpm * 0.55).toFixed(0);
+    $('lube').value = (83 + wave(t, 61, 9)).toFixed(0);
+
+    $('p-psi').textContent = Math.round(psi) + ' psi';
+    $('p-temp').textContent = Math.round(temp) + ' °F';
+    $('p-rpm').textContent = Math.round(rpm) + ' rev';
+    $('p-water').textContent = Math.round(68 + wave(t, 13, 14)) + ' %';
+    $('p-alarm').innerHTML = psi > 200
+      ? '<b style="color:#ffb3a8">⚠ RELIEF VALVE LIFTING</b>' : '';
+
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+</script>
+
+</body>
+</html>

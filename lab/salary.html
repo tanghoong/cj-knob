@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Salary — cj-knob lab</title>
+<link rel="stylesheet" href="panel.css">
+<style>
+  :root {
+    --bg: #f8f9fb; --panel: #ffffff; --edge: #e4e8ee; --ink: #101828;
+    --dim: #667085; --track: #edf0f4; --tick: #c9d0da;
+    --a1: #2563eb; --a2: #0f9d58; --a3: #e8890c; --a4: #8b5cf6;
+    --radius: 12px;
+    --cell-shadow: 0 1px 2px rgba(16,24,40,.05);
+    color-scheme: light;
+    --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  h1 { color: var(--dim); }
+  .strip b { color: var(--a1); }
+</style>
+</head>
+<body>
+<script type="module">
+  import { buildPanel, wave, clamp } from './panel.js';
+
+  const LEVELS = [
+    ['intern', '#c9d0da'], ['junior', '#93b8f7'], ['mid', '#2563eb'], ['senior', '#1d4ed8'],
+    ['staff', '#8b5cf6'], ['principal', '#7c3aed'], ['director', '#0f9d58'], ['VP', '#e8890c'],
+  ];
+
+  buildPanel({
+    title: 'compensation bands · software engineering · MYR — simulated market data',
+    status: [
+      { id: 'band', lead: true, value: '—' },
+      { id: 'median', label: 'market median', value: '—' },
+      { id: 'range', label: 'p25 – p75', value: '—' },
+      { id: 'compa', label: 'compa-ratio', value: '—' },
+      { id: 'note', flag: true, value: 'illustrative bands, not a salary survey' },
+    ],
+    rows: [
+      {
+        size: 'lg', items: [
+          { id: 'total', cap: 'Total compensation', min: 0, max: 600, sweep: 270,
+            readout: 'value', ticks: 12, tickMajor: 6, label: 'k MYR', color: 'var(--a1)',
+            benchmark: 240 },
+          { id: 'split', cap: 'Package split', readout: 'none', icon: '💵',
+            segments: '62:#2563eb, 18:#0f9d58, 12:#8b5cf6, 8:#e8890c',
+            legend: [['base', '#2563eb'], ['bonus', '#0f9d58'], ['equity', '#8b5cf6'], ['benefits', '#e8890c']] },
+          { id: 'compa', cap: 'Compa-ratio', min: 0.6, max: 1.4, sweep: 270,
+            readout: 'value', decimals: 2, ticks: 8, tickMajor: 4, label: 'vs midpoint',
+            color: 'var(--a2)', benchmark: 1, zones: '0.6-0.8:#fdeaea, 1.2-1.4:#fdf3e0' },
+          { id: 'percentile', cap: 'Market position', min: 0, max: 100, sweep: 270,
+            readout: 'value', ticks: 10, tickMajor: 5, label: 'percentile',
+            color: 'var(--a4)', benchmark: 50 },
+        ],
+      },
+      {
+        size: 'md',
+        items: LEVELS.map(([name, color], i) => ({
+          id: `l${i}`, cap: name, min: 0, max: 600, sweep: 270, readout: 'value',
+          ticks: 6, tickMajor: 3, label: 'k', color,
+        })),
+      },
+      {
+        size: 'md', items: [
+          { id: 'raise', cap: 'Annual increase', min: 0, max: 20, sweep: 270,
+            readout: 'value', decimals: 1, ticks: 10, tickMajor: 5, label: '%',
+            color: 'var(--a2)', benchmark: 5 },
+          { id: 'inflation', cap: 'Inflation', min: 0, max: 10, sweep: 270, readout: 'value',
+            decimals: 1, ticks: 10, tickMajor: 5, label: '%', color: 'var(--a3)' },
+          { id: 'real', cap: 'Real wage change', min: -6, max: 12, sweep: 240, start: 150,
+            readout: 'value', decimals: 1, ticks: 9, tickMajor: 3, label: '%',
+            color: 'var(--a2)', benchmark: 0, zones: '-6-0:#fdeaea' },
+          { id: 'gap', cap: 'Pay equity gap', min: 0, max: 25, sweep: 270, readout: 'value',
+            decimals: 1, ticks: 5, tickMajor: 5, label: '%', color: 'var(--a3)',
+            zones: '10-18:#fdf3e0, 18-25:#fdeaea' },
+          { id: 'attrition', cap: 'Regretted attrition', min: 0, max: 30, sweep: 270,
+            readout: 'value', decimals: 1, ticks: 6, tickMajor: 3, label: '%',
+            color: 'var(--a1)', zones: '15-30:#fdeaea' },
+          { id: 'offer', cap: 'Offer accept rate', min: 0, max: 100, sweep: 270,
+            readout: 'value', ticks: 10, tickMajor: 5, label: '%', color: 'var(--a2)',
+            benchmark: 80 },
+          { id: 'ttf', cap: 'Time to fill', min: 0, max: 120, sweep: 270, readout: 'value',
+            ticks: 12, tickMajor: 6, label: 'days', color: 'var(--a3)',
+            zones: '80-120:#fdeaea' },
+          { id: 'budget', cap: 'Merit budget used', min: 0, max: 120, sweep: 270,
+            readout: 'value', ticks: 12, tickMajor: 6, label: '%', color: 'var(--a4)',
+            benchmark: 100, zones: '100-120:#fdeaea' },
+        ],
+      },
+    ],
+
+    tick(t, set) {
+      const BANDS = [42, 84, 138, 208, 296, 392, 468, 552];
+      BANDS.forEach((b, i) => set(`l${i}`, b + wave(t, 40 + i * 6, b * 0.05, i)));
+
+      const idx = 3 + Math.floor((Math.sin(t / 29) + 1) * 2);   // the band in focus
+      const total = BANDS[idx] + wave(t, 40 + idx * 6, BANDS[idx] * 0.05, idx);
+      const compa = 0.98 + wave(t, 37, 0.14);
+
+      set('total', total);
+      set('compa', compa, 2);
+      set('percentile', clamp(52 + wave(t, 41, 26), 0, 100));
+
+      const raise = 6.2 + wave(t, 53, 2.6);
+      const infl = 3.1 + wave(t, 71, 1.2);
+      set('raise', raise, 1);
+      set('inflation', infl, 1);
+      set('real', raise - infl, 1);
+      set('gap', 8.4 + wave(t, 89, 2.2), 1);
+      set('attrition', 9.6 + wave(t, 61, 3.4), 1);
+      set('offer', clamp(78 + wave(t, 47, 12), 0, 100));
+      set('ttf', 48 + wave(t, 43, 18));
+      set('budget', clamp(84 + wave(t, 67, 18), 0, 120));
+
+      const base = 62 + wave(t, 59, 5);
+      set.seg('split', [[base, '#2563eb'], [18, '#0f9d58'], [12, '#8b5cf6'], [8, '#e8890c']]);
+
+      set.text('band', LEVELS[idx][0].toUpperCase() + ' BAND');
+      set.text('median', 'RM ' + Math.round(total) + 'k');
+      set.text('range', `RM ${Math.round(total * 0.82)}k – ${Math.round(total * 1.19)}k`);
+      set.text('compa', compa.toFixed(2));
+    },
+  });
+</script>
+</body>
+</html>

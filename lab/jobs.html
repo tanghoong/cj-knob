@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jobs — cj-knob lab</title>
+<link rel="stylesheet" href="panel.css">
+<style>
+  :root {
+    --bg: #0b0c10; --panel: #14161c; --edge: #232733; --ink: #e9edf5;
+    --dim: #7b8496; --track: #1c202a; --tick: #39404f;
+    --a1: #7c9cff; --a2: #46d17a; --a3: #ffbe4d; --a4: #d78bff;
+    --bg-image: radial-gradient(1000px 520px at 50% -12%, #191d29 0%, transparent 68%);
+  }
+</style>
+</head>
+<body>
+<script type="module">
+  import { buildPanel, wave, clamp } from './panel.js';
+
+  const QUEUES = [
+    ['email', '#7c9cff'], ['thumbs', '#46d17a'], ['export', '#ffbe4d'],
+    ['index', '#d78bff'], ['webhook', '#4bd6d6'], ['billing', '#ff7d7d'],
+    ['report', '#a3e635'], ['cleanup', '#8f9bb3'],
+  ];
+
+  buildPanel({
+    title: 'job runner · 24 workers · redis streams — simulation',
+    status: [
+      { id: 'rate', lead: true, value: '—' },
+      { id: 'depth', label: 'queued', value: '—' },
+      { id: 'busy', label: 'workers', value: '—' },
+      { id: 'fail', label: 'fail rate', value: '—' },
+      { id: 'oldest', label: 'oldest', value: '—' },
+      { id: 'warn', flag: true, value: '' },
+    ],
+    rows: [
+      {
+        size: 'lg', items: [
+          { id: 'throughput', cap: 'Throughput', min: 0, max: 5000, sweep: 270,
+            readout: 'value', ticks: 10, tickMajor: 5, label: 'jobs/min', color: 'var(--a2)' },
+          { id: 'backlog', cap: 'Backlog', min: 0, max: 50000, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: 'queued', color: 'var(--a1)',
+            zones: '30000-42000:#4a3a1a, 42000-50000:#4a2028', benchmark: 40000 },
+          { id: 'outcome', cap: 'Outcomes', readout: 'none', icon: '⚙️',
+            segments: '88:#46d17a, 7:#ffbe4d, 5:#ff7d7d',
+            legend: [['ok', '#46d17a'], ['retry', '#ffbe4d'], ['failed', '#ff7d7d']] },
+          { id: 'workers', cap: 'Worker pool', min: 0, max: 24, sweep: 270, readout: 'value',
+            ticks: 12, tickMajor: 6, label: 'busy', color: 'var(--a4)',
+            zones: '22-24:#4a3a1a', benchmark: 24 },
+        ],
+      },
+      {
+        size: 'md',
+        items: QUEUES.map(([name, color]) => ({
+          id: name, cap: name, min: 0, max: 100, sweep: 270, readout: 'value',
+          ticks: 10, tickMajor: 5, label: '% cap', color,
+          zones: '90-100:#4a2028',
+        })),
+      },
+      {
+        size: 'md', items: [
+          { id: 'p50', cap: 'p50 latency', min: 0, max: 2000, sweep: 270, readout: 'value',
+            ticks: 8, tickMajor: 4, label: 'ms', color: 'var(--a2)' },
+          { id: 'p95', cap: 'p95 latency', min: 0, max: 10000, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: 'ms', color: 'var(--a3)',
+            zones: '6000-8000:#4a3a1a, 8000-10000:#4a2028' },
+          { id: 'p99', cap: 'p99 latency', min: 0, max: 30000, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: 'ms', color: 'var(--a3)',
+            zones: '20000-30000:#4a2028' },
+          { id: 'retry', cap: 'Retry rate', min: 0, max: 30, sweep: 270, readout: 'value',
+            decimals: 1, ticks: 6, tickMajor: 3, label: '%', color: 'var(--a3)',
+            zones: '15-22:#4a3a1a, 22-30:#4a2028' },
+          { id: 'dlq', cap: 'Dead letter', min: 0, max: 2000, sweep: 270, readout: 'value',
+            ticks: 8, tickMajor: 4, label: 'jobs', color: 'var(--a1)', zones: '1000-2000:#4a2028' },
+          { id: 'sched', cap: 'Scheduled', min: 0, max: 20000, sweep: 270, readout: 'value',
+            ticks: 10, tickMajor: 5, label: 'pending', color: 'var(--a4)' },
+          { id: 'lag', cap: 'Consumer lag', min: 0, max: 120, sweep: 270, readout: 'value',
+            ticks: 12, tickMajor: 6, label: 's', color: 'var(--a1)',
+            zones: '60-90:#4a3a1a, 90-120:#4a2028' },
+          { id: 'sla', cap: 'Within SLA', min: 0, max: 100, sweep: 270, readout: 'value',
+            decimals: 1, ticks: 10, tickMajor: 5, label: '%', color: 'var(--a2)',
+            benchmark: 99, zones: '0-95:#4a2028' },
+        ],
+      },
+    ],
+
+    interval: 260,
+
+    // a traffic wave rolls through: arrivals rise, the pool saturates, the backlog
+    // builds, latency follows the backlog, and retries climb with it
+    tick(t, set) {
+      const arrivals = 3000 + wave(t, 47, 1900) + wave(t, 9, 220);
+      const capacity = 3600;
+      const busy = clamp(arrivals / capacity * 24, 0, 24);
+      const saturated = clamp((arrivals - capacity) / capacity, 0, 1);
+      const backlog = clamp(4000 + saturated * 44000 + wave(t, 13, 1400), 0, 50000);
+      const throughput = Math.min(arrivals, capacity);
+
+      set('throughput', throughput);
+      set('backlog', backlog);
+      set('workers', busy);
+      set('p50', 120 + saturated * 900);
+      set('p95', 700 + saturated * 7200);
+      set('p99', 1900 + saturated * 24000);
+      set('retry', 2.4 + saturated * 18, 1);
+      set('dlq', 180 + saturated * 900);
+      set('sched', 7400 + wave(t, 61, 2600));
+      set('lag', saturated * 96 + wave(t, 7, 4));
+      set('sla', clamp(99.9 - saturated * 9, 0, 100), 1);
+
+      QUEUES.forEach(([name], i) => {
+        const v = clamp(38 + saturated * 50 + wave(t, 11 + i * 2.4, 26, i), 0, 100);
+        set(name, v);
+        set.attr(name, 'color', v > 90 ? 'var(--bad)' : QUEUES[i][1]);
+      });
+
+      const failed = 1 + saturated * 7;
+      const retried = 3 + saturated * 12;
+      set.seg('outcome', [[100 - failed - retried, '#46d17a'], [retried, '#ffbe4d'], [failed, '#ff7d7d']]);
+
+      set.text('rate', Math.round(throughput).toLocaleString() + ' /min');
+      set.text('depth', Math.round(backlog).toLocaleString());
+      set.text('busy', `${Math.round(busy)} / 24`);
+      set.text('fail', failed.toFixed(1) + ' %');
+      set.text('oldest', (saturated * 96).toFixed(0) + ' s');
+      set.text('warn', saturated > 0.55 ? '▲ QUEUE SATURATED — SCALE OUT' : '');
+    },
+  });
+</script>
+</body>
+</html>
