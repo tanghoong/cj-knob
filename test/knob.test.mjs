@@ -430,6 +430,57 @@ check('the tail is one conic gradient', trail.hasGradient);
 check('the leading edge line is drawn while sweeping', trail.lineVisible);
 check('each contact carries a halo for the ping', trail.blipParts > 0, String(trail.blipParts));
 
+// --- liquid fill and the centre-mounted hand ---
+const fluid = await page.evaluate(async () => {
+  const k = document.createElement('cj-knob');
+  k.setAttribute('liquid', '');
+  k.setAttribute('value', '0');
+  k.style.setProperty('--cj-duration', '0ms');
+  document.body.append(k);
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+  const liquid = k.shadowRoot.querySelector('.liquid');
+  const path = k.shadowRoot.querySelector('.wave-a').getAttribute('d');
+  // the wave has to stay wider than the vessel at every drift offset, or sliding
+  // it left drags its right-hand edge into the circle and the fluid "empties"
+  const xs = [...path.matchAll(/M?(-?\d+),/g)].map((m) => +m[1]);
+  const empty = liquid.style.getPropertyValue('--cj-level');
+  k.setAttribute('value', '100');
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const full = liquid.style.getPropertyValue('--cj-level');
+  const shown = !liquid.hasAttribute('hidden');
+  k.remove();
+  return { shown, empty: parseFloat(empty), full: parseFloat(full),
+           minX: Math.min(...xs), maxX: Math.max(...xs) };
+});
+check('liquid renders when the attribute is set', fluid.shown);
+check('an empty vessel puts the surface below the bottom', fluid.empty === 33, `${fluid.empty}px`);
+check('a full vessel puts the surface at the top', fluid.full === -33, `${fluid.full}px`);
+check('the wave spans wider than the vessel', fluid.minX <= -34 && fluid.maxX >= 134,
+  `${fluid.minX}..${fluid.maxX}`);
+
+const hand = await page.evaluate(async () => {
+  const k = document.createElement('cj-knob');
+  k.setAttribute('needle', 'hand');
+  k.setAttribute('value', '25');
+  document.body.append(k);
+  await new Promise((r) => requestAnimationFrame(r));
+  const r = k.shadowRoot;
+  const out = {
+    handShown: getComputedStyle(r.querySelector('.needle .hand')).display !== 'none',
+    markHidden: getComputedStyle(r.querySelector('.needle .mark')).display === 'none',
+    hub: !r.querySelector('.hub').hasAttribute('hidden'),
+  };
+  k.setAttribute('needle', '');
+  out.markBack = getComputedStyle(r.querySelector('.needle .mark')).display !== 'none';
+  k.remove();
+  return out;
+});
+check('needle="hand" draws the centre hand', hand.handShown);
+check('needle="hand" hides the rim marker', hand.markHidden);
+check('the hand gets a hub to pivot on', hand.hub);
+check('plain needle goes back to the rim marker', hand.markBack);
+
 check('still no page errors at end', errors.length === 0, errors.join(' | '));
 
 await browser.close();
