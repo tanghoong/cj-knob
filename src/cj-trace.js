@@ -94,13 +94,24 @@ template.innerHTML = `
   .pen { fill: var(--cj-pen); }
   .pen[hidden] { display: none; }
 
-  /* the readout rides in a corner of a strip, and in the middle of a ring */
+  /* The readout rides in a corner of a strip, and in the middle of a ring.
+     Top-left by default: a resting trace sits low and only spikes upward for a
+     few samples at a time, so the top corner is clear almost always, while the
+     bottom corner is sitting directly on the baseline. readout-at="bottom right"
+     and the other three combinations move it, for signals that live the other
+     way up. */
   .center {
     position: absolute;
-    inset-block-end: 6%;
-    inset-inline-start: 4%;
+    inset-block-start: 6%;
+    inset-inline-start: 5%;
     line-height: 1.05;
     pointer-events: none;
+  }
+  :host([readout-at~="bottom"]) .center { inset-block-start: auto; inset-block-end: 6%; }
+  :host([readout-at~="right"]) .center {
+    inset-inline-start: auto;
+    inset-inline-end: 5%;
+    text-align: end;
   }
   :host([shape="ring"]) .center {
     inset: 0;

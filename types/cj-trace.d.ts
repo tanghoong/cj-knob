@@ -21,7 +21,8 @@ export declare class CJTrace extends HTMLElement {
   /**
    * Presentational attributes with no property mirror:
    * `shape` (`"line"` | `"ring"`), `mode` (`"sweep"` | `"scroll"`), `points`,
-   * `rate`, `sweep`, `start`, `amplitude`, `grid`, `pen`, `readout`, `unit`,
+   * `rate`, `sweep`, `start`, `amplitude`, `grid`, `pen`, `readout`,
+   * `readout-at` (`"top left"` and the other three corners), `unit`,
    * `decimals`, `label`, `color`. Set them with `setAttribute`.
    */
 }

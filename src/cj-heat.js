@@ -13,6 +13,11 @@
 // rows= splits the list into concentric rings, oldest outermost, which turns the
 // same data into a polar calendar: seven rows of twenty-four is a week you can
 // read the daily rhythm off at a glance.
+//
+// shape="bars" draws each value as a tower standing off a baseline circle instead
+// of a block of colour. Three hundred and sixty-five of them is a year you can
+// read like a skyline — length carries the value, colour carries it again, and
+// the two together survive being looked at from across the room.
 // -------------------------------------------------
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -37,6 +42,14 @@ const mixColor = (a, b, t) =>
   `rgb(${a.map((x, i) => Math.round(x + (b[i] - x) * t)).join(',')})`;
 
 const DEFAULT_SCALE = '#123f6d,#1f6feb,#3fb950,#d29922,#f85149';
+// On a bar ring the length already carries the value, so colouring it again
+// across a five-stop rainbow says the same thing twice and three hundred towers
+// of it read as noise. One hue deepening is enough to add depth without
+// competing with the shape.
+// The ramp moves through hue, not lightness: a light-to-dark ramp loses its
+// high values against a dark page and its low ones against a light page, and a
+// bar ring is a thing people put on both.
+const DEFAULT_BAR_SCALE = '#38bdf8,#3b82f6,#8b5cf6';
 
 const template = document.createElement('template');
 template.innerHTML = `
@@ -69,11 +82,15 @@ template.innerHTML = `
 
   svg { grid-area: 1 / 1; inline-size: 100%; block-size: 100%; overflow: visible; }
   .cells { transform: rotate(var(--cj-start, -90deg)); transform-origin: 50% 50%; transform-box: view-box; }
-  circle { fill: none; stroke-linecap: butt; }
+  circle, line { fill: none; stroke-linecap: butt; }
+  /* the baseline the towers stand on, so a short one still reads as a value and
+     not as a gap in the ring */
+  .base { stroke: var(--cj-empty); stroke-width: .8; }
+  .base[hidden] { display: none; }
 
   /* the cell under the pointer lifts out of the ring rather than changing colour,
      which would be indistinguishable from it simply holding a different value */
-  circle.hot { stroke-width: calc(var(--cj-cell-width, 9) * 1.35); }
+  .hot { stroke-width: calc(var(--cj-cell-width, 9) * 1.35); }
 
   .center { grid-area: 1 / 1; display: grid; place-items: center; text-align: center; pointer-events: none; line-height: 1.05; }
   .readout {
@@ -95,6 +112,7 @@ template.innerHTML = `
 </style>
 
 <svg viewBox="0 0 100 100" part="svg" aria-hidden="true" focusable="false">
+  <circle class="base" part="base" cx="50" cy="50" r="25" hidden/>
   <g class="cells" part="cells"></g>
 </svg>
 
@@ -106,7 +124,7 @@ template.innerHTML = `
 
 export class CJHeat extends HTMLElement {
   static observedAttributes = [
-    'values', 'scale', 'min', 'max', 'rows', 'sweep', 'start',
+    'values', 'scale', 'min', 'max', 'rows', 'sweep', 'start', 'shape',
     'label', 'unit', 'decimals', 'readout', 'interactive',
   ];
 
@@ -123,6 +141,7 @@ export class CJHeat extends HTMLElement {
     this.#root.append(template.content.cloneNode(true));
     this.#els = {
       cells: this.#root.querySelector('.cells'),
+      base: this.#root.querySelector('.base'),
       readout: this.#root.querySelector('.readout'),
       num: this.#root.querySelector('.num'),
       unit: this.#root.querySelector('.unit'),
@@ -175,9 +194,18 @@ export class CJHeat extends HTMLElement {
   }
 
   #stops() {
-    const spec = this.getAttribute('scale') || DEFAULT_SCALE;
+    const spec = this.getAttribute('scale') || (this.#bars ? DEFAULT_BAR_SCALE : DEFAULT_SCALE);
     const stops = spec.split(',').map((s) => s.trim()).filter(Boolean).map(parseColor);
     return stops.length >= 2 ? stops : [parseColor('#1f6feb'), parseColor('#f85149')];
+  }
+
+  get #bars() { return this.getAttribute('shape') === 'bars'; }
+
+  /** The band towers stand in: off a baseline, out to just inside the rim. */
+  #band(rows) {
+    const inner = 25, outer = 45;
+    const per = (outer - inner) / rows;
+    return { inner, outer, per };
   }
 
   /** how far apart the rows sit, shared by the drawing and the hit test */
@@ -206,13 +234,41 @@ export class CJHeat extends HTMLElement {
     // A cell is a dash: geometry that only changes when the shape of the data
     // does. Rebuilding a year of them because one value moved would throw away
     // three hundred nodes to change three hundred colours.
+    const bars = this.#bars;
+    this.#els.base.toggleAttribute('hidden', !bars);
+    if (bars) this.#els.base.setAttribute('r', String(this.#band(rows).inner));
+
     const perRow = Math.ceil(n / rows);
-    const sig = `${n}|${rows}|${sweep}|${thickness}|${gapFrac}`;
+    const sig = `${n}|${rows}|${sweep}|${thickness}|${gapFrac}|${bars}`;
     if (sig !== this.#sig) {
       this.#sig = sig;
       const frag = document.createDocumentFragment();
       this.#cells = [];
-      // Rows step inward from the rim, oldest outermost. They are squeezed to
+      if (bars) {
+        // A tower is a radial line: its angle says which day, its length says
+        // how much. Width comes from the angular pitch at the base, so 365 of
+        // them pack tight without a gap opening up as the ring grows.
+        const { inner, per } = this.#band(rows);
+        const pitch = (sweep / 360) * 2 * Math.PI * inner / perRow;
+        const w = Math.max(0.35, pitch * (1 - gapFrac));
+        for (let i = 0; i < n; i++) {
+          const row = Math.floor(i / perRow);
+          const col = i % perRow;
+          // centred in its own slot, so the first tower does not straddle the seam
+          const a = (start + ((col + 0.5) / perRow) * sweep) * Math.PI / 180;
+          const l = document.createElementNS(SVG_NS, 'line');
+          l.dataset.r0 = (inner + row * per).toFixed(3);
+          l.dataset.cos = Math.cos(a).toFixed(6);
+          l.dataset.sin = Math.sin(a).toFixed(6);
+          l.dataset.per = per.toFixed(3);
+          l.setAttribute('stroke-width', w.toFixed(3));
+          frag.append(l);
+          this.#cells.push(l);
+        }
+        this.#els.cells.replaceChildren(frag);
+        this.style.setProperty('--cj-cell-width', w.toFixed(3));
+      } else {
+        // Rows step inward from the rim, oldest outermost. They are squeezed to
       // fit between the rim and a reserved middle rather than marching on to the
       // centre: seven rows at their natural spacing would tile the whole disc
       // and bury the readout under the last of them.
@@ -241,8 +297,9 @@ export class CJHeat extends HTMLElement {
         frag.append(c);
         this.#cells.push(c);
       }
-      this.#els.cells.replaceChildren(frag);
-      this.style.setProperty('--cj-cell-width', width.toFixed(2));
+        this.#els.cells.replaceChildren(frag);
+        this.style.setProperty('--cj-cell-width', width.toFixed(2));
+      }
     }
 
     const { lo, hi } = this.#domain;
@@ -254,6 +311,18 @@ export class CJHeat extends HTMLElement {
         ? this.#colorAt((v - lo) / (hi - lo), stops)
         : getComputedStyle(this).getPropertyValue('--cj-empty').trim() || 'rgba(127,127,127,.16)';
       if (c.getAttribute('stroke') !== colour) c.setAttribute('stroke', colour);
+      if (bars) {
+        // a value of zero still gets a stub, so the ring reads as 365 days with
+        // a quiet one rather than 364 days and a hole
+        const t = Number.isFinite(v) ? clamp((v - lo) / (hi - lo), 0, 1) : 0;
+        const r0 = +c.dataset.r0;
+        const r1 = r0 + (0.06 + 0.94 * t) * +c.dataset.per;
+        const cos = +c.dataset.cos, sin = +c.dataset.sin;
+        c.setAttribute('x1', (50 + cos * r0).toFixed(2));
+        c.setAttribute('y1', (50 + sin * r0).toFixed(2));
+        c.setAttribute('x2', (50 + cos * r1).toFixed(2));
+        c.setAttribute('y2', (50 + sin * r1).toFixed(2));
+      }
       c.classList.toggle('hot', i === this.#hot);
     }
 
@@ -310,16 +379,29 @@ export class CJHeat extends HTMLElement {
 
     // the viewBox is 100 wide however big the element is drawn
     const r = Math.hypot(dx, dy) / size * 100;
+    let deg0 = Math.atan2(dy, dx) * 180 / Math.PI - start;
+    deg0 = ((deg0 % 360) + 360) % 360;
+
+    if (this.#bars) {
+      // the whole slot is hoverable, not just the tower standing in it — a
+      // one-pixel line is not something anyone can be asked to hit
+      const { inner, outer, per } = this.#band(rows);
+      if (r < inner - 2 || r > outer + 1) return -1;
+      const row = clamp(Math.floor((r - inner) / per), 0, rows - 1);
+      if (deg0 > sweep) return -1;
+      const col = Math.min(perRow - 1, Math.floor((deg0 / sweep) * perRow));
+      const i = row * perRow + col;
+      return i < n ? i : -1;
+    }
+
     const step = this.#step(rows, thickness);
     const width = rows > 1 ? Math.min(thickness, step * 0.78) : thickness;
     const row = step ? Math.round((42 - r) / step) : 0;
     if (row < 0 || row >= rows) return -1;
     if (Math.abs(42 - row * step - r) > width / 2) return -1;
 
-    let deg = Math.atan2(dy, dx) * 180 / Math.PI - start;
-    deg = ((deg % 360) + 360) % 360;
-    if (deg > sweep) return -1;
-    const col = Math.floor((deg / sweep) * perRow);
+    if (deg0 > sweep) return -1;
+    const col = Math.floor((deg0 / sweep) * perRow);
     const i = row * perRow + col;
     return i < n ? i : -1;
   }

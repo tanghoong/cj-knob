@@ -1126,14 +1126,14 @@ const heat = await page.evaluate(async () => {
   const fixed = mk({ values: '50,50,50', min: '0', max: '100' });
   const flat = mk({ values: '50,50,50' });
   await wait(50);
-  out.fixedColours = [...fixed.shadowRoot.querySelectorAll('circle')].map((c) => c.getAttribute('stroke'));
-  out.flatColours = [...flat.shadowRoot.querySelectorAll('circle')].map((c) => c.getAttribute('stroke'));
+  out.fixedColours = [...fixed.shadowRoot.querySelectorAll('.cells circle')].map((c) => c.getAttribute('stroke'));
+  out.flatColours = [...flat.shadowRoot.querySelectorAll('.cells circle')].map((c) => c.getAttribute('stroke'));
   fixed.remove(); flat.remove();
 
   // rows split the list into concentric rings and reserve the middle
   const week = mk({ rows: '4', values: Array.from({ length: 40 }, (_, i) => i).join(',') });
   await wait(50);
-  const wc = [...week.shadowRoot.querySelectorAll('circle')];
+  const wc = [...week.shadowRoot.querySelectorAll('.cells circle')];
   out.rowRadii = [...new Set(wc.map((c) => +c.getAttribute('r')))].sort((a, b) => b - a);
   out.rowWidth = +wc[0].getAttribute('stroke-width');
   week.remove();
@@ -1141,10 +1141,10 @@ const heat = await page.evaluate(async () => {
   // geometry is cached: changing values must not rebuild the cells
   const cached = mk({ values: '1,2,3,4,5,6,7,8' });
   await wait(50);
-  const before = cached.shadowRoot.querySelector('circle');
+  const before = cached.shadowRoot.querySelector('.cells circle');
   cached.values = [8, 7, 6, 5, 4, 3, 2, 1];
   await wait(50);
-  out.sameNodes = cached.shadowRoot.querySelector('circle') === before;
+  out.sameNodes = cached.shadowRoot.querySelector('.cells circle') === before;
   out.recoloured = before.getAttribute('stroke');
   cached.remove();
 
@@ -1194,6 +1194,180 @@ const left = await page.evaluate(() => {
   return back;
 });
 check('moving off the cells clears the reading', left === null, String(left));
+
+// --- the inset region: something living inside the face ---
+const inset = await page.evaluate(async () => {
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const out = {};
+
+  const bare = document.createElement('cj-knob');
+  bare.setAttribute('value', '50');
+  document.body.append(bare);
+  await wait(30);
+  out.emptySlot = bare.shadowRoot.querySelector('.center').hasAttribute('data-inset');
+  out.emptyHidden = getComputedStyle(bare.shadowRoot.querySelector('.inset')).display;
+
+  // filling the slot must be noticed: CSS cannot ask a slot whether it has anything
+  const t = document.createElement('cj-trace');
+  t.setAttribute('slot', 'inset');
+  t.setAttribute('beat', '72');
+  bare.append(t);
+  await wait(60);
+  out.filled = bare.shadowRoot.querySelector('.center').getAttribute('data-inset');
+  out.shownDisplay = getComputedStyle(bare.shadowRoot.querySelector('.inset')).display;
+
+  // the number must lift out of the chart's way, and the chart must NOT lift with it
+  const lifted = bare.shadowRoot.querySelector('.readout').getBoundingClientRect();
+  const chart = bare.shadowRoot.querySelector('.inset').getBoundingClientRect();
+  const host = bare.getBoundingClientRect();
+  out.numberAboveChart = lifted.bottom <= chart.top;
+  out.chartBelowMiddle = chart.top > host.top + host.height / 2;
+  // and it must stay inside the ring: both bottom corners within the inner circle
+  const cx = host.left + host.width / 2, cy = host.top + host.height / 2;
+  const inner = host.width * 0.42 - (host.width * 0.08) / 2;   // r=42 less half the track
+  out.cornerR = Math.max(
+    Math.hypot(chart.left - cx, chart.bottom - cy),
+    Math.hypot(chart.right - cx, chart.bottom - cy),
+  );
+  out.innerR = inner;
+
+  t.remove();
+  await wait(60);
+  out.emptiedAgain = bare.shadowRoot.querySelector('.center').hasAttribute('data-inset');
+  bare.setAttribute('inset', 'fill');
+  bare.append(t);
+  await wait(60);
+  out.fillMode = bare.shadowRoot.querySelector('.center').getAttribute('data-inset');
+  bare.remove();
+  return out;
+});
+check('an empty inset slot leaves no marker', !inset.emptySlot);
+check('an empty inset region is not laid out', inset.emptyHidden === 'none', inset.emptyHidden);
+check('filling the inset slot is noticed', inset.filled === 'low', String(inset.filled));
+check('a filled inset region is laid out', inset.shownDisplay === 'grid', inset.shownDisplay);
+check('the number sits clear above the inset', inset.numberAboveChart);
+// lifting the text must not lift the chart with it, or they never come apart
+check('the inset stays in the lower half', inset.chartBelowMiddle);
+check('the inset stays inside the ring', inset.cornerR <= inset.innerR,
+  inset.cornerR.toFixed(1) + ' vs inner ' + inset.innerR.toFixed(1));
+check('emptying the slot removes the marker', !inset.emptiedAgain);
+check('inset="fill" is carried through', inset.fillMode === 'fill', String(inset.fillMode));
+
+// --- pulse: a ring that breathes at a rate ---
+const pulse = await page.evaluate(async () => {
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const k = document.createElement('cj-knob');
+  k.setAttribute('value', '60');
+  document.body.append(k);
+  await wait(30);
+  const ring = k.shadowRoot.querySelector('.pulse');
+  const out = { offByDefault: ring.hasAttribute('hidden') };
+
+  k.setAttribute('pulse', '120');
+  await wait(30);
+  out.shown = !ring.hasAttribute('hidden');
+  out.period = k.style.getPropertyValue('--cj-pulse-period');
+  out.animation = getComputedStyle(ring).animationName;
+  const seen = new Set();
+  for (let i = 0; i < 8; i++) { seen.add(getComputedStyle(ring).opacity); await wait(60); }
+  out.opacities = seen.size;
+
+  k.setAttribute('pulse', '');
+  await wait(30);
+  out.bare = k.style.getPropertyValue('--cj-pulse-period');
+  k.removeAttribute('pulse');
+  await wait(30);
+  out.offAgain = ring.hasAttribute('hidden');
+  k.remove();
+  return out;
+});
+check('no pulse ring without the attribute', pulse.offByDefault);
+check('pulse shows the ring', pulse.shown);
+check('the period comes from the rate', pulse.period === '0.500s', pulse.period);
+check('bare pulse is 60 bpm', pulse.bare === '1.000s', pulse.bare);
+check('the ring is actually animating', pulse.opacities > 1, String(pulse.opacities));
+check('removing pulse hides the ring again', pulse.offAgain);
+
+// --- cj-heat shape="bars": a year as a skyline ---
+const bars = await page.evaluate(async () => {
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const h = document.createElement('cj-heat');
+  h.setAttribute('shape', 'bars');
+  h.setAttribute('values', '0,25,50,75,100');
+  h.setAttribute('label', 'y');
+  Object.assign(h.style, { position: 'fixed', left: '60px', top: '60px', zIndex: '99' });
+  h.style.setProperty('--cj-size', '300px');
+  h.id = 'test-bars';
+  document.body.append(h);
+  await wait(50);
+  const lines = [...h.shadowRoot.querySelectorAll('.cells line')];
+  const len = (l) => Math.hypot(+l.getAttribute('x2') - +l.getAttribute('x1'),
+                                +l.getAttribute('y2') - +l.getAttribute('y1'));
+  const out = {
+    lineCount: lines.length,
+    circleCount: h.shadowRoot.querySelectorAll('.cells circle').length,
+    baseShown: !h.shadowRoot.querySelector('.base').hasAttribute('hidden'),
+    lengths: lines.map((l) => +len(l).toFixed(3)),
+    colours: new Set(lines.map((l) => l.getAttribute('stroke'))).size,
+    // every tower starts on the baseline circle
+    feet: new Set(lines.map((l) => Math.hypot(+l.getAttribute('x1') - 50, +l.getAttribute('y1') - 50).toFixed(1))).size,
+  };
+  // a big list must not fall over, and the towers must stay inside the box
+  h.values = Array.from({ length: 365 }, (_, i) => i % 100);
+  await wait(80);
+  const many = [...h.shadowRoot.querySelectorAll('.cells line')];
+  out.manyCount = many.length;
+  out.maxReach = Math.max(...many.map((l) => Math.hypot(+l.getAttribute('x2') - 50, +l.getAttribute('y2') - 50)));
+  h.setAttribute('values', '0,25,50,75,100');
+  await wait(50);
+  window.__bars = h; window.__barHover = [];
+  h.setAttribute('interactive', '');
+  h.addEventListener('cj-hover', (e) => window.__barHover.push(e.detail));
+  return out;
+});
+check('bars draws a line per value', bars.lineCount === 5, String(bars.lineCount));
+check('bars draws no cell arcs', bars.circleCount === 0, String(bars.circleCount));
+check('bars shows its baseline', bars.baseShown);
+check('every tower stands on the baseline', bars.feet === 1, String(bars.feet));
+// length carries the value: strictly increasing for strictly increasing values
+check('tower length follows the value',
+  bars.lengths.every((v, i) => i === 0 || v > bars.lengths[i - 1]), bars.lengths.join(' '));
+// a zero still gets a stub, so a quiet day is not a hole in the ring
+check('a zero value still draws a stub', bars.lengths[0] > 0, String(bars.lengths[0]));
+check('colour carries the value too', bars.colours === 5, String(bars.colours));
+check('365 towers is fine', bars.manyCount === 365, String(bars.manyCount));
+check('towers stay inside the box', bars.maxReach <= 46, bars.maxReach.toFixed(2));
+
+const bBox = await page.locator('#test-bars').boundingBox();
+// the top of the ring is the first value; hover the band, not the hairline itself
+await page.mouse.move(bBox.x + bBox.width / 2 + 4, bBox.y + bBox.height / 2 - bBox.height * 0.34);
+await page.waitForTimeout(60);
+const barHot = await page.evaluate(() => ({ hot: window.__bars.hot, ev: window.__barHover.slice() }));
+check('the whole slot is hoverable, not just the hairline', barHot.hot === 0, JSON.stringify(barHot));
+await page.evaluate(() => window.__bars.remove());
+
+// --- cj-trace: the readout must not sit on the trace ---
+const corner = await page.evaluate(async () => {
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const t = document.createElement('cj-trace');
+  t.setAttribute('beat', '72');
+  document.body.append(t);
+  await wait(60);
+  const box = t.getBoundingClientRect();
+  const c = t.shadowRoot.querySelector('.center').getBoundingClientRect();
+  const out = { topHalf: c.top - box.top < box.height / 2 };
+  t.setAttribute('readout-at', 'bottom right');
+  await wait(30);
+  const c2 = t.shadowRoot.querySelector('.center').getBoundingClientRect();
+  out.movedDown = c2.top - box.top > box.height / 2;
+  out.movedRight = c2.right > box.left + box.width / 2;
+  t.remove();
+  return out;
+});
+// a resting trace sits low, so the bottom corner is exactly where it must not be
+check('the trace readout sits in the top corner by default', corner.topHalf);
+check('readout-at moves it down', corner.movedDown);
+check('readout-at moves it across', corner.movedRight);
 
 check('still no page errors at end', errors.length === 0, errors.join(' | '));
 
