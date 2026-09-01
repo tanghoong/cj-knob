@@ -233,6 +233,13 @@ template.innerHTML = `
     --label-y: calc(var(--cj-label-size) * 1.5);
   }
 
+  /* A centre hand pivots exactly where the number sits, so the number drops below
+     the hub — which is where a real tachometer puts its digital readout anyway.
+     Declared last so it beats the label-lift rule at equal specificity. */
+  :host([needle="hand"]) .center:has(.readout:not([hidden])) {
+    translate: 0 calc(var(--cj-shift) + var(--cj-num-size) * .74);
+  }
+
   .readout, .icon, .label { grid-area: 1 / 1; }
 
   .readout {
