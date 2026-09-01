@@ -264,7 +264,7 @@ The demo lives at the repository root so that `./src/cj-knob.js` never points ou
 
 ```sh
 npm run dev     # then open http://127.0.0.1:8765/
-npm test        # 106 Playwright checks: geometry, needle, radar, horizon, keyboard, a11y
+npm test        # 115 Playwright checks: geometry, needle, radar, horizon, keyboard, a11y
 ```
 
 ## Browser support

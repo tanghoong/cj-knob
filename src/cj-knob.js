@@ -384,6 +384,11 @@ const num = (v, fallback) => {
 };
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
+// Assigning textContent replaces the text node even when the string is identical,
+// so a dial driven from requestAnimationFrame churns three nodes a frame for
+// captions that never change. Compare first.
+const setText = (el, s) => { if (el.textContent !== s) el.textContent = s; };
+
 /** #rgb / #rrggbb -> [r,g,b]. Anything else falls back to mid grey. */
 const parseColor = (c) => {
   const h = c.replace("#", "").trim();
@@ -413,7 +418,8 @@ export class CJKnob extends HTMLElement {
   #turns = {};
   // the wave path is geometry, not state — build it once and move it by transform
   #waveBuilt = false;
-  #gradientKey = '';
+  // last-rendered signature per geometry part, so none of them rebuild for free
+  #sig = {};
 
   constructor() {
     super();
@@ -579,6 +585,19 @@ export class CJKnob extends HTMLElement {
   // --- zones, segments and ticks -----------------------------------------
   // All three reuse the pathLength=100 trick: an arc from a to b is a dash of
   // length (b-a) pushed along the path by a negative dash offset.
+  /**
+   * Ticks, captions, zones and the gradient fan are all geometry: they depend on
+   * their own attributes and the arc, never on the value. Rebuilding them on
+   * every value change meant a 36-tick dial driven from requestAnimationFrame
+   * threw away and recreated three dozen nodes sixty times a second, and a lab
+   * panel has twenty of those on screen at once.
+   */
+  #changed(part, signature) {
+    if (this.#sig[part] === signature) return false;
+    this.#sig[part] = signature;
+    return true;
+  }
+
   #arcNode(cls, len, at, stroke) {
     const c = document.createElementNS(SVG_NS, 'circle');
     c.setAttribute('class', cls);
@@ -606,9 +625,7 @@ export class CJKnob extends HTMLElement {
     this.#els.gradient.toggleAttribute('hidden', !spec);
     if (!spec) return;
 
-    const key = `${spec}|${arc}|${sweep}`;
-    if (key === this.#gradientKey) return;
-    this.#gradientKey = key;
+    if (!this.#changed('grad', `${spec}|${arc}|${sweep}`)) return;
 
     const stops = spec.split(',').map((s) => s.trim()).filter(Boolean).map(parseColor);
     if (stops.length < 2) return void this.#els.gradient.replaceChildren();
@@ -629,6 +646,7 @@ export class CJKnob extends HTMLElement {
   /** zones="0-60:#22c55e, 60-85:#f59e0b, 85-100:#ef4444" — coloured bands on the track */
   #renderZones(arc, min, max) {
     const spec = this.getAttribute('zones');
+    if (!this.#changed('zones', `${spec}|${arc}|${min}|${max}`)) return;
     if (!spec) return void this.#els.zones.replaceChildren();
     const span = (max - min) || 1;
     const frag = document.createDocumentFragment();
@@ -646,6 +664,7 @@ export class CJKnob extends HTMLElement {
   /** segments="35:#3b82f6, 25:#8b5cf6" — consecutive stacked slices, in value units */
   #renderSegments(arc, min, max) {
     const spec = this.getAttribute('segments');
+    if (!this.#changed('segs', `${spec}|${arc}|${min}|${max}`)) return;
     if (!spec) return void this.#els.segments.replaceChildren();
     const span = (max - min) || 1;
     const frag = document.createDocumentFragment();
@@ -745,13 +764,14 @@ export class CJKnob extends HTMLElement {
   /** labels="N,E,S,W" — upright captions spaced around the arc */
   #renderMarks(sweep, start) {
     const spec = this.getAttribute('labels');
+    const r = num(this.getAttribute('label-radius'), 29.5);
+    if (!this.#changed('marks', `${spec}|${r}|${sweep}|${start}`)) return;
     if (!spec) return void this.#els.marks.replaceChildren();
     const parts = spec.split(',').map((s) => s.trim());
     if (!parts.length) return void this.#els.marks.replaceChildren();
 
     // A closed dial must not stack the last label on top of the first
     const span = sweep >= 360 ? parts.length : Math.max(1, parts.length - 1);
-    const r = num(this.getAttribute('label-radius'), 29.5);
     const frag = document.createDocumentFragment();
     parts.forEach((text, i) => {
       if (!text) return;
@@ -770,8 +790,9 @@ export class CJKnob extends HTMLElement {
   /** ticks="12" tick-major="3" — graduations around the arc */
   #renderTicks(sweep) {
     const n = Math.round(num(this.getAttribute('ticks'), 0));
-    if (!(n > 0)) return void this.#els.ticks.replaceChildren();
     const major = Math.round(num(this.getAttribute('tick-major'), 0));
+    if (!this.#changed('ticks', `${n}|${major}|${sweep}`)) return;
+    if (!(n > 0)) return void this.#els.ticks.replaceChildren();
     // a closed ring would otherwise stack a tick on top of itself at the seam
     const count = sweep >= 360 ? n : n + 1;
     const frag = document.createDocumentFragment();
@@ -798,11 +819,11 @@ export class CJKnob extends HTMLElement {
     this.#els.readout.toggleAttribute('hidden', hide);
     if (!hide) {
       const shown = mode === 'value' ? this.value : raw * 100;
-      this.#els.num.textContent = shown.toFixed(decimals);
-      this.#els.unit.textContent = this.getAttribute('unit') ?? (mode === 'percent' ? '%' : '');
+      setText(this.#els.num, shown.toFixed(decimals));
+      setText(this.#els.unit, this.getAttribute('unit') ?? (mode === 'percent' ? '%' : ''));
     }
     const label = this.getAttribute('label');
-    this.#els.label.textContent = label ?? '';
+    setText(this.#els.label, label ?? '');
     this.#els.label.toggleAttribute('hidden', !label);
   }
 

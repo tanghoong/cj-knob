@@ -620,6 +620,99 @@ check('the rotation decelerates rather than stopping dead',
   steps.length > 2 && steps.at(-1) < steps[0], steps.map((d) => d.toFixed(1)).join(' '));
 check('starting again winds it back up', spin.restarted.o > 0.5, String(spin.restarted.o));
 
+// --- rendering must not do more work than the change asked for ---
+const thrift = await page.evaluate(async () => {
+  const wait = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const out = {};
+
+  // A value change moves a surface. It must not rebuild the scale — a panel
+  // driving this from requestAnimationFrame would do that sixty times a second.
+  const lv = document.createElement('cj-level');
+  lv.setAttribute('ticks', '10');
+  lv.setAttribute('tick-major', '5');
+  lv.setAttribute('zones', '0-20:#ef4444');
+  lv.setAttribute('value', '10');
+  document.body.append(lv);
+  await wait();
+  const tick = lv.shadowRoot.querySelector('.ticks line');
+  const zone = lv.shadowRoot.querySelector('.zone');
+  lv.value = 50;
+  await wait();
+  out.scaleKept = lv.shadowRoot.querySelector('.ticks line') === tick;
+  out.zoneKept = lv.shadowRoot.querySelector('.zone') === zone;
+  out.levelMoved = parseFloat(lv.shadowRoot.querySelector('.body').style.getPropertyValue('--cjl-level')) < 180;
+  // but a change that *does* affect the scale still rebuilds it
+  lv.setAttribute('ticks', '4');
+  await wait();
+  out.scaleRebuilds = lv.shadowRoot.querySelectorAll('.ticks line').length === 5;
+  lv.remove();
+
+  // Contacts put on the scope by script must survive an unrelated attribute
+  // change; re-reading the blips attribute every time threw them away.
+  const rd = document.createElement('cj-radar');
+  rd.setAttribute('blips', '10:0.5');
+  rd.setAttribute('period', '4');
+  document.body.append(rd);
+  await wait();
+  out.fromMarkup = rd.blips.length;
+  rd.addBlip({ bearing: 200, range: 0.8 });
+  rd.setAttribute('period', '2');
+  await wait();
+  out.afterRetune = rd.blips.length;
+  // changing the attribute itself still replaces them
+  rd.setAttribute('blips', '5:0.2, 95:0.4, 300:0.9');
+  await wait();
+  out.afterAttrChange = rd.blips.length;
+  rd.remove();
+  return out;
+});
+check('a value change keeps the tick marks', thrift.scaleKept);
+check('a value change keeps the zone bands', thrift.zoneKept);
+check('a value change still moves the surface', thrift.levelMoved);
+check('changing ticks does rebuild the scale', thrift.scaleRebuilds);
+check('the blips attribute is read on connect', thrift.fromMarkup === 1, String(thrift.fromMarkup));
+check('scripted contacts survive an unrelated attribute change',
+  thrift.afterRetune === 2, String(thrift.afterRetune));
+check('changing the blips attribute still replaces them',
+  thrift.afterAttrChange === 3, String(thrift.afterAttrChange));
+
+// --- re-rendering an unchanged dial must touch nothing ---
+// A panel driving a knob from requestAnimationFrame re-renders it sixty times a
+// second. Anything rewritten unconditionally there is pure garbage: assigning
+// textContent replaces the node even when the string is identical, which alone
+// accounted for most of the DOM churn on the busiest lab panel.
+const idle = await page.evaluate(async () => {
+  const wait = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const k = document.createElement('cj-knob');
+  k.setAttribute('ticks', '36');
+  k.setAttribute('tick-major', '9');
+  k.setAttribute('labels', 'N,E,S,W');
+  k.setAttribute('zones', '0-60:#22c55e');
+  k.setAttribute('label', 'heading');
+  k.setAttribute('value', '40');
+  document.body.append(k);
+  await wait();
+
+  let added = 0;
+  const obs = new MutationObserver((ms) => { for (const m of ms) added += m.addedNodes.length; });
+  obs.observe(k.shadowRoot, { childList: true, subtree: true });
+
+  // ten renders that change nothing anyone can see
+  for (let i = 0; i < 10; i++) { k.setAttribute('value', '40'); await wait(); }
+  const idleChurn = added;
+
+  added = 0;
+  k.setAttribute('value', '41');
+  await wait();
+  const realChurn = added;
+
+  obs.disconnect();
+  k.remove();
+  return { idleChurn, realChurn };
+});
+check('re-rendering the same value creates no nodes', idle.idleChurn === 0, `${idle.idleChurn} nodes`);
+check('a real value change still updates the readout', idle.realChurn > 0, `${idle.realChurn} nodes`);
+
 check('still no page errors at end', errors.length === 0, errors.join(' | '));
 
 await browser.close();
