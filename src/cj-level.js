@@ -25,6 +25,11 @@ const num = (v, fallback) => {
 };
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
+// Assigning textContent replaces the text node even when the string is identical,
+// so a dial driven from requestAnimationFrame churns three nodes a frame for
+// captions that never change. Compare first.
+const setText = (el, s) => { if (el.textContent !== s) el.textContent = s; };
+
 const template = document.createElement('template');
 template.innerHTML = `
 <style>
@@ -176,8 +181,12 @@ export class CJLevel extends HTMLElement {
     this.#render();
   }
 
-  attributeChangedCallback() {
-    if (this.isConnected) this.#render();
+  attributeChangedCallback(name) {
+    if (!this.isConnected) return;
+    // `value` moves the surface and nothing else; everything else can change the
+    // scale, the bands or the outline, so it needs the full pass
+    if (name === 'value') this.#update();
+    else this.#render();
   }
 
   // ---- drawing -------------------------------------------------------------
@@ -217,6 +226,7 @@ export class CJLevel extends HTMLElement {
       + `A${R},${R} 0 1 1 ${(cx - half).toFixed(2)},${meet.toFixed(2)} Z`;
   }
 
+  /** Everything: the outline, the scale, the bands, and then the level. */
   #render() {
     const g = this.#geometry();
     const key = `${g.bulb}`;
@@ -228,14 +238,24 @@ export class CJLevel extends HTMLElement {
 
     if (this.hasAttribute('color')) this.style.setProperty('--cjl-fill', this.getAttribute('color'));
 
+    this.#buildWaves();
+    this.#renderZones(g);
+    this.#renderTicks(g);
+    this.#update(g);
+  }
+
+  /**
+   * Only the parts that move with the value.
+   *
+   * The scale and the bands are geometry: rebuilding eleven tick lines and their
+   * labels on every value change is pure waste, and a panel driving this from
+   * requestAnimationFrame does it sixty times a second.
+   */
+  #update(g = this.#geometry()) {
     // The bulb always reads full: a thermometer's reservoir is not part of the
     // scale, so the column alone carries the value.
     const surface = g.bottom - this.ratio * g.colH;
     this.#els.body.style.setProperty('--cjl-level', `${surface.toFixed(2)}px`);
-
-    this.#buildWaves();
-    this.#renderZones(g);
-    this.#renderTicks(g);
     this.#renderText();
 
     this.setAttribute('role', 'meter');
@@ -324,11 +344,11 @@ export class CJLevel extends HTMLElement {
     this.#els.readout.toggleAttribute('hidden', hide);
     if (!hide) {
       const shown = mode === 'percent' ? this.ratio * 100 : this.value;
-      this.#els.num.textContent = shown.toFixed(decimals);
-      this.#els.unit.textContent = this.getAttribute('unit') ?? (mode === 'percent' ? '%' : '');
+      setText(this.#els.num, shown.toFixed(decimals));
+      setText(this.#els.unit, this.getAttribute('unit') ?? (mode === 'percent' ? '%' : ''));
     }
     const label = this.getAttribute('label');
-    this.#els.label.textContent = label ?? '';
+    setText(this.#els.label, label ?? '');
     this.#els.label.toggleAttribute('hidden', !label);
   }
 }
