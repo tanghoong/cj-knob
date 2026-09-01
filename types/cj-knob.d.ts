@@ -9,6 +9,12 @@ export declare class CJKnob extends HTMLElement {
   step: number;
   /** Turns the knob into a draggable/keyboard-operable slider. Attribute: `interactive`. */
   interactive: boolean;
+  /**
+   * Presentational attributes with no property mirror:
+   * `sweep`, `start`, `benchmark`, `zones`, `segments`, `ticks`, `tick-major`,
+   * `needle`, `labels`, `label-radius`, `readout`, `unit`, `decimals`, `label`,
+   * `color`, `disabled`, `animate-in`. Set them with `setAttribute`.
+   */
   /** Normalised position: `(value - min) / (max - min)`. Exceeds 1 when value > max. Read-only. */
   readonly ratio: number;
 }

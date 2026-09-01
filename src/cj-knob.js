@@ -24,6 +24,10 @@ template.innerHTML = `
     --cj-benchmark: #94cefe;
     --cj-tick: #9aa3ae;
     --cj-tick-width: .8;
+    --cj-needle: #e0433f;
+    --cj-mark: #6b7280;
+    --cj-mark-major: #14161a;
+    --cj-mark-size: 7px;
     --cj-text: #14161a;
     --cj-muted: #6b7280;
     --cj-duration: 600ms;
@@ -46,6 +50,8 @@ template.innerHTML = `
       --cj-track: #2f333a;
       --cj-text: #f2f4f7;
       --cj-muted: #98a2b3;
+      --cj-mark: #98a2b3;
+      --cj-mark-major: #f2f4f7;
     }
   }
 
@@ -112,6 +118,27 @@ template.innerHTML = `
   /* zones sit on the track; segments replace the value ring */
   .zones circle, .segments circle { stroke-width: var(--cj-thickness); }
   :host([segments]) .value { display: none; }
+
+  /* a pointer that swings to the value — compass rose, speedometer, VU meter */
+  .needle {
+    fill: var(--cj-needle);
+    transform: rotate(var(--cj-needle-angle, 0deg));
+    transform-origin: 50% 50%;
+    transform-box: view-box;
+    transition: transform var(--cj-duration) var(--cj-easing);
+  }
+  .needle[hidden] { display: none; }
+
+  /* bearing labels. Outside .rings so they stay upright instead of turning with it. */
+  .marks text {
+    fill: var(--cj-mark);
+    font-size: var(--cj-mark-size);
+    font-family: inherit;
+    font-weight: 600;
+    text-anchor: middle;
+    dominant-baseline: central;
+  }
+  .marks text.major { fill: var(--cj-mark-major); }
 
   /* Everything in the middle is stacked in one grid cell and anchored off the centre,
      so the NUMBER always sits on the ring's centre point. The unit and the label hang
@@ -221,7 +248,12 @@ template.innerHTML = `
       <circle class="track-2"  part="track-overflow" cx="50" cy="50" r="31" pathLength="100" stroke-dasharray="100 100"/>
       <circle class="overflow" part="overflow"       cx="50" cy="50" r="31" pathLength="100" stroke-dasharray="100 100" stroke-dashoffset="100"/>
     </g>
+    <g class="needle" part="needle" hidden>
+      <!-- drawn pointing right, i.e. at 0deg before .rings applies --cj-start -->
+      <polygon points="87.5,50 79.5,46.3 79.5,53.7"/>
+    </g>
   </g>
+  <g class="marks" part="marks"></g>
   <circle class="focus-ring" cx="50" cy="50" r="49"/>
 </svg>
 
@@ -243,6 +275,7 @@ export class CJKnob extends HTMLElement {
     'value', 'min', 'max', 'benchmark', 'sweep', 'start',
     'readout', 'unit', 'decimals', 'label', 'color',
     'zones', 'segments', 'ticks', 'tick-major',
+    'needle', 'labels', 'label-radius',
     'interactive', 'disabled', 'step',
   ];
 
@@ -250,6 +283,9 @@ export class CJKnob extends HTMLElement {
   #els;
   #dragging = false;
   #ownsColor = false;
+  // the needle's unwrapped angle, so a full dial never spins the long way round
+  #needleTurn = 0;
+  #needleRaw = 0;
 
   constructor() {
     super();
@@ -265,6 +301,8 @@ export class CJKnob extends HTMLElement {
       zones: q('.zones'),
       segments: q('.segments'),
       ticks: q('.ticks'),
+      needle: q('.needle'),
+      marks: q('.marks'),
       center: q('.center'),
       slot: q('slot[name="icon"]'),
       readout: q('.readout'),
@@ -379,6 +417,8 @@ export class CJKnob extends HTMLElement {
     this.#renderZones(arc, min, max);
     this.#renderSegments(arc, min, max);
     this.#renderTicks(sweep);
+    this.#renderNeedle(sweep, pct);
+    this.#renderMarks(sweep, this.#start);
 
     // `color` is a shorthand for the --cj-value custom property. Only clear it again if
     // WE set it — an author may have put --cj-value in their own inline style, and
@@ -445,6 +485,52 @@ export class CJKnob extends HTMLElement {
       at += len;
     }
     this.#els.segments.replaceChildren(frag);
+  }
+
+  /** needle — a pointer that swings to the current value */
+  #renderNeedle(sweep, pct) {
+    const on = this.hasAttribute('needle');
+    this.#els.needle.toggleAttribute('hidden', !on);
+    if (!on) return;
+
+    // Angles are relative: .rings already carries --cj-start.
+    const target = pct * sweep;
+    if (sweep >= 360) {
+      // On a closed dial 359° -> 1° is a 2° move, not a 358° one. Accumulate the
+      // unwrapped angle so the needle always takes the short way round.
+      let step = target - this.#needleRaw;
+      step -= Math.round(step / 360) * 360;
+      this.#needleTurn += step;
+      this.#needleRaw = target;
+      this.style.setProperty('--cj-needle-angle', `${this.#needleTurn.toFixed(2)}deg`);
+    } else {
+      this.style.setProperty('--cj-needle-angle', `${target.toFixed(2)}deg`);
+    }
+  }
+
+  /** labels="N,E,S,W" — upright captions spaced around the arc */
+  #renderMarks(sweep, start) {
+    const spec = this.getAttribute('labels');
+    if (!spec) return void this.#els.marks.replaceChildren();
+    const parts = spec.split(',').map((s) => s.trim());
+    if (!parts.length) return void this.#els.marks.replaceChildren();
+
+    // A closed dial must not stack the last label on top of the first
+    const span = sweep >= 360 ? parts.length : Math.max(1, parts.length - 1);
+    const r = num(this.getAttribute('label-radius'), 29.5);
+    const frag = document.createDocumentFragment();
+    parts.forEach((text, i) => {
+      if (!text) return;
+      const a = (start + (i / span) * sweep) * Math.PI / 180;
+      const t = document.createElementNS(SVG_NS, 'text');
+      t.setAttribute('x', (50 + Math.cos(a) * r).toFixed(2));
+      t.setAttribute('y', (50 + Math.sin(a) * r).toFixed(2));
+      // the cardinal points read heavier than the intercardinals between them
+      if (parts.length % 4 === 0 && i % (parts.length / 4) === 0) t.setAttribute('class', 'major');
+      t.textContent = text;
+      frag.append(t);
+    });
+    this.#els.marks.replaceChildren(frag);
   }
 
   /** ticks="12" tick-major="3" — graduations around the arc */
