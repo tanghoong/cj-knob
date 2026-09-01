@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>cj-knob — one element, every dial</title>
-<meta name="description" content="A knob, gauge and meter as a single custom element. Zero dependencies, no build step, 12.6 KB gzipped. Works in plain HTML, React, Vue and Svelte.">
+<meta name="description" content="A knob, gauge and meter as a single custom element. Zero dependencies, no build step, 14.6 KB gzipped. Works in plain HTML, React, Vue and Svelte.">
 <style>
   :root {
     color-scheme: light dark;
@@ -317,10 +317,10 @@
       </div>
 
       <ul class="facts">
-        <li><b>12.6 KB</b><span>gzipped</span></li>
+        <li><b>14.6 KB</b><span>gzipped</span></li>
         <li><b>0</b><span>dependencies</span></li>
-        <li><b>28</b><span>attributes</span></li>
-        <li><b>5</b><span>elements</span></li>
+        <li><b>30</b><span>attributes</span></li>
+        <li><b>7</b><span>elements</span></li>
       </ul>
 
       <div class="actions">
@@ -421,7 +421,7 @@
   <div class="wrap">
     <h2>Small on purpose. Complete anyway.</h2>
     <p class="sub">
-      Everything below ships inside the 12.6 KB. There is no pro tier, no plugin system,
+      Everything below ships inside the 14.6 KB. There is no pro tier, no plugin system,
       and nothing to install alongside it.
     </p>
 
@@ -579,6 +579,63 @@
     <cj-knob class="vu" data-vu="3" sweep="270" readout="value" unit="dB" label="no ballistics"
              ticks="10" tick-major="5" zones="85-100:#fee2e2" color="#64748b"></cj-knob>
     <code>the same numbers, unsmoothed<br>— every transient reads the same</code>
+  </div>
+</div>
+
+<h3>Range &amp; endless — two ways to take input</h3>
+<div class="grid">
+  <div class="card wide">
+    <cj-knob id="ex-range" range="18 26" min="10" max="32" sweep="270" step="0.5" decimals="1"
+             unit="°C" label="comfort band" interactive color="#0ea5e9"
+             ticks="11" tick-major="5" style="--cj-size:136px"></cj-knob>
+    <code>range="18 26" — drag either handle<br>arrows move the high one, shift+arrows the low</code>
+  </div>
+  <div class="card">
+    <cj-knob id="ex-endless" endless value="0" readout="value" label="turn me" interactive
+             ticks="24" tick-major="6" color="#7c3aed"></cj-knob>
+    <code>endless — no ends to hit.<br>Keep dragging; the count keeps going.</code>
+  </div>
+  <div class="card">
+    <cj-knob range="30 70" readout="none" sweep="360" color="#f43f5e"
+             style="--cj-thickness:14"></cj-knob>
+    <code>without <code>interactive</code> the same band<br>is a read-only display</code>
+  </div>
+</div>
+
+<h3>&lt;cj-trace&gt; — the one reading a dial cannot give</h3>
+<div class="grid">
+  <div class="card wide">
+    <cj-trace beat="72" label="heart" grid style="--cj-trace:#16a34a;--cj-height:120px"></cj-trace>
+    <code>beat="72" grid — a built-in ECG,<br>no script at all</code>
+  </div>
+  <div class="card wide">
+    <cj-trace id="ex-trace-live" label="cpu" readout="value" unit="%" grid
+              samples="180" style="--cj-trace:#f59e0b;--cj-height:120px"></cj-trace>
+    <code>trace.push(v) — feed it your own numbers</code>
+  </div>
+  <div class="card">
+    <cj-trace shape="ring" beat="66" label="pulse"
+              style="--cj-trace:#0ea5e9;--cj-size:150px"></cj-trace>
+    <code>shape="ring" — the same trace,<br>wrapped round the dial</code>
+  </div>
+</div>
+
+<h3>&lt;cj-heat&gt; — a hundred values on one ring</h3>
+<div class="grid">
+  <div class="card">
+    <cj-heat label="a day" unit="°C" interactive decimals="0" style="--cj-size:150px"
+      values="7,6,6,5,5,6,8,11,14,17,20,22,24,25,24,22,19,16,14,12,10,9,8,7"></cj-heat>
+    <code>24 hours round a clock face.<br>Hover a cell to read it.</code>
+  </div>
+  <div class="card wide">
+    <cj-heat id="ex-heat-week" rows="7" label="a week" unit="%" interactive
+             style="--cj-size:206px;--cj-thickness:5"></cj-heat>
+    <code>rows="7" — a polar calendar:<br>seven days, twenty-four hours each</code>
+  </div>
+  <div class="card">
+    <cj-heat id="ex-heat-year" label="a year" unit="mm" sweep="340" start="100"
+             style="--cj-size:150px;--cj-thickness:7;--cj-gap:.22"></cj-heat>
+    <code>52 weeks, and the scale<br>fits itself to your data</code>
   </div>
 </div>
 
@@ -969,7 +1026,7 @@ document.querySelector(<span class="s">'[data-count="1"]'</span>).onclick = () =
 <section class="band" id="api">
   <div class="wrap">
     <h2>The whole API</h2>
-    <p class="sub">Twenty-eight attributes on <code>&lt;cj-knob&gt;</code>, thirteen on
+    <p class="sub">Thirty attributes on <code>&lt;cj-knob&gt;</code>, thirteen on
       <code>&lt;cj-level&gt;</code>, six on <code>&lt;cj-radar&gt;</code>, four on
       <code>&lt;cj-horizon&gt;</code>. That is all of it — there is no second page.</p>
 
@@ -997,6 +1054,8 @@ document.querySelector(<span class="s">'[data-count="1"]'</span>).onclick = () =
           <tr><td><code>label-radius</code></td><td><code>29.5</code></td><td>How far out the captions sit, in the 0–100 viewBox.</td></tr>
           <tr><td><code>value-2</code></td><td>—</td><td>A second value, drawn as a second pointer alongside the first.</td></tr>
           <tr><td><code>rotating</code></td><td>—</td><td>The card turns under a fixed index, the way a heading indicator works.</td></tr>
+          <tr><td><code>range</code></td><td>—</td><td>Two handles with a band between them: <code>range="20 70"</code>. Reads back as <code>{low, high}</code>.</td></tr>
+          <tr><td><code>endless</code></td><td>—</td><td>No ends: dragging reports movement, so the value counts past <code>max</code> while the ring wraps round.</td></tr>
           <tr><td><code>ballistics</code></td><td>—</td><td>Meter ballistics: <code>"attack release"</code> in seconds, one number for both. The reading snaps up and sags back instead of tracking the value.</td></tr>
           <tr><td><code>peak-hold</code></td><td><code>1.2</code></td><td>Seconds to hold the highest reading before it starts to fall. Draws a marker in <code>--cj-peak</code>.</td></tr>
           <tr><td><code>peak-fall</code></td><td>—</td><td>How fast the held peak decays, in value units per second.</td></tr>
@@ -1095,7 +1154,7 @@ cj-knob::part(value) { <span class="a">filter</span>: <span class="s">drop-shado
   <div class="wrap">
     <div class="lab">
       <div>
-        <h2>30 dashboards. Five elements.</h2>
+        <h2>30 dashboards. Seven elements.</h2>
         <p class="sub" style="margin-bottom:0">
           The instrument lab is a stress test disguised as a showcase: aircraft six-packs,
           a submarine sonar, brass steampunk dials, a reactor core, a 96-dial server wall
@@ -1152,6 +1211,8 @@ cj-knob::part(value) { <span class="a">filter</span>: <span class="s">drop-shado
   import './src/cj-horizon.js';
   import './src/cj-level.js';
   import './src/cj-rings.js';
+  import './src/cj-trace.js';
+  import './src/cj-heat.js';
 
   // ---- copy the install line --------------------------------------------
   const copy = document.getElementById('copy');
@@ -1302,6 +1363,44 @@ cj-knob::part(value) { <span class="a">filter</span>: <span class="s">drop-shado
   // The VU signal: a slow envelope with sharp transients on the beat. A steady
   // level would make ballistics invisible — it is the hits that show the
   // difference between a needle and a number.
+  // ---- range and endless read back what the pointer did ------------------
+  {
+    const band = document.getElementById('ex-range');
+    if (band) band.addEventListener('cj-input', (e) => {
+      band.setAttribute('label', `${e.detail.low.toFixed(1)}–${e.detail.high.toFixed(1)}°`);
+    });
+    const enc = document.getElementById('ex-endless');
+    if (enc) enc.addEventListener('cj-input', () => {
+      const turns = enc.value / 100;
+      enc.setAttribute('label', `${turns >= 0 ? '+' : ''}${turns.toFixed(2)} turns`);
+    });
+  }
+
+  // ---- heat rings: made-up data, but shaped like the real thing ----------
+  {
+    const week = document.getElementById('ex-heat-week');
+    if (week) {
+      const v = [];
+      for (let d = 0; d < 7; d++) {
+        const working = d < 5 ? 1 : 0.35;          // the weekend shows as two cooler rows
+        for (let h = 0; h < 24; h++) {
+          const day = Math.max(0, Math.sin((h - 6) / 12 * Math.PI));
+          v.push(+(16 + 64 * day * working).toFixed(1));
+        }
+      }
+      week.values = v;
+    }
+    const year = document.getElementById('ex-heat-year');
+    if (year) {
+      year.values = Array.from({ length: 52 }, (_, i) =>
+        Math.round(60 + 55 * Math.sin(i / 52 * Math.PI * 2 - 1.1) + (i % 5) * 5));
+    }
+  }
+
+  // ---- the live trace: fed from script, the way yours would be -----------
+  const exTrace = document.getElementById('ex-trace-live');
+  let traceOwed = 0;
+
   const vus = [...document.querySelectorAll('.vu')];
   const pgVu = $('#pg-vu');
   const pgVuState = $('#pg-vu-state');
@@ -1421,6 +1520,19 @@ cj-knob::part(value) { <span class="a">filter</span>: <span class="s">drop-shado
       if (vuRunning) {
         pgVu.value = level.toFixed(1);
         pgVuState.textContent = 'peak ' + (pgVu.peak ?? 0).toFixed(1) + ' dB';
+      }
+    }
+
+    // A trace wants samples at its own steady rate, not one per frame — feeding
+    // it per frame would make the paper speed depend on the display's.
+    if (exTrace) {
+      traceOwed += dt * 40;
+      const t = now / 1000;
+      while (traceOwed >= 1) {
+        traceOwed -= 1;
+        const idle = 26 + Math.sin(t / 3.3) * 12;
+        const burst = Math.max(0, Math.sin(t / 1.7)) ** 6 * 48;   // work arriving in bursts
+        exTrace.push(Math.max(2, Math.min(98, idle + burst + (Math.random() - 0.5) * 4)));
       }
     }
 

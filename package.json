@@ -27,6 +27,14 @@
     "./rings": {
       "types": "./types/cj-rings.d.ts",
       "default": "./src/cj-rings.js"
+    },
+    "./trace": {
+      "types": "./types/cj-trace.d.ts",
+      "default": "./src/cj-trace.js"
+    },
+    "./heat": {
+      "types": "./types/cj-heat.d.ts",
+      "default": "./src/cj-heat.js"
     }
   },
   "files": [
@@ -76,7 +84,7 @@
   },
   "scripts": {
     "dev": "npx --yes serve -l 8765 .",
-    "check": "node --check src/cj-knob.js",
+    "check": "node --check src/cj-knob.js && node --check src/cj-radar.js && node --check src/cj-horizon.js && node --check src/cj-level.js && node --check src/cj-rings.js && node --check src/cj-trace.js && node --check src/cj-heat.js",
     "test": "node test/knob.test.mjs"
   },
   "devDependencies": {

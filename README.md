@@ -52,6 +52,8 @@ Or drop it in with no tooling at all:
 | `label-radius` | `29.5` | How far out the captions sit, in the 0–100 viewBox. |
 | `value-2` | — | A second value, drawn as a second pointer alongside the first. |
 | `rotating` | — | The card turns under a fixed index, the way a heading indicator works. |
+| `range` | — | Two handles with a band between them: `range="20 70"`. Reads back as `{low, high}`. |
+| `endless` | — | No ends: dragging reports movement, so the value keeps counting past `max` while the ring wraps. |
 | `ballistics` | — | Meter ballistics: `"attack release"` in seconds, one number for both. |
 | `peak-hold` | `1.2` | Seconds to hold the highest reading before it falls. Draws a marker in `--cj-peak`. |
 | `peak-fall` | — | How fast the held peak decays, in value units per second. |
@@ -143,6 +145,29 @@ set, untouched.
 The element runs a frame loop only while something is still moving, and lets go of it
 once the needle has settled and the peak has caught up.
 
+### Range and endless
+
+Two ways of taking input that a single value cannot express.
+
+```html
+<cj-knob range="18 26" min="10" max="32" step=".5" interactive></cj-knob>
+<cj-knob endless value="0" readout="value" interactive></cj-knob>
+```
+
+A **range** draws a band between two handles instead of a fill from the start of
+the arc. Drag either handle; they may meet but never cross, and a drag keeps the
+handle it grabbed even when the pointer passes the other one. Arrow keys move the
+high handle, shift+arrows the low one. `cj-input` and `cj-change` carry
+`{low, high}` instead of `{value}`. Read and write it from script as `.range`,
+which takes `[20, 70]` or `{low: 20, high: 70}`.
+
+An **endless** knob has no ends. It reports how far your hand moved rather than
+where it points, so the value runs past `max` and below `min` while the ring
+wraps round to show the part-turn — a volume knob, a jog wheel, a camera dial.
+The running total is kept unrounded and only the committed value is snapped to
+`step`; rounding the total itself would let each small movement round up, and a
+slow half-turn would arrive as two thirds of one.
+
 ## `<cj-rings>`
 
 Concentric knobs without the arithmetic. It lays out; it does not draw — the children
@@ -174,6 +199,100 @@ the gaps and the weights come out even — which is easy to get subtly wrong. Th
 clock and the reactor core in the lab were both hand-tuned that way; converting them
 produced almost exactly the same radii, but with stroke weights that are actually
 equal, which they had not been.
+
+## `<cj-trace>`
+
+```html
+<script type="module" src="./src/cj-trace.js"></script>
+
+<cj-trace beat="72" label="heart" grid></cj-trace>
+<cj-trace shape="ring" beat="66"></cj-trace>
+```
+
+Every other element here answers *what is the value now*. A trace answers *what
+has it been doing*, which is the one question a dial cannot. Same data, a few
+hundred samples deep instead of one.
+
+`shape="line"` writes across a strip the way a bedside monitor does; the pen
+travels, pushing a small erase gap ahead of it, and what it has not reached yet
+is last time round, still faded. `shape="ring"` wraps the same samples round a
+circle and deflects them outward from a baseline, leaving the middle clear for
+the readout. The buffer, the pen and the sweep are identical — only the two lines
+that turn an index into a point differ.
+
+`beat="72"` drives it with a built-in ECG so a demo needs no script at all. For
+your own data, `push(v)` one sample at a time:
+
+```js
+const trace = document.querySelector('cj-trace');
+setInterval(() => trace.push(load()), 25);
+```
+
+Samples are written by elapsed time, not per frame, so a slow frame writes more
+of them rather than slowing the heart down. Under `prefers-reduced-motion` the
+window is filled once and left there: a parked heartbeat would be a flat line,
+which reads as the worst possible thing.
+
+| Attribute | Default | What it does |
+| --- | --- | --- |
+| `shape` | `line` | `line` for a strip, `ring` to wrap it round a circle. |
+| `mode` | `sweep` | `sweep` travels a pen over the old trace; `scroll` slides the window so the newest sample is always at the end. |
+| `samples` | `240` | How many samples the window holds. |
+| `points` | — | A written-out waveform: `"12,40,38,90"`. No pen, nothing faded. |
+| `beat` | — | Beats per minute of a built-in ECG. Omit to feed it yourself. |
+| `rate` | `125` | Samples per second while self-driving — the paper speed. |
+| `min` / `max` | `0` / `100` | The vertical scale. |
+| `grid` | — | Graph paper behind the trace, ruled square or polar to match the shape. |
+| `pen` | — | `pen="none"` hides the writing head. |
+| `sweep` / `start` / `amplitude` | `360` / `-90` / `.18` | Ring shape only: the arc it covers and how far it deflects. |
+| `readout` | auto | The rate when `beat` is set, else the last sample. `none` to hide. |
+| `unit` / `decimals` / `label` / `color` | — | As on `<cj-knob>`. |
+
+Properties: `.push(v)`, `.clear()`, `.last`, `.samples`, `.min`, `.max`, `.beat`.
+
+Tokens: `--cj-trace`, `--cj-trace-stale`, `--cj-stale-opacity`, `--cj-pen`, `--cj-grid`,
+`--cj-grid-step`, `--cj-face`, `--cj-width`, `--cj-height`, `--cj-size`.
+
+## `<cj-heat>`
+
+```html
+<script type="module" src="./src/cj-heat.js"></script>
+
+<cj-heat values="7,6,6,5,8,11,14,17,20,22,24,25,24,22,19,16,14,12,10,9,8,7"
+         label="a day" unit="°C" interactive></cj-heat>
+<cj-heat rows="7" label="a week"></cj-heat>
+```
+
+A knob shows one value on a ring. This shows a hundred of them on the same ring,
+by colour instead of by length — twenty-four hours round a clock face, a year of
+rainfall, a week of load. Not where the needle is, but the shape of everything it
+has done.
+
+`rows` splits the list into concentric rings, oldest outermost, which turns the
+same data into a polar calendar: seven rows of twenty-four and the daily rhythm
+is there at a glance, weekends two cooler rings. Rows are squeezed to fit between
+the rim and a reserved middle, and narrowed so they cannot overlap into wedges.
+
+Without `min`/`max` the colour scale spans the data's own extremes, so a heat
+ring is readable before anyone has worked out its scale. The cells are geometry
+and are cached: assigning new `values` recolours them rather than rebuilding
+them, which matters when there are three hundred.
+
+| Attribute | Default | What it does |
+| --- | --- | --- |
+| `values` | — | The list: `"4,6,9,14,19"`. Also `.values = [...]` from script. |
+| `scale` | 5-stop blue→red | Colour stops the values are mapped across. |
+| `min` / `max` | the data | The colour domain. Omit to fit the data. |
+| `rows` | `1` | Split the list across this many concentric rings. |
+| `sweep` / `start` | `360` / `-90` | The arc the cells cover. |
+| `interactive` | — | Hovering lifts a cell out of the ring and reads it in the middle. |
+| `readout` | auto | The hovered cell, or the ring's average. `none` to hide. |
+| `unit` / `decimals` / `label` | — | As on `<cj-knob>`. |
+
+Properties: `.values`, `.rows`, `.hot`. Event: `cj-hover` with
+`{index, value}` — `index` is `-1` when the pointer leaves the cells.
+
+Tokens: `--cj-size`, `--cj-thickness`, `--cj-gap`, `--cj-empty`.
 
 ## `<cj-level>`
 
@@ -320,12 +439,18 @@ The demo lives at the repository root so that `./src/cj-knob.js` never points ou
 
 ```sh
 npm run dev     # then open http://127.0.0.1:8765/
-npm test        # 130 Playwright checks: geometry, needle, radar, horizon, keyboard, a11y
+npm test        # 183 Playwright checks: geometry, needle, radar, horizon, keyboard, a11y
 ```
 
 ## Browser support
 
-Any browser with custom elements and shadow DOM — Chrome/Edge 67+, Firefox 63+, Safari 12.1+. No polyfills, no transpiler.
+Any browser with custom elements and shadow DOM — Chrome/Edge 67+, Firefox 63+,
+Safari 12.1+. No polyfills, no transpiler.
+
+The one exception is `<cj-radar>`, whose phosphor tail is a CSS `conic-gradient`
+built with `color-mix`, so the sweep needs Chrome/Edge 111+, Firefox 113+ or
+Safari 16.2+. The scope, its rings and its blips draw fine below that; only the
+fading tail behind the beam does not.
 
 ## Migrating from the jQuery plugin (v0.x)
 

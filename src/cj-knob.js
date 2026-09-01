@@ -27,6 +27,7 @@ template.innerHTML = `
     --cj-needle: #e0433f;
     --cj-needle-2: #2f7ae5;
     --cj-peak: #ffc61a;
+    --cj-handle: #ffffff;
     --cj-liquid: #35a7ff;
     --cj-liquid-back: rgba(53, 167, 255, .45);
     --cj-mark: #6b7280;
@@ -52,6 +53,7 @@ template.innerHTML = `
   @media (prefers-color-scheme: dark) {
     :host {
       --cj-track: #2f333a;
+      --cj-handle: #14161a;
       --cj-text: #f2f4f7;
       --cj-muted: #98a2b3;
       --cj-mark: #98a2b3;
@@ -180,6 +182,33 @@ template.innerHTML = `
   /* the plain ring steps aside when a gradient is painting the value */
   :host([gradient]) .value { display: none; }
 
+  /* range — a band floating between two handles, instead of a fill from the start */
+  .handles[hidden] { display: none; }
+  .handle {
+    fill: var(--cj-handle);
+    stroke: var(--cj-value);
+    stroke-width: 2.2;
+    transform-origin: 50% 50%;
+    transform-box: view-box;
+    transition: transform var(--cj-duration) var(--cj-easing);
+  }
+  .handle-lo { transform: rotate(var(--cj-lo-angle, 0deg)); }
+  .handle-hi { transform: rotate(var(--cj-hi-angle, 0deg)); }
+  :host([data-dragging]) .handle { transition: none; }
+  /* "20–70" is twice the width of a single number, so it needs a smaller type scale */
+  :host([range]) {
+    --cj-num-size: max(11px, calc(var(--cj-size) * .125));
+    /* the label hangs off the number, so a smaller number would otherwise pull it up */
+    --range-label-y: 1.05;
+  }
+  :host([range]) .center:has(.readout:not([hidden])) {
+    --label-y: calc(var(--cj-num-size) * var(--range-label-y));
+  }
+  /* an encoder is spun, not pointed at: the ring must not ease behind the hand */
+  :host([endless]) .value,
+  :host([endless]) .value-mask,
+  :host([endless]) .needle { transition: none; }
+
   /* a pointer that swings to the value — compass rose, speedometer, VU meter */
   .needle {
     fill: var(--cj-needle);
@@ -300,8 +329,14 @@ template.innerHTML = `
      digits at every scale instead of drifting out onto the ring on small knobs */
   .icon { translate: 0 var(--icon-y, 0px); }
 
+  /* Anchored by its first line, not by its middle. Centring the whole box on
+     --label-y meant a label that wrapped to two lines grew half a line UPWARD,
+     back under the number — which is exactly where it must not go. Starting from
+     the top of the centre box and backing off half a line reproduces the
+     one-line position and lets any extra lines grow downward instead. */
   .label {
-    translate: 0 var(--label-y, 0px);
+    align-self: start;
+    translate: 0 calc(var(--cj-size) * .5 + var(--label-y, 0px) - .6em);
     inline-size: max-content;
     max-inline-size: calc(var(--cj-size) * .46);
     font-size: var(--cj-label-size);
@@ -366,6 +401,12 @@ template.innerHTML = `
     <g class="ticks"    part="ticks"></g>
     <circle class="benchmark" part="benchmark" cx="50" cy="50" r="42" pathLength="100" stroke-dasharray="0 100" hidden/>
     <circle class="peak" part="peak" cx="50" cy="50" r="42" pathLength="100" stroke-dasharray="0 100" hidden/>
+    <!-- Range handles. Drawn at the rim pointing right, like the needles, and
+         swung into place by their own angle properties. -->
+    <g class="handles" part="handles" hidden>
+      <circle class="handle handle-lo" part="handle" cx="92" cy="50" r="4.4"/>
+      <circle class="handle handle-hi" part="handle" cx="92" cy="50" r="4.4"/>
+    </g>
     <g class="overflow-group" hidden>
       <circle class="track-2"  part="track-overflow" cx="50" cy="50" r="31" pathLength="100" stroke-dasharray="100 100"/>
       <circle class="overflow" part="overflow"       cx="50" cy="50" r="31" pathLength="100" stroke-dasharray="100 100" stroke-dashoffset="100"/>
@@ -426,6 +467,7 @@ export class CJKnob extends HTMLElement {
     'zones', 'segments', 'ticks', 'tick-major', 'gradient',
     'needle', 'labels', 'label-radius', 'value-2', 'rotating', 'liquid',
     'ballistics', 'peak-hold', 'peak-fall',
+    'range', 'endless',
     'interactive', 'disabled', 'step',
   ];
 
@@ -433,6 +475,9 @@ export class CJKnob extends HTMLElement {
   #els;
   #dragging = false;
   #ownsColor = false;
+  #grab = null;      // which range handle a drag has hold of
+  #lastAngle = 0;    // where an endless encoder was last seen, for the delta
+  #turnAcc = 0;      // the encoder's exact total, before the step rounds it
   // unwrapped angles per pointer, so a full dial never spins the long way round
   #turns = {};
   // the wave path is geometry, not state — build it once and move it by transform
@@ -465,6 +510,9 @@ export class CJKnob extends HTMLElement {
       needle2: q('.needle-2'),
       lubber: q('.lubber'),
       peak: q('.peak'),
+      handles: q('.handles'),
+      handleLo: q('.handle-lo'),
+      handleHi: q('.handle-hi'),
       hub: q('.hub'),
       liquid: q('.liquid'),
       waveA: q('.wave-a'),
@@ -517,6 +565,30 @@ export class CJKnob extends HTMLElement {
     return span === 0 ? 0 : (this.value - this.min) / span;
   }
 
+  /**
+   * range="20 70" — two handles with a band between them, instead of one value.
+   * Reads back as {low, high}, or null on an ordinary dial. Assigning takes
+   * either shape: knob.range = [20, 70] or knob.range = {low: 20, high: 70}.
+   */
+  get range() {
+    if (!this.hasAttribute('range')) return null;
+    const p = (this.getAttribute('range') || '').trim().split(/[ ,]+/).filter(Boolean);
+    const a = clamp(num(p[0], this.min), this.min, this.max);
+    const b = clamp(num(p[1], this.max), this.min, this.max);
+    // written the wrong way round is a typo, not an error — read it as a span
+    return a <= b ? { low: a, high: b } : { low: b, high: a };
+  }
+
+  set range(v) {
+    if (v == null) return void this.removeAttribute('range');
+    const { low, high } = Array.isArray(v) ? { low: v[0], high: v[1] } : v;
+    this.setAttribute('range', `${low} ${high}`);
+  }
+
+  /** endless — a knob with no ends: it keeps turning and the value keeps counting. */
+  get endless() { return this.hasAttribute('endless'); }
+  set endless(v) { this.toggleAttribute('endless', !!v); }
+
   get interactive() { return this.hasAttribute('interactive') && !this.hasAttribute('disabled'); }
   set interactive(v) { this.toggleAttribute('interactive', !!v); }
 
@@ -559,9 +631,14 @@ export class CJKnob extends HTMLElement {
     const arc = (sweep / 360) * PATH_LENGTH;
     // the dial draws the reading, which is the value unless ballistics lag it
     const span = (max - min) || 1;
-    const raw = (this.shown - min) / span;
+    let raw = (this.shown - min) / span;
+    // An encoder has no ends. Past max the ring starts round again rather than
+    // stopping, while the number under it keeps counting — that mismatch is the
+    // whole point of the thing: position is relative, the total is absolute.
+    const endless = this.hasAttribute('endless');
+    if (endless) raw -= Math.floor(raw);
     const pct = clamp(raw, 0, 1);
-    const over = clamp(raw - 1, 0, 1);
+    const over = endless ? 0 : clamp(raw - 1, 0, 1);
 
     this.style.setProperty('--cj-start', `${this.#start}deg`);
     this.style.setProperty('--cj-arc', String(arc));
@@ -571,10 +648,26 @@ export class CJKnob extends HTMLElement {
 
     const dash = `${arc} ${PATH_LENGTH}`;
     this.#els.track.setAttribute('stroke-dasharray', dash);
-    this.#els.value.setAttribute('stroke-dasharray', dash);
-    this.#els.value.setAttribute('stroke-dashoffset', arc * (1 - pct));
-    this.#els.valueMask.setAttribute('stroke-dasharray', dash);
-    this.#els.valueMask.setAttribute('stroke-dashoffset', arc * (1 - pct));
+
+    // A range dial fills between its two handles rather than from the start of
+    // the arc — the same dash trick the zones use: a dash as long as the band,
+    // pushed along the path by a negative offset to where the band begins.
+    const range = this.range;
+    this.#els.handles.toggleAttribute('hidden', !range);
+    let bandDash = dash;
+    let bandOffset = arc * (1 - pct);
+    if (range) {
+      const lo = (range.low - min) / span;
+      const hi = (range.high - min) / span;
+      bandDash = `${arc * (hi - lo)} ${PATH_LENGTH}`;
+      bandOffset = -(arc * lo);
+      this.style.setProperty('--cj-lo-angle', `${(lo * sweep).toFixed(2)}deg`);
+      this.style.setProperty('--cj-hi-angle', `${(hi * sweep).toFixed(2)}deg`);
+    }
+    for (const el of [this.#els.value, this.#els.valueMask]) {
+      el.setAttribute('stroke-dasharray', bandDash);
+      el.setAttribute('stroke-dashoffset', bandOffset);
+    }
 
     // peak hold: the same short tick, parked at the highest reading still held
     const holding = this.hasAttribute('peak-hold');
@@ -625,7 +718,7 @@ export class CJKnob extends HTMLElement {
       this.#ownsColor = false;
     }
 
-    this.#renderText(raw);
+    this.#renderText(raw, range);
     this.#renderA11y();
   }
 
@@ -936,15 +1029,21 @@ export class CJKnob extends HTMLElement {
     this.#els.ticks.replaceChildren(frag);
   }
 
-  #renderText(raw) {
+  #renderText(raw, range) {
     const mode = this.getAttribute('readout') ?? 'percent';
     const decimals = clamp(num(this.getAttribute('decimals'), 0), 0, 6);
     const hide = mode === 'none';
     this.#els.readout.toggleAttribute('hidden', hide);
     if (!hide) {
-      const shown = mode === 'value' ? this.value : raw * 100;
-      setText(this.#els.num, shown.toFixed(decimals));
-      setText(this.#els.unit, this.getAttribute('unit') ?? (mode === 'percent' ? '%' : ''));
+      if (range) {
+        // a range has no single number to show, so it shows the span it covers
+        setText(this.#els.num, `${range.low.toFixed(decimals)}–${range.high.toFixed(decimals)}`);
+        setText(this.#els.unit, this.getAttribute('unit') ?? '');
+      } else {
+        const shown = mode === 'value' ? this.value : raw * 100;
+        setText(this.#els.num, shown.toFixed(decimals));
+        setText(this.#els.unit, this.getAttribute('unit') ?? (mode === 'percent' ? '%' : ''));
+      }
     }
     const label = this.getAttribute('label');
     setText(this.#els.label, label ?? '');
@@ -952,14 +1051,16 @@ export class CJKnob extends HTMLElement {
   }
 
   #renderA11y() {
+    const range = this.range;
     this.setAttribute('role', this.interactive ? 'slider' : 'meter');
-    this.setAttribute('aria-valuenow', String(this.value));
+    this.setAttribute('aria-valuenow', String(range ? range.high : this.value));
     this.setAttribute('aria-valuemin', String(this.min));
     this.setAttribute('aria-valuemax', String(this.max));
     const label = this.getAttribute('label');
     if (label && !this.hasAttribute('aria-label')) this.setAttribute('aria-label', label);
-    const unit = this.getAttribute('unit');
-    this.setAttribute('aria-valuetext', unit ? `${this.value}${unit}` : String(this.value));
+    const unit = this.getAttribute('unit') ?? '';
+    const text = range ? `${range.low}${unit} to ${range.high}${unit}` : `${this.value}${unit}`;
+    this.setAttribute('aria-valuetext', text);
   }
 
   // ---- interaction -------------------------------------------------------
@@ -975,15 +1076,50 @@ export class CJKnob extends HTMLElement {
     }
   }
 
-  #valueFromPoint(clientX, clientY) {
+  /** where the pointer is, as an angle about the centre, in degrees */
+  #angleAt(clientX, clientY) {
     const r = this.getBoundingClientRect();
-    const deg = Math.atan2(clientY - (r.top + r.height / 2), clientX - (r.left + r.width / 2)) * 180 / Math.PI;
+    return Math.atan2(clientY - (r.top + r.height / 2), clientX - (r.left + r.width / 2)) * 180 / Math.PI;
+  }
+
+  #valueFromPoint(clientX, clientY) {
+    const deg = this.#angleAt(clientX, clientY);
     const sweep = this.#sweep;
     let rel = (deg - this.#start) % 360;
     if (rel < 0) rel += 360;
     if (rel > sweep) rel = (rel - sweep) < (360 - rel) ? sweep : 0; // snap to the nearer end of the gap
     const v = this.min + (rel / sweep) * (this.max - this.min);
     return clamp(Math.round(v / this.step) * this.step, this.min, this.max);
+  }
+
+  /**
+   * An encoder reads how far the hand moved, not where it points — which is what
+   * lets it keep going past the end. The step is taken the short way round, so
+   * crossing the seam at the top is a nudge and not a full turn backwards.
+   *
+   * The running total is kept unrounded and only the committed value is snapped
+   * to the step. Rounding the total itself would feed each frame's rounding back
+   * into the next one, and a slow turn — many small deltas, each rounded up —
+   * would drift: half a revolution of hand movement arriving as two thirds.
+   */
+  #turnBy(clientX, clientY) {
+    const deg = this.#angleAt(clientX, clientY);
+    let d = deg - this.#lastAngle;
+    d -= Math.round(d / 360) * 360;
+    this.#lastAngle = deg;
+    this.#turnAcc += (d / this.#sweep) * ((this.max - this.min) || 1);
+    return Math.round(this.#turnAcc / this.step) * this.step;
+  }
+
+  /** move whichever handle the drag has hold of; the two may meet but not cross */
+  #commitRange(v) {
+    const r = this.range;
+    if (!r) return;
+    const low = this.#grab === 'low' ? Math.min(v, r.high) : r.low;
+    const high = this.#grab === 'low' ? r.high : Math.max(v, r.low);
+    if (low === r.low && high === r.high) return;
+    this.setAttribute('range', `${low} ${high}`);
+    this.dispatchEvent(new CustomEvent('cj-input', { detail: { low, high }, bubbles: true }));
   }
 
   #commit(v, type) {
@@ -1002,22 +1138,43 @@ export class CJKnob extends HTMLElement {
     this.addEventListener('pointerup', this.#onPointerUp);
     this.addEventListener('pointercancel', this.#onPointerUp);
     this.focus();
-    this.#commit(this.#valueFromPoint(e.clientX, e.clientY), 'cj-input');
+    const range = this.range;
+    if (range) {
+      // Take hold of whichever handle is nearer, and keep hold of it for the whole
+      // drag. Re-deciding on every move would hand the drag to the other handle
+      // the moment the pointer passed it, and the band would turn inside out.
+      const v = this.#valueFromPoint(e.clientX, e.clientY);
+      this.#grab = Math.abs(v - range.low) <= Math.abs(v - range.high) ? 'low' : 'high';
+      this.#commitRange(v);
+    } else if (this.endless) {
+      // no jump to where the pointer landed: an encoder only reports movement
+      this.#lastAngle = this.#angleAt(e.clientX, e.clientY);
+      this.#turnAcc = this.value;
+    } else {
+      this.#commit(this.#valueFromPoint(e.clientX, e.clientY), 'cj-input');
+    }
   };
 
   #onPointerMove = (e) => {
     if (!this.#dragging) return;
-    this.#commit(this.#valueFromPoint(e.clientX, e.clientY), 'cj-input');
+    if (this.range) this.#commitRange(this.#valueFromPoint(e.clientX, e.clientY));
+    else if (this.endless) this.#commit(this.#turnBy(e.clientX, e.clientY), 'cj-input');
+    else this.#commit(this.#valueFromPoint(e.clientX, e.clientY), 'cj-input');
   };
 
   #onPointerUp = () => {
     if (!this.#dragging) return;
+    const r = this.range;
     this.#teardownPointer();
-    this.dispatchEvent(new CustomEvent('cj-change', { detail: { value: this.value }, bubbles: true }));
+    this.dispatchEvent(new CustomEvent('cj-change', {
+      detail: r ? { low: r.low, high: r.high } : { value: this.value },
+      bubbles: true,
+    }));
   };
 
   #teardownPointer() {
     this.#dragging = false;
+    this.#grab = null;
     this.removeAttribute('data-dragging');
     this.removeEventListener('pointermove', this.#onPointerMove);
     this.removeEventListener('pointerup', this.#onPointerUp);
@@ -1031,13 +1188,29 @@ export class CJKnob extends HTMLElement {
       ArrowUp: s, ArrowRight: s, ArrowDown: -s, ArrowLeft: -s,
       PageUp: big, PageDown: -big,
     };
+    const r = this.range;
+    if (r) {
+      // arrows move the high handle, shift+arrows the low one — the same two
+      // targets the pointer has, reachable without one
+      const known = e.key in map || e.key === 'Home' || e.key === 'End';
+      if (!known) return;
+      e.preventDefault();
+      this.#grab = e.shiftKey ? 'low' : 'high';
+      const from = e.shiftKey ? r.low : r.high;
+      const to = e.key === 'Home' ? this.min : e.key === 'End' ? this.max : from + map[e.key];
+      this.#commitRange(clamp(to, this.min, this.max));
+      this.dispatchEvent(new CustomEvent('cj-change', { detail: { ...this.range }, bubbles: true }));
+      return;
+    }
+
     let next;
     if (e.key in map) next = this.value + map[e.key];
     else if (e.key === 'Home') next = this.min;
     else if (e.key === 'End') next = this.max;
     else return;
     e.preventDefault();
-    this.#commit(clamp(next, this.min, this.max), 'cj-input');
+    // an encoder has no ends to stop at, so stepping never clamps
+    this.#commit(this.endless && e.key in map ? next : clamp(next, this.min, this.max), 'cj-input');
     this.dispatchEvent(new CustomEvent('cj-change', { detail: { value: this.value }, bubbles: true }));
   };
 }
