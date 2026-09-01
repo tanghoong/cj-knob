@@ -713,6 +713,60 @@ const idle = await page.evaluate(async () => {
 check('re-rendering the same value creates no nodes', idle.idleChurn === 0, `${idle.idleChurn} nodes`);
 check('a real value change still updates the readout', idle.realChurn > 0, `${idle.realChurn} nodes`);
 
+// --- cj-rings ---
+const rings = await page.evaluate(async () => {
+  const wait = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const box = 200, thickness = 0.04, gap = 0.06;
+
+  const el = document.createElement('cj-rings');
+  el.setAttribute('thickness', String(thickness));
+  el.setAttribute('gap', String(gap));
+  el.style.setProperty('--cjs-size', `${box}px`);
+  for (let i = 0; i < 3; i++) {
+    const k = document.createElement('cj-knob');
+    k.setAttribute('readout', 'none');
+    k.setAttribute('value', '50');
+    el.append(k);
+  }
+  document.body.append(el);
+  await wait();
+
+  const read = () => el.rings.map((k) => ({
+    size: parseFloat(k.style.getPropertyValue('--cj-size')),
+    t: parseFloat(k.style.getPropertyValue('--cj-thickness')),
+  }));
+  const laid = read();
+  // a knob's ring sits at 42% of its own box, so that is where each one lands
+  const centres = laid.map((r) => r.size * 0.42);
+  // --cj-thickness is in viewBox units, so equal pixel weight means different numbers
+  const strokes = laid.map((r) => r.size * r.t / 100);
+
+  // one more ring than the box can hold must be dropped, not drawn inside out
+  const extra = document.createElement('cj-knob');
+  extra.setAttribute('readout', 'none');
+  for (let i = 0; i < 6; i++) el.append(extra.cloneNode(true));
+  await wait();
+  const clipped = [...el.querySelectorAll('cj-knob[data-cjs-clipped]')].length;
+
+  const out = {
+    outerFillsBox: Math.abs(laid[0].size - box) < 0.5,
+    evenSteps: Math.abs((centres[0] - centres[1]) - (centres[1] - centres[2])) < 0.01,
+    stepIsStrokePlusGap: Math.abs((centres[0] - centres[1]) - box * (thickness + gap)) < 0.01,
+    equalStrokes: Math.max(...strokes) - Math.min(...strokes) < 0.01,
+    strokePx: strokes[0],
+    clipped,
+    ringsAreKnobs: el.rings.every((k) => k.tagName === 'CJ-KNOB'),
+  };
+  el.remove();
+  return out;
+});
+check('the outermost ring fills the box', rings.outerFillsBox);
+check('the rings are evenly spaced', rings.evenSteps);
+check('the step is one stroke plus one gap', rings.stepIsStrokePlusGap);
+check('every ring gets the same pixel stroke', rings.equalStrokes, `${rings.strokePx.toFixed(2)}px`);
+check('rings that do not fit are dropped', rings.clipped > 0, `${rings.clipped} clipped`);
+check('the rings stay ordinary knobs', rings.ringsAreKnobs);
+
 check('still no page errors at end', errors.length === 0, errors.join(' | '));
 
 await browser.close();
