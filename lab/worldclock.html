@@ -60,8 +60,7 @@
   .clock[data-night] { background: var(--night); }
   .clock[data-night] .city { color: var(--dim); }
 
-  .face { display: grid; place-items: center; }
-  .face > * { grid-area: 1 / 1; }
+  .face { --cjs-size: 118px; }
 
   .digital {
     font-size: 15px; font-weight: 600; letter-spacing: -.02em;
@@ -97,6 +96,7 @@
 
 <script type="module">
   import '../src/cj-knob.js';
+  import '../src/cj-rings.js';
 
   const CITIES = [
     { name: 'Kuala Lumpur', tz: 'Asia/Kuala_Lumpur' },
@@ -161,15 +161,13 @@
     const el = document.createElement('div');
     el.className = 'clock';
     el.innerHTML = `
-      <div class="face">
+      <cj-rings class="face">
         <cj-knob readout="none" max="12" data-h ticks="12" tick-major="3"
-                 style="--cj-size:118px;--cj-thickness:4;--cj-value:var(--hour)"></cj-knob>
-        <cj-knob readout="none" max="60" data-m
-                 style="--cj-size:92px;--cj-thickness:5;--cj-value:var(--min)"></cj-knob>
-        <cj-knob readout="none" max="60" data-s
-                 style="--cj-size:66px;--cj-thickness:6;--cj-value:var(--sec)"></cj-knob>
-        <div class="digital" data-t>--:--</div>
-      </div>
+                 style="--cj-value:var(--hour)"></cj-knob>
+        <cj-knob readout="none" max="60" data-m style="--cj-value:var(--min)"></cj-knob>
+        <cj-knob readout="none" max="60" data-s style="--cj-value:var(--sec)"></cj-knob>
+        <div slot="center" class="digital" data-t>--:--</div>
+      </cj-rings>
       <div class="city">${name}</div>
       <div class="off"><span data-d>—</span> · <span data-o>—</span></div>`;
     board.append(el);
