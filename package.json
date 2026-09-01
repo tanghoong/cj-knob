@@ -19,6 +19,10 @@
     "./horizon": {
       "types": "./types/cj-horizon.d.ts",
       "default": "./src/cj-horizon.js"
+    },
+    "./level": {
+      "types": "./types/cj-level.d.ts",
+      "default": "./src/cj-level.js"
     }
   },
   "files": [
@@ -29,7 +33,8 @@
   "sideEffects": [
     "./src/cj-knob.js",
     "./src/cj-radar.js",
-    "./src/cj-horizon.js"
+    "./src/cj-horizon.js",
+    "./src/cj-level.js"
   ],
   "keywords": [
     "knob",
@@ -46,7 +51,11 @@
     "needle",
     "attitude-indicator",
     "artificial-horizon",
-    "gyro"
+    "gyro",
+    "level",
+    "tank",
+    "thermometer",
+    "gradient"
   ],
   "author": "tanghoong",
   "license": "MIT",

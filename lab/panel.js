@@ -7,12 +7,14 @@
 // simulation — under identical markup, so it lives here instead.
 // ---------------------------------------------------------------
 import '../src/cj-knob.js';
+import '../src/cj-level.js';
 
 const SVG_ATTRS = [
   'min', 'max', 'value', 'sweep', 'start', 'benchmark', 'readout', 'unit',
   'decimals', 'label', 'color', 'zones', 'segments', 'ticks', 'tick-major',
   'interactive', 'step', 'animate-in',
   'needle', 'labels', 'label-radius', 'value-2', 'rotating', 'liquid',
+  'gradient', 'bulb',
 ];
 
 const make = (tag, cls) => {
@@ -74,7 +76,8 @@ export function buildPanel(spec) {
       const cell = make('div', 'cell');
       if (item.cellStyle) cell.style.cssText = item.cellStyle;
 
-      const knob = document.createElement('cj-knob');
+      // a panel item can be any of the dial elements; the attribute list is shared
+      const knob = document.createElement(item.tag ?? 'cj-knob');
       for (const a of SVG_ATTRS) {
         const key = a.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
         if (item[key] !== undefined && item[key] !== null) knob.setAttribute(a, item[key]);

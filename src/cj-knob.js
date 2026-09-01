@@ -148,6 +148,21 @@ template.innerHTML = `
   .zones circle, .segments circle { stroke-width: var(--cj-thickness); }
   :host([segments]) .value { display: none; }
 
+  /* the fan of colour steps, and the mask that reveals it up to the value */
+  .gradient circle {
+    stroke-width: var(--cj-thickness);
+    stroke-linecap: butt;      /* round caps would notch every join */
+  }
+  .gradient[hidden] { display: none; }
+  .value-mask {
+    stroke-width: var(--cj-thickness);
+    transition: stroke-dashoffset var(--cj-duration) var(--cj-easing),
+                stroke-dasharray  var(--cj-duration) var(--cj-easing);
+  }
+  :host([data-dragging]) .value-mask { transition: none; }
+  /* the plain ring steps aside when a gradient is painting the value */
+  :host([gradient]) .value { display: none; }
+
   /* a pointer that swings to the value — compass rose, speedometer, VU meter */
   .needle {
     fill: var(--cj-needle);
@@ -304,6 +319,11 @@ template.innerHTML = `
 <svg viewBox="0 0 100 100" part="svg" aria-hidden="true" focusable="false">
   <defs>
     <clipPath id="cj-vessel"><circle cx="50" cy="50" r="33"/></clipPath>
+    <mask id="cj-arcmask" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100">
+      <circle class="value-mask" cx="50" cy="50" r="42" pathLength="100"
+              fill="none" stroke="#fff" stroke-linecap="round"
+              stroke-dasharray="100 100" stroke-dashoffset="100"/>
+    </mask>
   </defs>
 
   <!-- Liquid: a wave-topped body whose surface sits at the value. Two waves of
@@ -320,6 +340,11 @@ template.innerHTML = `
     <circle class="track"     part="track"     cx="50" cy="50" r="42" pathLength="100" stroke-dasharray="100 100"/>
     <g class="zones"    part="zones"></g>
     <circle class="value"     part="value"     cx="50" cy="50" r="42" pathLength="100" stroke-dasharray="100 100" stroke-dashoffset="100"/>
+    <!-- Gradient arc. SVG has no conic gradient, so the colour ramp is laid down
+         once as a fan of short solid arcs across the whole sweep, and the value
+         reveals it through a mask that mirrors the value ring exactly. Changing
+         the value therefore costs one dash offset, not a rebuild of the fan. -->
+    <g class="gradient" part="gradient" mask="url(#cj-arcmask)" hidden></g>
     <g class="segments" part="segments"></g>
     <g class="ticks"    part="ticks"></g>
     <circle class="benchmark" part="benchmark" cx="50" cy="50" r="42" pathLength="100" stroke-dasharray="0 100" hidden/>
@@ -359,11 +384,23 @@ const num = (v, fallback) => {
 };
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
+/** #rgb / #rrggbb -> [r,g,b]. Anything else falls back to mid grey. */
+const parseColor = (c) => {
+  const h = c.replace("#", "").trim();
+  const full = h.length === 3 ? h.split("").map((x) => x + x).join("") : h;
+  const v = parseInt(full, 16);
+  return Number.isFinite(v) && full.length === 6
+    ? [(v >> 16) & 255, (v >> 8) & 255, v & 255]
+    : [128, 128, 128];
+};
+const mixColor = (a, b, t) =>
+  "#" + a.map((x, i) => Math.round(x + (b[i] - x) * t).toString(16).padStart(2, "0")).join("");
+
 export class CJKnob extends HTMLElement {
   static observedAttributes = [
     'value', 'min', 'max', 'benchmark', 'sweep', 'start',
     'readout', 'unit', 'decimals', 'label', 'color',
-    'zones', 'segments', 'ticks', 'tick-major',
+    'zones', 'segments', 'ticks', 'tick-major', 'gradient',
     'needle', 'labels', 'label-radius', 'value-2', 'rotating', 'liquid',
     'interactive', 'disabled', 'step',
   ];
@@ -376,6 +413,7 @@ export class CJKnob extends HTMLElement {
   #turns = {};
   // the wave path is geometry, not state — build it once and move it by transform
   #waveBuilt = false;
+  #gradientKey = '';
 
   constructor() {
     super();
@@ -389,6 +427,8 @@ export class CJKnob extends HTMLElement {
       overflowGroup: q('.overflow-group'),
       overflow: q('.overflow'),
       zones: q('.zones'),
+      gradient: q('.gradient'),
+      valueMask: q('.value-mask'),
       segments: q('.segments'),
       ticks: q('.ticks'),
       needle: q('.needle'),
@@ -490,6 +530,8 @@ export class CJKnob extends HTMLElement {
     this.#els.track.setAttribute('stroke-dasharray', dash);
     this.#els.value.setAttribute('stroke-dasharray', dash);
     this.#els.value.setAttribute('stroke-dashoffset', arc * (1 - pct));
+    this.#els.valueMask.setAttribute('stroke-dasharray', dash);
+    this.#els.valueMask.setAttribute('stroke-dashoffset', arc * (1 - pct));
 
     // benchmark: a short tick positioned on the arc, not a fill from zero
     const bm = this.getAttribute('benchmark');
@@ -510,6 +552,7 @@ export class CJKnob extends HTMLElement {
       this.#els.overflow.setAttribute('stroke-dashoffset', arc * (1 - over));
     }
 
+    this.#renderGradient(arc, sweep);
     this.#renderZones(arc, min, max);
     this.#renderSegments(arc, min, max);
     this.#renderTicks(sweep);
@@ -548,6 +591,39 @@ export class CJKnob extends HTMLElement {
     c.setAttribute('fill', 'none');
     if (stroke) c.setAttribute('stroke', stroke);
     return c;
+  }
+
+  /**
+   * gradient="#22c55e,#f59e0b,#ef4444" — a colour ramp that follows the arc.
+   *
+   * SVG has no conic gradient, and a linearGradient runs across the bounding box
+   * rather than around the curve, which reads wrong on anything past a half turn.
+   * So the ramp is a fan of short solid arcs. It is rebuilt only when the colours
+   * or the geometry change; the value itself just moves the mask.
+   */
+  #renderGradient(arc, sweep) {
+    const spec = this.getAttribute('gradient');
+    this.#els.gradient.toggleAttribute('hidden', !spec);
+    if (!spec) return;
+
+    const key = `${spec}|${arc}|${sweep}`;
+    if (key === this.#gradientKey) return;
+    this.#gradientKey = key;
+
+    const stops = spec.split(',').map((s) => s.trim()).filter(Boolean).map(parseColor);
+    if (stops.length < 2) return void this.#els.gradient.replaceChildren();
+
+    const STEPS = 48;
+    const frag = document.createDocumentFragment();
+    for (let i = 0; i < STEPS; i++) {
+      const t = i / (STEPS - 1);
+      const at = t * (stops.length - 1);
+      const lo = Math.min(Math.floor(at), stops.length - 2);
+      const c = mixColor(stops[lo], stops[lo + 1], at - lo);
+      // overlap each step slightly so no hairline of track shows through the joins
+      frag.append(this.#arcNode('grad', (arc / STEPS) * 1.35, (arc / STEPS) * i, c));
+    }
+    this.#els.gradient.replaceChildren(frag);
   }
 
   /** zones="0-60:#22c55e, 60-85:#f59e0b, 85-100:#ef4444" — coloured bands on the track */
