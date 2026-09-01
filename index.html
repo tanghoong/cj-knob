@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>cj-knob — one element, every dial</title>
-<meta name="description" content="A knob, gauge and meter as a single custom element. Zero dependencies, no build step, 14.6 KB gzipped. Works in plain HTML, React, Vue and Svelte.">
+<meta name="description" content="A knob, gauge and meter as a single custom element. Zero dependencies, no build step, 16.4 KB gzipped. Works in plain HTML, React, Vue and Svelte.">
 <style>
   :root {
     color-scheme: light dark;
@@ -317,9 +317,9 @@
       </div>
 
       <ul class="facts">
-        <li><b>14.6 KB</b><span>gzipped</span></li>
+        <li><b>16.4 KB</b><span>gzipped</span></li>
         <li><b>0</b><span>dependencies</span></li>
-        <li><b>30</b><span>attributes</span></li>
+        <li><b>32</b><span>attributes</span></li>
         <li><b>7</b><span>elements</span></li>
       </ul>
 
@@ -421,7 +421,7 @@
   <div class="wrap">
     <h2>Small on purpose. Complete anyway.</h2>
     <p class="sub">
-      Everything below ships inside the 14.6 KB. There is no pro tier, no plugin system,
+      Everything below ships inside the 16.4 KB. There is no pro tier, no plugin system,
       and nothing to install alongside it.
     </p>
 
@@ -617,6 +617,41 @@
     <cj-trace shape="ring" beat="66" label="pulse"
               style="--cj-trace:#0ea5e9;--cj-size:150px"></cj-trace>
     <code>shape="ring" — the same trace,<br>wrapped round the dial</code>
+  </div>
+</div>
+
+<h3>Dials with something inside them</h3>
+<div class="grid">
+  <div class="card wide">
+    <cj-knob value="72" min="40" max="180" readout="value" unit="bpm" label="heart"
+             pulse="72" color="#e0433f" style="--cj-size:172px;--cj-thickness:6">
+      <cj-trace slot="inset" beat="72" readout="none" pen="none" samples="150"
+                style="--cj-height:40px;--cj-trace:#e0433f;--cj-width:1.8"></cj-trace>
+    </cj-knob>
+    <code>a <code>&lt;cj-trace&gt;</code> in <code>slot="inset"</code>, and
+      <code>pulse="72"</code> breathing the ring at the same rate</code>
+  </div>
+  <div class="card wide">
+    <cj-knob id="ex-tube" value="62" readout="none" inset="fill" color="#35a7ff"
+             ticks="24" tick-major="6" style="--cj-size:172px;--cj-thickness:6">
+      <cj-level slot="inset" value="62" liquid bulb readout="value" unit="%"
+                style="--cjl-height:96px;--cjl-fill:#35a7ff"></cj-level>
+    </cj-knob>
+    <code><code>inset="fill"</code> — the tube stands up<br>the middle of the ring</code>
+  </div>
+</div>
+
+<h3>&lt;cj-heat shape="bars"&gt; — a year you can read like a skyline</h3>
+<div class="grid">
+  <div class="card wide">
+    <cj-heat id="ex-year" shape="bars" label="2025" unit="mm" interactive
+             style="--cj-size:206px"></cj-heat>
+    <code>365 towers. Length carries the value,<br>colour carries it again.</code>
+  </div>
+  <div class="card">
+    <cj-heat shape="bars" label="months" decimals="0" style="--cj-size:150px;--cj-gap:.3"
+             values="42,38,55,71,96,120,141,133,101,74,52,45"></cj-heat>
+    <code>the same thing with twelve</code>
   </div>
 </div>
 
@@ -1026,7 +1061,7 @@ document.querySelector(<span class="s">'[data-count="1"]'</span>).onclick = () =
 <section class="band" id="api">
   <div class="wrap">
     <h2>The whole API</h2>
-    <p class="sub">Thirty attributes on <code>&lt;cj-knob&gt;</code>, thirteen on
+    <p class="sub">Thirty-two attributes on <code>&lt;cj-knob&gt;</code>, thirteen on
       <code>&lt;cj-level&gt;</code>, six on <code>&lt;cj-radar&gt;</code>, four on
       <code>&lt;cj-horizon&gt;</code>. That is all of it — there is no second page.</p>
 
@@ -1054,6 +1089,9 @@ document.querySelector(<span class="s">'[data-count="1"]'</span>).onclick = () =
           <tr><td><code>label-radius</code></td><td><code>29.5</code></td><td>How far out the captions sit, in the 0–100 viewBox.</td></tr>
           <tr><td><code>value-2</code></td><td>—</td><td>A second value, drawn as a second pointer alongside the first.</td></tr>
           <tr><td><code>rotating</code></td><td>—</td><td>The card turns under a fixed index, the way a heading indicator works.</td></tr>
+          <tr><td><code>slot="inset"</code></td><td>—</td><td>Put a <code>&lt;cj-trace&gt;</code>, a <code>&lt;cj-level&gt;</code> or anything else inside the face. The knob lays it out; it stays an ordinary element you can script.</td></tr>
+          <tr><td><code>inset</code></td><td><code>low</code></td><td>Where the inset sits: <code>low</code> for a chart under the number, <code>fill</code> for a tube up the middle.</td></tr>
+          <tr><td><code>pulse</code></td><td><code>60</code></td><td>A ring that swells and fades at this many beats per minute, so the rhythm is legible from across the room.</td></tr>
           <tr><td><code>range</code></td><td>—</td><td>Two handles with a band between them: <code>range="20 70"</code>. Reads back as <code>{low, high}</code>.</td></tr>
           <tr><td><code>endless</code></td><td>—</td><td>No ends: dragging reports movement, so the value counts past <code>max</code> while the ring wraps round.</td></tr>
           <tr><td><code>ballistics</code></td><td>—</td><td>Meter ballistics: <code>"attack release"</code> in seconds, one number for both. The reading snaps up and sags back instead of tracking the value.</td></tr>
@@ -1378,6 +1416,14 @@ cj-knob::part(value) { <span class="a">filter</span>: <span class="s">drop-shado
 
   // ---- heat rings: made-up data, but shaped like the real thing ----------
   {
+    const yearRing = document.getElementById('ex-year');
+    if (yearRing) {
+      yearRing.values = Array.from({ length: 365 }, (_, d) => {
+        const season = 60 + 55 * Math.sin((d / 365) * Math.PI * 2 - 1.6);
+        const storm = (d % 37 < 3) ? 38 : 0;      // a few wet weeks a year
+        return Math.max(0, Math.round(season + storm + (d * 7919 % 9) - 4));
+      });
+    }
     const week = document.getElementById('ex-heat-week');
     if (week) {
       const v = [];

@@ -26,7 +26,12 @@ export declare class CJKnob extends HTMLElement {
    * `sweep`, `start`, `benchmark`, `zones`, `segments`, `ticks`, `tick-major`,
    * `needle`, `labels`, `label-radius`, `readout`, `unit`, `decimals`, `label`,
    * `color`, `disabled`, `animate-in`, `liquid`, `rotating`, `value-2`,
-   * `gradient`, `ballistics`, `peak-hold`, `peak-fall`. Set them with `setAttribute`.
+   * `gradient`, `ballistics`, `peak-hold`, `peak-fall`, `pulse`, `inset`.
+   * Set them with `setAttribute`.
+   *
+   * Slots: `icon` in the middle, and `inset` for something living inside the
+   * face — a `<cj-trace>` under the number, a `<cj-level>` up the middle. The
+   * knob lays the slotted element out; it does not draw it.
    */
   /** Normalised position: `(value - min) / (max - min)`. Exceeds 1 when value > max. Read-only. */
   readonly ratio: number;

@@ -329,6 +329,78 @@ template.innerHTML = `
      digits at every scale instead of drifting out onto the ring on small knobs */
   .icon { translate: 0 var(--icon-y, 0px); }
 
+  /* ---- the inset region ---- */
+  /*
+   * Something living inside the face: a trace, a tube, a sparkline. The knob
+   * lays it out; it does not draw it, so the slotted element stays an ordinary
+   * one you can style and script directly. All this solves is where it goes.
+   *
+   * The room available is a circle, so a box low on the face is much narrower
+   * than one across the middle. inset="low" sits its CENTRE at .19 of the size
+   * below the middle, which is the deepest a box .52 wide can go while both its
+   * bottom corners stay inside the ring's inner edge. Going lower and wider is
+   * what pushes a chart out through the track.
+   */
+  .inset {
+    grid-area: 1 / 1;
+    align-self: center;
+    /* the text lift is added back, so raising the number does not raise the
+       chart with it — they would then never come apart */
+    translate: 0 calc(var(--inset-y) + var(--inset-lift, 0px));
+    inline-size: calc(var(--cj-size) * var(--inset-w));
+    /* Bounded, and clipped if the content overruns it. A slotted element
+       brings its own height — a cj-trace is 130px tall by default — and
+       without a ceiling it hangs out through the ring and off the dial
+       entirely. Clipped inside the face beats spilling across the page. */
+    max-block-size: calc(var(--cj-size) * var(--inset-h));
+    overflow: hidden;
+    display: grid;
+    place-items: center;
+    pointer-events: none;
+  }
+  .inset > slot { display: block; }
+  .center:not([data-inset]) .inset { display: none; }
+
+  /* inset="low" — a chart under the number, across the lower third of the face */
+    /* Every one of these is the deepest, widest, tallest box whose corners all
+     still fall inside the ring: half-width .25 at .28 below centre gives a
+     corner radius of .375, against an inner edge at about .39 of the size. */
+  :host { --inset-y: calc(var(--cj-size) * .17); --inset-w: .5; --inset-h: .22; }
+  /* inset="fill" — a tube or a column standing up the middle of the face */
+    /* A tube is narrow and tall, so it trades width for height and gets far more
+     of it — the corners are what the circle constrains, not the height. */
+  :host([inset="fill"]) { --inset-y: 0px; --inset-w: .34; --inset-h: .70; }
+
+  /* With something in the lower third, the number and its label move up out of
+     the way instead of sitting on top of it. */
+  .center[data-inset="low"]:has(.readout:not([hidden])) {
+    --label-y: calc(var(--cj-num-size) * .82);
+    --inset-lift: calc(var(--cj-size) * .14);
+    translate: 0 calc(var(--cj-shift) - var(--inset-lift));
+  }
+
+  /* ---- the breathing ring ---- */
+  .pulse {
+    fill: none;
+    stroke: var(--cj-pulse, var(--cj-value));
+    stroke-width: calc(var(--cj-thickness) * .5);
+    transform-origin: 50% 50%;
+    transform-box: view-box;
+    opacity: 0;
+    animation: cj-breathe var(--cj-pulse-period, 1s) ease-out infinite;
+  }
+  .pulse[hidden] { display: none; }
+  @keyframes cj-breathe {
+    0%   { transform: scale(1);    opacity: .6; }
+    75%  { transform: scale(1.17); opacity: 0; }
+    100% { transform: scale(1.17); opacity: 0; }
+  }
+  /* Parked, not deleted: a still ring at rest still reads as part of the dial,
+     where removing it would leave a gap where something used to be. */
+  @media (prefers-reduced-motion: reduce) {
+    .pulse { animation: none; opacity: .28; }
+  }
+
   /* Anchored by its first line, not by its middle. Centring the whole box on
      --label-y meant a label that wrapped to two lines grew half a line UPWARD,
      back under the number — which is exactly where it must not go. Starting from
@@ -427,6 +499,9 @@ template.innerHTML = `
   <g class="marks" part="marks"></g>
   <!-- a fixed index for the rotating-card dial, the way a heading indicator has one -->
   <polygon class="lubber" part="lubber" points="50,4.5 46.6,11 53.4,11" hidden/>
+  <!-- a ring that swells and fades on the beat, so the rhythm is legible from
+       across the room even when the number is not -->
+  <circle class="pulse" part="pulse" cx="50" cy="50" r="42" hidden/>
   <circle class="focus-ring" cx="50" cy="50" r="49"/>
 </svg>
 
@@ -434,6 +509,10 @@ template.innerHTML = `
   <div class="readout" part="readout"><span class="num"></span><span class="unit"></span></div>
   <div class="icon"><slot name="icon"></slot></div>
   <div class="label" part="label" hidden></div>
+  <!-- Anything that belongs inside the face rather than beside it: a trace, a
+       tube, a sparkline. Kept inside the ring's inner circle so it cannot poke
+       out through the track. -->
+  <div class="inset" part="inset"><slot name="inset"></slot></div>
 </div>
 `;
 
@@ -467,7 +546,7 @@ export class CJKnob extends HTMLElement {
     'zones', 'segments', 'ticks', 'tick-major', 'gradient',
     'needle', 'labels', 'label-radius', 'value-2', 'rotating', 'liquid',
     'ballistics', 'peak-hold', 'peak-fall',
-    'range', 'endless',
+    'range', 'endless', 'pulse', 'inset',
     'interactive', 'disabled', 'step',
   ];
 
@@ -520,12 +599,15 @@ export class CJKnob extends HTMLElement {
       marks: q('.marks'),
       center: q('.center'),
       slot: q('slot[name="icon"]'),
+      insetSlot: q('slot[name="inset"]'),
+      pulse: q('.pulse'),
       readout: q('.readout'),
       num: q('.num'),
       unit: q('.unit'),
       label: q('.label'),
     };
     this.#els.slot.addEventListener('slotchange', () => this.#syncIcon());
+    this.#els.insetSlot.addEventListener('slotchange', () => this.#syncInset());
   }
 
   // CSS cannot ask "is anything slotted?", so record it as an attribute it can match.
@@ -535,6 +617,14 @@ export class CJKnob extends HTMLElement {
     const filled = this.#els.slot.assignedNodes({ flatten: true })
       .some((n) => n.nodeType === Node.ELEMENT_NODE || n.textContent.trim());
     this.#els.center.toggleAttribute('data-icon', filled);
+  }
+
+  // Same problem as the icon, same answer: CSS cannot ask whether a slot has
+  // anything in it, so record it as an attribute that CSS can match on.
+  #syncInset() {
+    const filled = this.#els.insetSlot.assignedElements({ flatten: true }).length > 0;
+    if (filled) this.#els.center.setAttribute('data-inset', this.getAttribute('inset') ?? 'low');
+    else this.#els.center.removeAttribute('data-inset');
   }
 
   // ---- geometry ----------------------------------------------------------
@@ -596,6 +686,7 @@ export class CJKnob extends HTMLElement {
   connectedCallback() {
     this.#syncInteractivity();
     this.#syncIcon();
+    this.#syncInset();
     // seed the reading at the value, or every meter would sweep up from zero on load
     this.#shown = this.value;
     this.#peak = this.value;
@@ -617,6 +708,7 @@ export class CJKnob extends HTMLElement {
   // (rAF is throttled in background tabs, and assistive tech reads the DOM, not the paint).
   attributeChangedCallback(name) {
     if (name === 'interactive' || name === 'disabled') this.#syncInteractivity();
+    if (name === 'inset') this.#syncInset();
     if (!this.isConnected) return;
     this.#render();
     // a new value is a target for the ballistics, not a jump
@@ -718,6 +810,7 @@ export class CJKnob extends HTMLElement {
       this.#ownsColor = false;
     }
 
+    this.#renderPulse();
     this.#renderText(raw, range);
     this.#renderA11y();
   }
@@ -1027,6 +1120,19 @@ export class CJKnob extends HTMLElement {
       frag.append(line);
     }
     this.#els.ticks.replaceChildren(frag);
+  }
+
+  /**
+   * pulse — a ring that breathes at a rate, so a heart or an engine reads as
+   * having a rhythm and not just a number. The value is beats per minute, which
+   * is what the thing being measured is usually quoted in; bare `pulse` is 60.
+   */
+  #renderPulse() {
+    const on = this.hasAttribute('pulse');
+    this.#els.pulse.toggleAttribute('hidden', !on);
+    if (!on) return;
+    const bpm = clamp(num(this.getAttribute('pulse'), 60), 1, 600);
+    this.style.setProperty('--cj-pulse-period', `${(60 / bpm).toFixed(3)}s`);
   }
 
   #renderText(raw, range) {

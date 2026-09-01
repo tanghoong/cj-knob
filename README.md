@@ -54,6 +54,8 @@ Or drop it in with no tooling at all:
 | `rotating` | — | The card turns under a fixed index, the way a heading indicator works. |
 | `range` | — | Two handles with a band between them: `range="20 70"`. Reads back as `{low, high}`. |
 | `endless` | — | No ends: dragging reports movement, so the value keeps counting past `max` while the ring wraps. |
+| `pulse` | `60` | A ring that swells and fades at this many beats per minute. |
+| `inset` | `low` | Where `slot="inset"` content sits: `low` under the number, `fill` up the middle. |
 | `ballistics` | — | Meter ballistics: `"attack release"` in seconds, one number for both. |
 | `peak-hold` | `1.2` | Seconds to hold the highest reading before it falls. Draws a marker in `--cj-peak`. |
 | `peak-fall` | — | How fast the held peak decays, in value units per second. |
@@ -144,6 +146,37 @@ set, untouched.
 
 The element runs a frame loop only while something is still moving, and lets go of it
 once the needle has settled and the peak has caught up.
+
+### Putting something inside the face
+
+A dial answers *how much*. A trace beside it answers *and how has it been going*.
+Putting the second inside the first is one glance instead of two, so `<cj-knob>`
+has a slot for it:
+
+```html
+<cj-knob value="72" min="40" max="180" readout="value" unit="bpm" label="heart" pulse="72">
+  <cj-trace slot="inset" beat="72" readout="none" pen="none"
+            style="--cj-height:40px"></cj-trace>
+</cj-knob>
+
+<cj-knob value="62" readout="none" inset="fill" ticks="24" tick-major="6">
+  <cj-level slot="inset" value="62" liquid bulb style="--cjl-height:96px"></cj-level>
+</cj-knob>
+```
+
+The knob lays the slotted element out and nothing more — it stays an ordinary
+element you style and script directly, the same bargain `<cj-rings>` makes. What
+it solves is the arithmetic: the room inside a ring is a circle, so a box low on
+the face is much narrower than one across the middle, and the defaults are the
+deepest and widest box whose corners all still fall inside the track. With
+`inset="low"` the number and its label lift out of the way, and the chart does
+not lift with them — or the two would never come apart. Content taller than the
+region is clipped rather than allowed to hang out through the ring, so set the
+child's own height (`--cj-height`, `--cjl-height`) to about a fifth of the dial.
+
+`pulse="72"` breathes a ring at 72 beats a minute. It carries no number — it is
+there so the rhythm is legible from across the room, where the digits are not.
+Under `prefers-reduced-motion` it parks as a still ring rather than vanishing.
 
 ### Range and endless
 
@@ -244,6 +277,7 @@ which reads as the worst possible thing.
 | `min` / `max` | `0` / `100` | The vertical scale. |
 | `grid` | — | Graph paper behind the trace, ruled square or polar to match the shape. |
 | `pen` | — | `pen="none"` hides the writing head. |
+| `readout-at` | `top left` | Which corner the readout sits in: `"bottom right"` and the other three. A resting trace sits low, so the bottom corner is the one place it must not go by default. |
 | `sweep` / `start` / `amplitude` | `360` / `-90` / `.18` | Ring shape only: the arc it covers and how far it deflects. |
 | `readout` | auto | The rate when `beat` is set, else the last sample. `none` to hide. |
 | `unit` / `decimals` / `label` / `color` | — | As on `<cj-knob>`. |
@@ -281,6 +315,7 @@ them, which matters when there are three hundred.
 | Attribute | Default | What it does |
 | --- | --- | --- |
 | `values` | — | The list: `"4,6,9,14,19"`. Also `.values = [...]` from script. |
+| `shape` | `cells` | `cells` for blocks of colour, `bars` for towers standing off a baseline. |
 | `scale` | 5-stop blue→red | Colour stops the values are mapped across. |
 | `min` / `max` | the data | The colour domain. Omit to fit the data. |
 | `rows` | `1` | Split the list across this many concentric rings. |
@@ -288,6 +323,25 @@ them, which matters when there are three hundred.
 | `interactive` | — | Hovering lifts a cell out of the ring and reads it in the middle. |
 | `readout` | auto | The hovered cell, or the ring's average. `none` to hide. |
 | `unit` / `decimals` / `label` | — | As on `<cj-knob>`. |
+
+`shape="bars"` draws each value as a tower instead of a block, which is what
+turns a year into something you can read like a skyline:
+
+```html
+<cj-heat shape="bars" label="2025" unit="mm" interactive></cj-heat>
+```
+
+```js
+document.querySelector('cj-heat').values = rainfallByDay;   // 365 numbers
+```
+
+Length carries the value and colour carries it again, which is why bars default
+to a calmer scale than cells do: a five-stop rainbow across three hundred towers
+says the same thing twice and reads as noise. That default ramp moves through hue
+rather than lightness, so neither end disappears into a dark page or a light one.
+A value of zero still gets a stub, so a quiet day reads as a quiet day and not as
+a hole in the ring, and the whole angular slot is hoverable — nobody can be asked
+to hit a one-pixel line.
 
 Properties: `.values`, `.rows`, `.hot`. Event: `cj-hover` with
 `{index, value}` — `index` is `-1` when the pointer leaves the cells.
@@ -439,7 +493,7 @@ The demo lives at the repository root so that `./src/cj-knob.js` never points ou
 
 ```sh
 npm run dev     # then open http://127.0.0.1:8765/
-npm test        # 183 Playwright checks: geometry, needle, radar, horizon, keyboard, a11y
+npm test        # 211 Playwright checks: geometry, needle, radar, horizon, keyboard, a11y
 ```
 
 ## Browser support
