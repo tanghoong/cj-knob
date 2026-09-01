@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>cj-knob — one element, every dial</title>
-<meta name="description" content="A knob, gauge and meter as a single custom element. Zero dependencies, no build step, 9.7 KB gzipped. Works in plain HTML, React, Vue and Svelte.">
+<meta name="description" content="A knob, gauge and meter as a single custom element. Zero dependencies, no build step, 10.8 KB gzipped. Works in plain HTML, React, Vue and Svelte.">
 <style>
   :root {
     color-scheme: light dark;
@@ -201,6 +201,8 @@
   .card code { font-size: .625rem; line-height: 1.45; color: var(--dim); text-align: center;
                word-break: break-word; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
   cj-knob { --cj-size: 104px; }
+  cj-level { --cjl-height: 150px; }
+  .tubes .card { padding-top: 1rem; }
   .scale { display: flex; align-items: center; justify-content: center; gap: 1.5rem;
            flex-wrap: wrap; background: var(--card); border: 1px solid var(--line);
            border-radius: 10px; padding: 1.25rem; }
@@ -315,10 +317,10 @@
       </div>
 
       <ul class="facts">
-        <li><b>9.7 KB</b><span>gzipped</span></li>
+        <li><b>10.8 KB</b><span>gzipped</span></li>
         <li><b>0</b><span>dependencies</span></li>
-        <li><b>24</b><span>attributes</span></li>
-        <li><b>3</b><span>elements</span></li>
+        <li><b>25</b><span>attributes</span></li>
+        <li><b>4</b><span>elements</span></li>
       </ul>
 
       <div class="actions">
@@ -419,7 +421,7 @@
   <div class="wrap">
     <h2>Small on purpose. Complete anyway.</h2>
     <p class="sub">
-      Everything below ships inside the 9.7 KB. There is no pro tier, no plugin system,
+      Everything below ships inside the 10.8 KB. There is no pro tier, no plugin system,
       and nothing to install alongside it.
     </p>
 
@@ -611,6 +613,31 @@
   </div>
 </div>
 
+<h3>Gradient — a colour ramp that follows the arc</h3>
+<div class="grid">
+  <div class="card">
+    <cj-knob gradient="#22c55e,#f59e0b,#ef4444" value="82" sweep="270"
+             ticks="10" tick-major="5" readout="value" unit="%" label="load"></cj-knob>
+    <code>gradient="#22c55e,#f59e0b,#ef4444"</code>
+  </div>
+  <div class="card">
+    <cj-knob gradient="#0ea5e9,#8b5cf6,#ec4899" value="68"
+             readout="value" unit="%" label="full ring"></cj-knob>
+    <code>the ramp bends round the whole circle</code>
+  </div>
+  <div class="card">
+    <cj-knob gradient="#facc15,#f97316,#dc2626" value="35" sweep="240" start="150"
+             ticks="8" tick-major="4" readout="value" unit="°C" label="oven"></cj-knob>
+    <code>colour is the scale, not the value<br>— 35% only reaches the yellow</code>
+  </div>
+  <div class="card">
+    <cj-knob id="gradlive" gradient="#22c55e,#a3e635,#facc15,#f97316,#ef4444"
+             value="20" sweep="270" readout="value" unit="%" label="click me"
+             style="--cj-duration:900ms"></cj-knob>
+    <code>the value reveals the ramp</code>
+  </div>
+</div>
+
 <h3>Liquid — for anything that really is a fluid</h3>
 <div class="grid">
   <div class="card">
@@ -637,6 +664,31 @@
              style="--cj-thickness:5;--cj-liquid:#f472b6;
              --cj-liquid-back:rgba(244,114,182,.4)" color="#f472b6"></cj-knob>
     <code>a nearly full tank</code>
+  </div>
+</div>
+
+<h3>&lt;cj-level&gt; — the straight tube a ring cannot give you</h3>
+<div class="grid tubes">
+  <div class="card">
+    <cj-level value="62" unit="L" label="fryer oil" liquid ticks="10" tick-major="5"
+              color="#e8b33c" style="--cjl-fill-back:rgba(232,179,60,.45)"></cj-level>
+    <code>liquid + ticks</code>
+  </div>
+  <div class="card">
+    <cj-level value="9" min="0" max="60" unit="L" label="milk" liquid
+              ticks="6" tick-major="3" zones="0-12:#ef4444"
+              color="#dbe4ee" style="--cjl-fill-back:rgba(219,228,238,.4)"></cj-level>
+    <code>zones tint the fluid sitting in them</code>
+  </div>
+  <div class="card">
+    <cj-level value="36.6" min="34" max="42" decimals="1" unit="°C" label="body"
+              bulb liquid ticks="8" tick-major="2" color="#ef4444"
+              style="--cjl-fill-back:rgba(239,68,68,.4)"></cj-level>
+    <code>bulb — a thermometer</code>
+  </div>
+  <div class="card">
+    <cj-level id="tube" value="74" unit="%" label="tank" ticks="10" tick-major="5"></cj-level>
+    <code>no liquid — a plain column<br>(click to fill)</code>
   </div>
 </div>
 
@@ -838,8 +890,9 @@ document.querySelector(<span class="s">'[data-count="1"]'</span>).onclick = () =
 <section class="band" id="api">
   <div class="wrap">
     <h2>The whole API</h2>
-    <p class="sub">Twenty-four attributes on <code>&lt;cj-knob&gt;</code>, six on <code>&lt;cj-radar&gt;</code>,
-      four on <code>&lt;cj-horizon&gt;</code>. That is all of it — there is no second page.</p>
+    <p class="sub">Twenty-five attributes on <code>&lt;cj-knob&gt;</code>, thirteen on
+      <code>&lt;cj-level&gt;</code>, six on <code>&lt;cj-radar&gt;</code>, four on
+      <code>&lt;cj-horizon&gt;</code>. That is all of it — there is no second page.</p>
 
     <div class="table-scroll">
       <table class="api">
@@ -866,6 +919,7 @@ document.querySelector(<span class="s">'[data-count="1"]'</span>).onclick = () =
           <tr><td><code>value-2</code></td><td>—</td><td>A second value, drawn as a second pointer alongside the first.</td></tr>
           <tr><td><code>rotating</code></td><td>—</td><td>The card turns under a fixed index, the way a heading indicator works.</td></tr>
           <tr><td><code>liquid</code></td><td>—</td><td>Fills the dial with fluid whose surface sits at the value, with drifting waves. Theme with <code>--cj-liquid</code>.</td></tr>
+          <tr><td><code>gradient</code></td><td>—</td><td>A colour ramp that follows the arc: <code>"#22c55e,#f59e0b,#ef4444"</code>. Colour maps to the scale, so the value reveals part of the ramp.</td></tr>
         </tbody>
       </table>
     </div>
@@ -882,6 +936,23 @@ document.querySelector(<span class="s">'[data-count="1"]'</span>).onclick = () =
           <tr><td><code>blips</code></td><td>—</td><td>Contacts as <code>bearing:range</code> pairs: <code>"45:0.6, 210:0.35"</code>.</td></tr>
           <tr><td><code>interactive</code></td><td>—</td><td>Clicking the scope adds a contact where you clicked.</td></tr>
           <tr><td colspan="3" style="color:var(--dim)">Under <code>prefers-reduced-motion</code> the sweep parks rather than turning — it stays visible, it just holds still.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>&lt;cj-level&gt;</h3>
+    <div class="table-scroll">
+      <table class="api">
+        <thead><tr><th>Attribute</th><th>Default</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr><td><code>value</code> / <code>min</code> / <code>max</code></td><td><code>0</code> / <code>100</code></td><td>The column and its scale.</td></tr>
+          <tr><td><code>liquid</code></td><td>—</td><td>Wavy surface instead of a flat bar.</td></tr>
+          <tr><td><code>bulb</code></td><td>—</td><td>Adds a reservoir at the foot — a thermometer.</td></tr>
+          <tr><td><code>ticks</code> / <code>tick-major</code></td><td>—</td><td>Graduations down the side, every Nth one labelled.</td></tr>
+          <tr><td><code>zones</code></td><td>—</td><td>Bands painted over the column, so they tint the fluid sitting in them.</td></tr>
+          <tr><td><code>readout</code></td><td><code>value</code></td><td><code>value</code>, <code>percent</code> or <code>none</code>.</td></tr>
+          <tr><td><code>unit</code> / <code>decimals</code> / <code>label</code></td><td>—</td><td>As on <code>&lt;cj-knob&gt;</code>.</td></tr>
+          <tr><td><code>color</code></td><td>—</td><td>Shorthand for <code>--cjl-fill</code>. Height is <code>--cjl-height</code>.</td></tr>
         </tbody>
       </table>
     </div>
@@ -925,7 +996,7 @@ cj-knob::part(value) { <span class="a">filter</span>: <span class="s">drop-shado
   <div class="wrap">
     <div class="lab">
       <div>
-        <h2>30 dashboards. Three elements.</h2>
+        <h2>30 dashboards. Four elements.</h2>
         <p class="sub" style="margin-bottom:0">
           The instrument lab is a stress test disguised as a showcase: aircraft six-packs,
           a submarine sonar, brass steampunk dials, a reactor core, a 96-dial server wall
@@ -965,7 +1036,7 @@ cj-knob::part(value) { <span class="a">filter</span>: <span class="s">drop-shado
 <script>
   setTimeout(() => {
     if (customElements.get('cj-knob') && customElements.get('cj-radar')
-        && customElements.get('cj-horizon')) return;
+        && customElements.get('cj-horizon') && customElements.get('cj-level')) return;
     const b = document.createElement('div');
     b.style.cssText = 'position:fixed;inset:0 0 auto 0;padding:1rem 1.25rem;background:#b91c1c;color:#fff;font:14px/1.5 ui-monospace,monospace;z-index:99';
     b.innerHTML = '<strong>cj-knob failed to load.</strong> Serve from the repository root, not from a subfolder &mdash;'
@@ -979,6 +1050,7 @@ cj-knob::part(value) { <span class="a">filter</span>: <span class="s">drop-shado
   import './src/cj-knob.js';
   import './src/cj-radar.js';
   import './src/cj-horizon.js';
+  import './src/cj-level.js';
 
   // ---- copy the install line --------------------------------------------
   const copy = document.getElementById('copy');
@@ -1099,6 +1171,16 @@ cj-knob::part(value) { <span class="a">filter</span>: <span class="s">drop-shado
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
     document.getElementById('motion-note').hidden = false;
   }
+
+  // the column and the gradient both respond to a click, so the transition is visible
+  const tube = $("#tube");
+  tube.addEventListener("click", () => {
+    tube.value = Math.round(10 + Math.random() * 85);
+  });
+  const gradlive = $("#gradlive");
+  gradlive.addEventListener("click", () => {
+    gradlive.value = Math.round(8 + Math.random() * 90);
+  });
 
   // the petrol tank pours when you click it
   const tank = $('#tank');

@@ -94,6 +94,10 @@ check('Home clamps to min', (await vol.evaluate((el) => el.value)) === 0);
 check('cj-change fired on keyboard', (await page.textContent('#vol-out')).includes('cj-change'));
 
 // --- pointer drag: click the 3 o'clock edge of a full ring → 25% ---
+// Mouse coordinates are viewport-relative, so the knob has to be on screen. The
+// page is now several viewports tall, and without this the clicks land on empty
+// space and the check fails intermittently.
+await vol.scrollIntoViewIfNeeded();
 const box = await vol.boundingBox();
 await page.mouse.move(box.x + box.width - 6, box.y + box.height / 2);
 await page.mouse.down();
@@ -109,6 +113,7 @@ check('click at 6 o\'clock → 50', at6 === 50, String(at6));
 
 // --- disabled knob ignores pointer ---
 const dis = page.locator('cj-knob[disabled]');
+await dis.scrollIntoViewIfNeeded();
 const dbox = await dis.boundingBox();
 await page.mouse.click(dbox.x + dbox.width - 6, dbox.y + dbox.height / 2);
 check('disabled knob ignores clicks', (await dis.evaluate((el) => el.value)) === 50);
@@ -506,6 +511,81 @@ check('reduced motion keeps the leading line visible', parked.line !== 'none', p
 check('reduced motion stops the sweep turning', parked.first === parked.second,
   `${parked.first} -> ${parked.second}`);
 check('the page explains why the sweep is still', parked.noteShown);
+
+// --- gradient arc ---
+const grad = await page.evaluate(async () => {
+  const k = document.querySelector('#examples cj-knob[gradient]');
+  const r = k.shadowRoot;
+  const steps = [...r.querySelectorAll('.gradient circle')];
+  const mask = r.querySelector('.value-mask');
+  const value = r.querySelector('.value');
+  const before = steps.length;
+  // the fan is geometry, not state: changing the value must not rebuild it
+  k.value = 40;
+  await new Promise((res) => requestAnimationFrame(() => requestAnimationFrame(res)));
+  return {
+    steps: before,
+    rebuilt: r.querySelectorAll('.gradient circle').length !== before,
+    firstColor: steps[0]?.getAttribute('stroke'),
+    lastColor: steps.at(-1)?.getAttribute('stroke'),
+    // the mask has to track the value ring exactly, or the reveal drifts off it
+    maskOffset: mask.getAttribute('stroke-dashoffset'),
+    valueOffset: value.getAttribute('stroke-dashoffset'),
+    plainRingHidden: getComputedStyle(value).display === 'none',
+  };
+});
+check('gradient lays down a fan of colour steps', grad.steps === 48, String(grad.steps));
+check('the fan starts on the first stop', grad.firstColor === '#22c55e', grad.firstColor);
+check('the fan ends on the last stop', grad.lastColor === '#ef4444', grad.lastColor);
+check('changing the value does not rebuild the fan', !grad.rebuilt);
+check('the mask follows the value ring exactly', grad.maskOffset === grad.valueOffset,
+  `${grad.maskOffset} vs ${grad.valueOffset}`);
+check('the plain ring steps aside for the gradient', grad.plainRingHidden);
+
+// --- cj-level ---
+const level = await page.evaluate(async () => {
+  const el = document.createElement('cj-level');
+  el.setAttribute('min', '0');
+  el.setAttribute('max', '100');
+  el.setAttribute('ticks', '10');
+  el.setAttribute('tick-major', '5');
+  el.setAttribute('zones', '0-20:#ef4444');
+  el.setAttribute('value', '0');
+  el.style.setProperty('--cjl-duration', '0ms');
+  document.body.append(el);
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const r = el.shadowRoot;
+  const lvl = () => parseFloat(r.querySelector('.body').style.getPropertyValue('--cjl-level'));
+  const empty = lvl();
+  el.value = 100;
+  await new Promise((res) => requestAnimationFrame(() => requestAnimationFrame(res)));
+  const full = lvl();
+
+  // the bulb outline has to be one closed path, not a column plus a loose circle
+  el.setAttribute('bulb', '');
+  await new Promise((res) => requestAnimationFrame(res));
+  const d = r.querySelector('.tube').getAttribute('d');
+
+  const out = {
+    defined: !!customElements.get('cj-level'),
+    empty, full, risesUp: full < empty,
+    ticks: r.querySelectorAll('.ticks line').length,
+    labels: r.querySelectorAll('.ticks text').length,
+    zones: r.querySelectorAll('.zone').length,
+    subpaths: (d.match(/M/g) || []).length,
+    ratio: el.ratio,
+  };
+  el.remove();
+  return out;
+});
+check('cj-level is defined', level.defined);
+check('an empty column sits at the bottom', level.empty > level.full, `${level.empty} -> ${level.full}`);
+check('filling raises the surface', level.risesUp);
+check('ticks=10 draws 11 marks', level.ticks === 11, String(level.ticks));
+check('tick-major=5 labels every fifth', level.labels === 3, String(level.labels));
+check('zones render on the column', level.zones === 1, String(level.zones));
+check('the bulb is one closed outline', level.subpaths === 1, `${level.subpaths} subpaths`);
+check('ratio reports the fill', level.ratio === 1, String(level.ratio));
 
 check('still no page errors at end', errors.length === 0, errors.join(' | '));
 

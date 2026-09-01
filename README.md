@@ -53,6 +53,7 @@ Or drop it in with no tooling at all:
 | `value-2` | — | A second value, drawn as a second pointer alongside the first. |
 | `rotating` | — | The card turns under a fixed index, the way a heading indicator works. |
 | `liquid` | — | Fills the dial with fluid whose surface sits at the value, with drifting waves. Good for tanks, fuel, reagents. |
+| `gradient` | — | A colour ramp that follows the arc: `"#22c55e,#f59e0b,#ef4444"`. Colour maps to the scale, so the value reveals part of the ramp rather than compressing all of it. |
 | `zones` | — | Coloured bands on the track, in value units: `"0-60:#22c55e, 60-85:#f59e0b, 85-100:#ef4444"`. |
 | `segments` | — | Consecutive stacked slices in place of the value ring: `"42:#3b82f6, 23:#8b5cf6"`. |
 | `ticks` | — | Number of graduations around the arc. |
@@ -117,6 +118,33 @@ knob.addEventListener('cj-change', (e) => console.log(e.detail.value));
 - Arrow keys step by `step`, PageUp/PageDown by ten steps, Home/End jump to the bounds.
 - Animation is dropped under `prefers-reduced-motion: reduce`.
 - Geometry and ARIA are written synchronously on connect, so assistive tech and server-side snapshots never see an empty element.
+
+## `<cj-level>`
+
+The straight tube a ring cannot give you: a tank, a cylinder, a thermometer. Same
+liquid engine as `<cj-knob liquid>`, in the container the quantity actually lives in,
+with a scale you read off the side.
+
+```html
+<script type="module" src="cj-knob/src/cj-level.js"></script>
+
+<cj-level value="62" unit="L" label="fryer oil" liquid ticks="10" tick-major="5"></cj-level>
+<cj-level value="36.6" min="34" max="42" decimals="1" unit="°C" bulb liquid></cj-level>
+```
+
+| Attribute | Default | Description |
+|---|---|---|
+| `value` / `min` / `max` | `0` / `100` | The column and its scale. |
+| `liquid` | — | A wavy drifting surface instead of a flat bar. |
+| `bulb` | — | Adds a reservoir at the foot, drawn as one outline with the column — a thermometer. |
+| `ticks` / `tick-major` | — | Graduations down the side, every Nth one labelled in value units. |
+| `zones` | — | Bands painted *over* the column, so a low-level warning tints the fluid sitting in it. |
+| `readout` | `value` | `value`, `percent` or `none`. |
+| `unit` / `decimals` / `label` | — | As on `<cj-knob>`. |
+| `color` | — | Shorthand for `--cjl-fill`. |
+
+Height comes from `--cjl-height` and the width follows. Theme with `--cjl-fill`,
+`--cjl-fill-back`, `--cjl-tube`, `--cjl-wall` and `--cjl-tick`.
 
 ## `<cj-radar>`
 
@@ -233,7 +261,7 @@ The demo lives at the repository root so that `./src/cj-knob.js` never points ou
 
 ```sh
 npm run dev     # then open http://127.0.0.1:8765/
-npm test        # 88 Playwright checks: geometry, needle, radar, horizon, keyboard, a11y
+npm test        # 102 Playwright checks: geometry, needle, radar, horizon, keyboard, a11y
 ```
 
 ## Browser support
