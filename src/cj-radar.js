@@ -211,7 +211,7 @@ export class CJRadar extends HTMLElement {
     if (!this.hasAttribute('role')) this.setAttribute('role', 'img');
     if (!this.hasAttribute('aria-label')) this.setAttribute('aria-label', 'Radar scope');
     this.#syncInteractive();
-    this.#render();
+    this.#render(true);
     this.#start();
   }
 
@@ -226,12 +226,12 @@ export class CJRadar extends HTMLElement {
   attributeChangedCallback(name) {
     if (!this.isConnected) return;
     if (name === 'interactive') this.#syncInteractive();
-    this.#render();
+    this.#render(name === 'blips');
     this.#start();
   }
 
   // ---- drawing -----------------------------------------------------------
-  #render() {
+  #render(readBlips = false) {
     const rings = clamp(Math.round(num(this.getAttribute('rings'), 4)), 1, 10);
     const spokes = clamp(Math.round(num(this.getAttribute('spokes'), 8)), 0, 36);
 
@@ -273,16 +273,21 @@ export class CJRadar extends HTMLElement {
       this.#els.marks.replaceChildren(mf);
     }
 
-    // declarative contacts: blips="45:0.6, 210:0.35"
-    const bspec = this.getAttribute('blips');
-    if (bspec !== null) {
-      this.blips = bspec.split(',').map((part) => {
-        const [b, r] = part.split(':');
-        return { bearing: num(b, 0), range: num(r, 0.5) };
-      }).filter((b) => Number.isFinite(b.bearing));
-    } else {
-      this.#drawBlips();
+    // Declarative contacts, blips="45:0.6, 210:0.35" — but only when that
+    // attribute is what changed. Re-reading it on every attribute change threw
+    // away anything addBlip() or scatter() had put on the scope, so merely
+    // retuning the sweep silently undid the caller's own contacts.
+    if (readBlips) {
+      const bspec = this.getAttribute('blips');
+      if (bspec !== null) {
+        this.blips = bspec.split(',').map((part) => {
+          const [b, r] = part.split(':');
+          return { bearing: num(b, 0), range: num(r, 0.5) };
+        }).filter((b) => Number.isFinite(b.bearing));
+        return;
+      }
     }
+    this.#drawBlips();
   }
 
   #drawBlips() {
