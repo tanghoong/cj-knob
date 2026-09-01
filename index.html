@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>cj-knob — one element, every dial</title>
-<meta name="description" content="A knob, gauge and meter as a single custom element. Zero dependencies, no build step, 18.6 KB gzipped. Works in plain HTML, React, Vue and Svelte.">
+<meta name="description" content="A knob, gauge and meter as a single custom element. Zero dependencies, no build step, 21.4 KB gzipped. Works in plain HTML, React, Vue and Svelte.">
 <!-- Holds each element's space before its module lands, so the page does not
      jump when they upgrade. No JavaScript; it stops applying by itself. -->
 <link rel="stylesheet" href="src/cj-skeleton.css">
@@ -328,9 +328,9 @@
       </div>
 
       <ul class="facts">
-        <li><b>18.6 KB</b><span>gzipped</span></li>
+        <li><b>21.4 KB</b><span>gzipped</span></li>
         <li><b>0</b><span>dependencies</span></li>
-        <li><b>36</b><span>attributes</span></li>
+        <li><b>37</b><span>attributes</span></li>
         <li><b>7</b><span>elements</span></li>
       </ul>
 
@@ -453,7 +453,7 @@
   <div class="wrap">
     <h2>Small on purpose. Complete anyway.</h2>
     <p class="sub">
-      Everything below ships inside the 18.6 KB. There is no pro tier, no plugin system,
+      Everything below ships inside the 21.4 KB. There is no pro tier, no plugin system,
       and nothing to install alongside it.
     </p>
 
@@ -654,9 +654,9 @@
 
 <h3>Buttons, gas and voice</h3>
 <div class="grid">
-  <div class="card">
+  <div class="card wide">
     <cj-knob id="ex-play" button toggle value="37" readout="none" label="Midnight City"
-             color="#16a34a">
+             color="#16a34a" style="--cj-size:150px">
     <svg slot="icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8.4 5.6a1 1 0 0 1 1.52-.85l8.2 5.4a1.2 1.2 0 0 1 0 2l-8.2 5.4a1 1 0 0 1-1.52-.85z"/></svg>
         <svg slot="icon-on" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="7.2" y="5" width="3.9" height="14" rx="1.5"/><rect x="12.9" y="5" width="3.9" height="14" rx="1.5"/></svg>
     </cj-knob>
@@ -681,6 +681,44 @@
     <code>a voice inside the dial: it jumps while someone is talking and lies flat
       while nobody is, and the ring follows <code>.level</code>.
       <span id="ex-voice-state">silent</span></code>
+  </div>
+</div>
+
+<h3>The dial as a turntable</h3>
+<div class="grid">
+  <div class="card wide">
+    <cj-knob id="ex-vinyl" button toggle spin="33" value="21" readout="none" label="Blue Train"
+             color="#e0b04a" style="--cj-size:170px;--cj-thickness:5">
+      <svg slot="icon" viewBox="0 0 100 100" aria-hidden="true">
+        <circle cx="50" cy="50" r="50" fill="#1c1c1e"/>
+        <g stroke="#000" stroke-opacity=".5" fill="none">
+          <circle cx="50" cy="50" r="45"/><circle cx="50" cy="50" r="41"/><circle cx="50" cy="50" r="37"/>
+          <circle cx="50" cy="50" r="33"/><circle cx="50" cy="50" r="29"/><circle cx="50" cy="50" r="25"/>
+        </g>
+        <circle cx="50" cy="50" r="19" fill="#e0b04a"/>
+        <path d="M50 34a16 16 0 0 1 16 16H50z" fill="#c2913a"/>
+        <circle cx="50" cy="50" r="2.4" fill="#f6f7f9"/>
+      </svg>
+      <svg slot="icon-on" viewBox="0 0 100 100" aria-hidden="true">
+        <circle cx="50" cy="50" r="50" fill="#1c1c1e"/>
+        <g stroke="#000" stroke-opacity=".5" fill="none">
+          <circle cx="50" cy="50" r="45"/><circle cx="50" cy="50" r="41"/><circle cx="50" cy="50" r="37"/>
+          <circle cx="50" cy="50" r="33"/><circle cx="50" cy="50" r="29"/><circle cx="50" cy="50" r="25"/>
+        </g>
+        <circle cx="50" cy="50" r="19" fill="#e0b04a"/>
+        <path d="M50 34a16 16 0 0 1 16 16H50z" fill="#c2913a"/>
+        <circle cx="50" cy="50" r="2.4" fill="#f6f7f9"/>
+      </svg>
+    </cj-knob>
+    <code><code>spin="33"</code> on a <code>toggle</code> button. It winds up
+      like a motor and coasts down like friction, and the track carries the song.</code>
+  </div>
+  <div class="card">
+    <cj-knob spin="78" value="64" readout="value" unit="%" label="platter"
+             color="#94a3b8" style="--cj-thickness:5">
+      <span slot="icon">💿</span>
+    </cj-knob>
+    <code>any middle can turn —<br><code>spin</code> is revolutions per minute</code>
   </div>
 </div>
 
@@ -1129,7 +1167,7 @@ document.querySelector(<span class="s">'[data-count="1"]'</span>).onclick = () =
 <section class="band" id="api">
   <div class="wrap">
     <h2>The whole API</h2>
-    <p class="sub">Thirty-six attributes on <code>&lt;cj-knob&gt;</code>, thirteen on
+    <p class="sub">Thirty-seven attributes on <code>&lt;cj-knob&gt;</code>, thirteen on
       <code>&lt;cj-level&gt;</code>, six on <code>&lt;cj-radar&gt;</code>, four on
       <code>&lt;cj-horizon&gt;</code>. That is all of it — there is no second page.</p>
 
@@ -1158,6 +1196,7 @@ document.querySelector(<span class="s">'[data-count="1"]'</span>).onclick = () =
           <tr><td><code>value-2</code></td><td>—</td><td>A second value, drawn as a second pointer alongside the first.</td></tr>
           <tr><td><code>rotating</code></td><td>—</td><td>The card turns under a fixed index, the way a heading indicator works.</td></tr>
           <tr><td><code>button</code></td><td>—</td><td>The dial becomes a button: focusable, Enter/Space activates it, and it fires <code>cj-press</code>. Add <code>toggle</code> to make it latch, and <code>slot="icon-on"</code> for the pressed glyph.</td></tr>
+          <tr><td><code>spin</code></td><td><code>33</code></td><td>The middle turns, in revolutions per minute. On a <code>toggle</code> button it only turns while pressed. Winds up like a motor, coasts down like friction.</td></tr>
           <tr><td><code>gas</code></td><td>—</td><td>Fills the face with drifting haze whose density is the value. Liquid has a surface; a gas only has how much of it there is.</td></tr>
           <tr><td><code>slot="inset"</code></td><td>—</td><td>Put a <code>&lt;cj-trace&gt;</code>, a <code>&lt;cj-level&gt;</code> or anything else inside the face. The knob lays it out; it stays an ordinary element you can script.</td></tr>
           <tr><td><code>inset</code></td><td><code>low</code></td><td>Where the inset sits: <code>low</code> for a chart under the number, <code>fill</code> for a tube up the middle.</td></tr>
@@ -1506,6 +1545,7 @@ cj-knob::part(value) { <span class="a">filter</span>: <span class="s">drop-shado
   const heroPlay = document.getElementById('hero-play');
   let playing = false;
   if (heroPlay) heroPlay.addEventListener('cj-press', (e) => { playing = e.detail.pressed; });
+  const exVinyl = document.getElementById('ex-vinyl');
   const exPlay = document.getElementById('ex-play');
   let exPlaying = false;
   if (exPlay) exPlay.addEventListener('cj-press', (e) => { exPlaying = e.detail.pressed; });
@@ -1703,6 +1743,10 @@ cj-knob::part(value) { <span class="a">filter</span>: <span class="s">drop-shado
     }
     if (exPlay && exPlaying) {
       exPlay.value = ((+exPlay.value + dt * 6) % 100).toFixed(2);
+    }
+    // the record's own progress: spin= handles the platter, the ring is the side
+    if (exVinyl && exVinyl.pressed) {
+      exVinyl.value = ((+exVinyl.value + dt * 3.5) % 100).toFixed(2);
     }
 
     // the gyro card keeps turning while Spin is engaged

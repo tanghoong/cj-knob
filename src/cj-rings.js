@@ -35,6 +35,12 @@ template.innerHTML = `
     inline-size: var(--cjs-size);
     block-size: var(--cjs-size);
     font: inherit;
+    /* A dial is an instrument, not text. Its numbers are drawn readings, and
+       select-all dragging a blue box across every gauge on a dashboard helps
+       nobody. This blocks selection only — pointer and keyboard input, and
+       everything a screen reader reads off the ARIA attributes, are untouched. */
+    -webkit-user-select: none;
+    user-select: none;
   }
   :host([hidden]) { display: none; }
 

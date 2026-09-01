@@ -50,6 +50,12 @@ template.innerHTML = `
     color: var(--cj-text);
     font: inherit;
     -webkit-tap-highlight-color: transparent;
+    /* A dial is an instrument, not text. Its numbers are drawn readings, and
+       select-all dragging a blue box across every gauge on a dashboard helps
+       nobody. This blocks selection only — pointer and keyboard input, and
+       everything a screen reader reads off the ARIA attributes, are untouched. */
+    -webkit-user-select: none;
+    user-select: none;
   }
 
   @media (prefers-color-scheme: dark) {
@@ -201,11 +207,40 @@ template.innerHTML = `
   :host([button]:active) .hit { opacity: 1; transform: scale(.94); }
   :host([button]) .icon { transition: transform 140ms ease; transform-origin: 50% 50%; }
   :host([button]:active) .icon { transform: scale(.9); }
-  /* A button's caption is a caption: it belongs clear of the glyph, near the
-     foot of the face, not tucked against it the way a number's label is. */
+  /* A button's caption is a caption: it belongs clear of the glyph, not tucked
+     against it the way a number's label is. The glyph lifts to make the room.
+     The width is the tight part — the space inside a ring narrows fast as you
+     go down it, so a caption sitting at .215 of the size below centre has only
+     about .57 of it to be wide in before its bottom corners reach the track —
+     and capping it tighter than that is worse, not better, because the second
+     line it then wraps onto reaches further down than the wide one ever did. */
   :host([button]) .center:has(.readout[hidden]) {
-    --label-y: calc(var(--cj-size) * .25);
+    --icon-y: calc(var(--cj-size) * -.075);
+    --label-y: calc(var(--cj-size) * .215);
   }
+  /* A disc turns about its own middle, so it cannot also be shifted up. It is
+     the content rather than a glyph beside one, so it gets more room — and the
+     caption drops below it. Set on .center, not on :host: the icon size is
+     declared there too, and the nearer declaration is the one that inherits. */
+  /* Solved, not chosen: .31 and .22 are the largest disc and the caption depth
+     that still let a twelve-character caption sit on ONE line and keep both its
+     bottom corners inside the track. Deeper or wider and it wraps, and wrapping
+     is a trap here — the caption is anchored by its first line, so a second one
+     reaches further down than the wide single line ever did, and no width fixes
+     it. */
+  :host([spin]) .center:has(.readout[hidden]) {
+    --icon-y: 0px;
+    --cj-icon-size: calc(var(--cj-size) * .31);
+    --label-y: calc(var(--cj-size) * .22);
+  }
+  /* ---- spin: the dial as a turntable ---- */
+  /* Only what is in the middle turns. The ring is the scale and the track is
+     the progress; a record spinning under both is what the eye reads as playing. */
+  .icon { transform: rotate(var(--cj-spin-angle, 0deg)); }
+  :host([spin]) .icon > * { transform-origin: 50% 50%; }
+  /* a record is round even when the artwork is not */
+  :host([spin]) ::slotted(img), :host([spin]) ::slotted(picture) { border-radius: 50%; }
+
   /* only one of the two glyphs is ever shown; which one is the pressed state */
   .icon-on { display: none; }
   :host([pressed]) .icon-off { display: none; }
@@ -469,7 +504,7 @@ template.innerHTML = `
   }
   .label[hidden] { display: none; }
   /* with no number in the way the label gets the full inner circle to wrap into */
-  .center:has(.readout[hidden]) .label { max-inline-size: calc(var(--cj-size) * .62); }
+  .center:has(.readout[hidden]) .label { max-inline-size: calc(var(--cj-size) * .52); }
 
   /* Graphics get sized by width; anything else (an emoji, a glyph) by font-size.
      With a number in the middle the icon is a label for it and steps back. With
@@ -610,7 +645,7 @@ export class CJKnob extends HTMLElement {
     'zones', 'segments', 'ticks', 'tick-major', 'gradient',
     'needle', 'labels', 'label-radius', 'value-2', 'rotating', 'liquid',
     'ballistics', 'peak-hold', 'peak-fall',
-    'range', 'endless', 'pulse', 'inset', 'button', 'toggle', 'pressed', 'gas',
+    'range', 'endless', 'pulse', 'inset', 'button', 'toggle', 'pressed', 'gas', 'spin',
     'interactive', 'disabled', 'step',
   ];
 
@@ -626,6 +661,14 @@ export class CJKnob extends HTMLElement {
   // the wave path is geometry, not state — build it once and move it by transform
   #waveBuilt = false;
   #gasBuilt = false;
+  // a turntable takes a moment to come up to speed and longer to stop
+  #spinFrame = 0;
+  #spinLast = 0;
+  #spinAngle = 0;
+  #spinRate = 0;
+  #ro = null;      // watches the box, so the caption can be refitted when it changes
+  #boxW = 0;
+  #fitSig = '';
   #tick = 0;        // ballistics frame id
   #tickLast = 0;
   #shown = 0;       // the reading being drawn, lagging value when ballistics are on
@@ -763,9 +806,24 @@ export class CJKnob extends HTMLElement {
     this.#peak = this.value;
     this.#render();
     this.#pump();
+    this.#pumpSpin();
+    // The caption is fitted to the circle, so it has to be refitted when the
+    // circle changes size. Only an actual resize fires this, so a dial whose
+    // value is moving sixty times a second pays nothing for it.
+    this.#ro = new ResizeObserver(() => {
+      const w = this.clientWidth;
+      if (w === this.#boxW) return;
+      this.#boxW = w;
+      this.#fitLabel();
+    });
+    this.#ro.observe(this);
   }
 
   disconnectedCallback() {
+    this.#ro?.disconnect();
+    this.#ro = null;
+    cancelAnimationFrame(this.#spinFrame);
+    this.#spinFrame = 0;   // zeroed, or a re-attached turntable never starts again
     cancelAnimationFrame(this.#tick);
     // clearing the id matters: #pump() reads a non-zero one as already running
     this.#tick = 0;
@@ -784,6 +842,7 @@ export class CJKnob extends HTMLElement {
     this.#render();
     // a new value is a target for the ballistics, not a jump
     this.#pump();
+    if (name === 'spin' || name === 'pressed' || name === 'toggle') this.#pumpSpin();
   }
 
   // ---- render ------------------------------------------------------------
@@ -1186,6 +1245,59 @@ export class CJKnob extends HTMLElement {
     }
   }
 
+  /**
+   * spin — the middle of the dial turns, like a record under a tonearm.
+   *
+   * The value is revolutions per minute; bare `spin` is 33, which is what an LP
+   * does. On a `toggle` button it only turns while pressed, because a record
+   * that keeps spinning after you hit pause is not what anyone has ever seen.
+   *
+   * Speed is eased rather than switched. A turntable that reaches full speed in
+   * one frame and stops dead in another reads as a broken animation; the whole
+   * recognisable thing about one is the wind-up and the coast.
+   */
+  #pumpSpin() {
+    const wants = this.hasAttribute('spin')
+      && !(this.hasAttribute('toggle') && !this.pressed);
+    const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (still) {
+      cancelAnimationFrame(this.#spinFrame);
+      this.#spinFrame = 0;
+      this.#spinRate = 0;
+      return;
+    }
+    if (!wants && this.#spinRate === 0) {
+      cancelAnimationFrame(this.#spinFrame);
+      this.#spinFrame = 0;
+      return;
+    }
+    if (this.#spinFrame) return;
+    this.#spinLast = performance.now();
+    const step = (now) => {
+      const dt = Math.min(0.05, Math.max(0, (now - this.#spinLast) / 1000));
+      this.#spinLast = now;
+      const on = this.hasAttribute('spin')
+        && !(this.hasAttribute('toggle') && !this.pressed);
+      const target = on ? clamp(num(this.getAttribute('spin'), 33), 0, 600) : 0;
+      // Spinning up is a motor: torque against inertia, so it eases in. Coasting
+      // down is friction, which is near enough constant — and that difference is
+      // not pedantry, it is the only way it ever actually stops. Easing toward
+      // zero approaches it and never arrives: nine seconds later the platter was
+      // still creeping round.
+      if (target > this.#spinRate) {
+        this.#spinRate += (target - this.#spinRate) * (1 - Math.exp(-dt / 0.55));
+      } else {
+        const DECEL = 26;   // rpm per second, so an LP takes about a second and a half
+        this.#spinRate = Math.max(target, this.#spinRate - DECEL * dt);
+      }
+      this.#spinAngle = (this.#spinAngle + this.#spinRate * 6 * dt) % 360;
+      this.style.setProperty('--cj-spin-angle', `${this.#spinAngle.toFixed(2)}deg`);
+      if (!on && this.#spinRate === 0) { this.#spinFrame = 0; return; }
+      this.#spinFrame = requestAnimationFrame(step);
+    };
+    this.#spinFrame = requestAnimationFrame(step);
+  }
+
   /** rotating — the card turns under a fixed index instead of a pointer moving */
   #renderCard(sweep, pct) {
     const on = this.hasAttribute('rotating');
@@ -1265,6 +1377,58 @@ export class CJKnob extends HTMLElement {
     this.style.setProperty('--cj-pulse-period', `${(60 / Math.round(bpm)).toFixed(2)}s`);
   }
 
+  /**
+   * How wide the caption may be where it sits.
+   *
+   * The room inside a ring is a circle, so a caption low on the face has far
+   * less of it than one across the middle — and the deeper it goes the faster
+   * that room runs out. Hand-picked widths per layout do not survive contact
+   * with an actual caption: too generous and its bottom corners cross the
+   * track, too tight and it wraps onto a second line that reaches further down
+   * than the wide one ever did.
+   *
+   * So it is solved rather than guessed. The chord at the caption's own depth
+   * is what it may be wide, and two passes settle it: the first measures the
+   * height it wants, the second the height it ends up with once wrapped.
+   */
+  #fitLabel() {
+    const el = this.#els.label;
+    if (!this.#boxW || el.hasAttribute('hidden')) return;
+    const size = this.#boxW;
+    const th = num(getComputedStyle(this).getPropertyValue('--cj-thickness'), 8);
+    // the inner edge of the track, less a hair so nothing sits exactly on it
+    const R = (size * 0.42 - size * th / 200) * 0.97;
+
+    // Measured, not read off --label-y. A custom property computes to its own
+    // token stream, so that one comes back as the string "calc(190px * .285)"
+    // and parses as nothing at all. Where the caption actually is cannot lie.
+    const reach = () => {
+      const host = this.getBoundingClientRect();
+      const cx = host.left + host.width / 2, cy = host.top + host.height / 2;
+      const b = el.getBoundingClientRect();
+      return {
+        worst: Math.max(
+          Math.hypot(b.left - cx, b.top - cy), Math.hypot(b.right - cx, b.top - cy),
+          Math.hypot(b.left - cx, b.bottom - cy), Math.hypot(b.right - cx, b.bottom - cy)),
+        deep: Math.max(Math.abs(b.top - cy), Math.abs(b.bottom - cy)),
+      };
+    };
+
+    el.style.maxInlineSize = '';
+    const loose = reach();
+    if (loose.worst <= R) return;         // already inside; leave it alone
+
+    const half = Math.sqrt(Math.max(0, R * R - loose.deep * loose.deep));
+    if (half <= 0) return;
+    el.style.maxInlineSize = `${(half * 2).toFixed(1)}px`;
+
+    // Narrowing is not automatically an improvement. The caption is anchored by
+    // its first line, so a second one reaches further DOWN than the wide single
+    // line ever did — and down is the direction the circle runs out in. Keep the
+    // narrower version only if it actually pulled the corners in.
+    if (reach().worst >= loose.worst) el.style.maxInlineSize = '';
+  }
+
   #renderText(raw, range) {
     const mode = this.getAttribute('readout') ?? 'percent';
     const decimals = clamp(num(this.getAttribute('decimals'), 0), 0, 6);
@@ -1284,6 +1448,13 @@ export class CJKnob extends HTMLElement {
     const label = this.getAttribute('label');
     setText(this.#els.label, label ?? '');
     this.#els.label.toggleAttribute('hidden', !label);
+    // refit only when something that moves the caption has moved: the text, the
+    // box, or the layout case that decides how far down it sits
+    const sig = `${label}|${this.#boxW}|${mode}|${this.hasAttribute('button')}|${this.hasAttribute('spin')}`;
+    if (label && sig !== this.#fitSig) {
+      this.#fitSig = sig;
+      this.#fitLabel();
+    }
   }
 
   #renderA11y() {
@@ -1450,6 +1621,7 @@ export class CJKnob extends HTMLElement {
   #onActivate = () => {
     if (this.hasAttribute('disabled')) return;
     if (this.hasAttribute('toggle')) this.pressed = !this.pressed;
+    this.#pumpSpin();
     this.dispatchEvent(new CustomEvent('cj-press', {
       detail: { pressed: this.pressed },
       bubbles: true,
