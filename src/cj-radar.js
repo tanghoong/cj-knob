@@ -34,6 +34,8 @@ template.innerHTML = `
     --cjr-mark-size: 6px;
     --cjr-grid-width: .6;
     --cjr-glow: 6px;
+    --cjr-tail: 130deg;   /* how far the luminous trail reaches behind the line */
+    --cjr-fade: 2.2s;     /* how long a contact stays lit after the beam passes */
 
     display: inline-grid;
     place-items: center;
@@ -52,38 +54,66 @@ template.innerHTML = `
   .grid { fill: none; stroke: var(--cjr-grid); stroke-width: var(--cjr-grid-width); }
   .grid line { stroke: var(--cjr-grid); stroke-width: var(--cjr-grid-width); }
 
-  /* The sweep is a rotating conic wedge. CSS paints the gradient far more cheaply
-     than stacking a dozen SVG wedges, and masking it to a circle keeps it inside
-     the scope. Its angle is driven from script so blips can be tested against it. */
+  /* The classic scope sweep: a bright radius line with a long luminous tail
+     trailing behind it. The tail is one conic gradient — CSS paints that far more
+     cheaply than stacking a dozen SVG wedges — laid out so the brightest edge sits
+     at 360deg, i.e. immediately counter-clockwise of 0deg. Rotating the whole layer
+     by the beam angle therefore puts the leading edge exactly on the angle, with
+     the tail sweeping along behind it. The angle is driven from script so each
+     contact can be tested against the beam. */
   .beam {
     border-radius: 50%;
     background: conic-gradient(
       from 0deg,
-      color-mix(in srgb, var(--cjr-beam) 55%, transparent) 0deg,
-      color-mix(in srgb, var(--cjr-beam) 12%, transparent) 34deg,
-      transparent 70deg,
-      transparent 360deg);
+      transparent 0deg,
+      transparent calc(360deg - var(--cjr-tail)),
+      color-mix(in srgb, var(--cjr-beam) 3%, transparent)  calc(360deg - var(--cjr-tail)),
+      color-mix(in srgb, var(--cjr-beam) 10%, transparent) calc(360deg - var(--cjr-tail) * .55),
+      color-mix(in srgb, var(--cjr-beam) 26%, transparent) calc(360deg - var(--cjr-tail) * .22),
+      color-mix(in srgb, var(--cjr-beam) 52%, transparent) 360deg);
     rotate: var(--cjr-beam-angle, 0deg);
-    /* the wedge trails BEHIND the leading edge, so shift it back by its own width */
-    transform: rotate(-70deg);
     pointer-events: none;
   }
-  :host([period="0"]) .beam, :host(:not([period])) .beam { display: none; }
-  /* with no sweep passing over them, static contacts need their own contrast */
-  :host([period="0"]) .blips circle,
-  :host(:not([period])) .blips circle { opacity: .9; }
-
-  .blips circle {
-    fill: var(--cjr-blip);
-    opacity: .34;
-    transition: opacity 1.6s linear, r 1.6s linear;
+  /* the leading edge itself — the line you actually watch go round */
+  .beam-line {
+    stroke: var(--cjr-beam);
+    stroke-width: .9;
+    stroke-linecap: round;
+    filter: drop-shadow(0 0 2px var(--cjr-beam));
+    transform: rotate(var(--cjr-beam-angle, 0deg));
+    transform-origin: 50% 50%;
+    transform-box: view-box;
   }
-  /* a contact brightens as the beam crosses it, then fades until the next pass */
-  .blips circle[data-ping] {
+  :host([period="0"]) .beam, :host(:not([period])) .beam,
+  :host([period="0"]) .beam-line, :host(:not([period])) .beam-line { display: none; }
+  /* with no sweep passing over them, static contacts need their own contrast */
+  :host([period="0"]) .blips .dot,
+  :host(:not([period])) .blips .dot { opacity: .9; }
+
+  /* A contact is a dot plus a halo. The beam crossing it flares the dot white and
+     fires the halo outward, then both decay until the next revolution finds it. */
+  .blip .dot {
+    fill: var(--cjr-blip);
+    opacity: .26;
+    transition: opacity var(--cjr-fade) linear, fill var(--cjr-fade) linear;
+  }
+  .blip .halo {
+    fill: var(--cjr-blip);
+    opacity: 0;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+  .blip[data-ping] .dot {
     fill: var(--cjr-blip-hot);
     opacity: 1;
     transition: none;
     filter: drop-shadow(0 0 var(--cjr-glow) var(--cjr-blip));
+  }
+  .blip[data-ping] .halo { animation: cjr-ping var(--cjr-fade) ease-out; }
+
+  @keyframes cjr-ping {
+    from { opacity: .5; scale: .4; }
+    to   { opacity: 0;  scale: 3; }
   }
 
   .marks text {
@@ -96,14 +126,16 @@ template.innerHTML = `
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .beam { display: none; }
-    .blips circle { opacity: .8; transition: none; }
+    .beam, .beam-line { display: none; }
+    .blip .dot { opacity: .85; transition: none; }
+    .blip[data-ping] .halo { animation: none; }
   }
 </style>
 
 <svg viewBox="0 0 100 100" part="svg" aria-hidden="true" focusable="false">
   <circle class="field" part="field" cx="50" cy="50" r="46"/>
   <g class="grid" part="grid"></g>
+  <line class="beam-line" part="beam-line" x1="50" y1="50" x2="96" y2="50"/>
   <g class="blips" part="blips"></g>
   <g class="marks" part="marks"></g>
 </svg>
@@ -244,11 +276,25 @@ export class CJRadar extends HTMLElement {
     for (const b of this.#blips) {
       // bearing 0 is north, and clockwise from there
       const a = (b.bearing - 90) * Math.PI / 180;
-      const c = document.createElementNS(SVG_NS, 'circle');
-      c.setAttribute('cx', (50 + Math.cos(a) * b.range * R).toFixed(2));
-      c.setAttribute('cy', (50 + Math.sin(a) * b.range * R).toFixed(2));
-      c.setAttribute('r', '1.9');
-      frag.append(c);
+      const x = (50 + Math.cos(a) * b.range * R).toFixed(2);
+      const y = (50 + Math.sin(a) * b.range * R).toFixed(2);
+      const g = document.createElementNS(SVG_NS, 'g');
+      g.setAttribute('class', 'blip');
+      // the halo is drawn first so the dot always sits on top of its own flare
+      for (const [cls, r] of [['halo', 2.6], ['dot', 1.9]]) {
+        const c = document.createElementNS(SVG_NS, 'circle');
+        c.setAttribute('class', cls);
+        c.setAttribute('cx', x);
+        c.setAttribute('cy', y);
+        c.setAttribute('r', String(r));
+        g.append(c);
+      }
+      if (b.label) {
+        const t = document.createElementNS(SVG_NS, 'title');
+        t.textContent = b.label;
+        g.append(t);
+      }
+      frag.append(g);
     }
     this.#els.blips.replaceChildren(frag);
   }
@@ -287,8 +333,13 @@ export class CJRadar extends HTMLElement {
       if (crossed) {
         const el = nodes[i];
         if (!el) continue;
+        // Re-adding the flag restarts the halo animation even when the previous
+        // pass has not finished decaying; the reflow between is what makes the
+        // browser treat it as a new animation rather than a continuing one.
+        el.removeAttribute('data-ping');
+        void el.getBoundingClientRect();
         el.setAttribute('data-ping', '');
-        // drop the flag on the next frame so the CSS transition can fade it out
+        // dropping it next frame lets the dot's own transition fade it back down
         requestAnimationFrame(() => el.removeAttribute('data-ping'));
         this.dispatchEvent(new CustomEvent('cj-detect', {
           detail: { index: i, ...this.#blips[i] }, bubbles: true,
