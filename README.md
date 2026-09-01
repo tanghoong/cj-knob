@@ -80,6 +80,11 @@ Or drop it in with no tooling at all:
 | `pressed` | — | Whether a `toggle` button is on. Also `.pressed`. |
 | `gas` | — | Fills the face with drifting haze whose density is the value. |
 | `spin` | `33` | The middle turns, in revolutions per minute. On a `toggle` button it only turns while pressed. |
+| `turn` | `180` | The middle swings round to this angle and stays. On a `toggle` button it swings back when released. |
+| `trend` | — | A rise or a fall shown beside the number, with a drawn arrow and a sign colour. |
+| `trend-unit` | — | Suffix on the delta, e.g. `"%"`. |
+| `states` | — | A button that cycles: `"stop:#ef4444, go:#22c55e"`. |
+| `state` | `0` | Which state it is in, by index. Also `.state`. |
 | `pulse` | `60` | A ring that swells and fades at this many beats per minute. `pulse="auto"` takes the rate from the dial's own reading. |
 | `inset` | `low` | Where `slot="inset"` content sits: `low` under the number, `fill` up the middle. |
 | `ballistics` | — | Meter ballistics: `"attack release"` in seconds, one number for both. |
@@ -245,6 +250,58 @@ It winds up like a motor — torque against inertia, so it eases in — and coas
 down like friction, which is near enough constant. That difference is not
 pedantry: easing toward zero approaches it and never arrives, and the first
 version was still creeping round nine seconds after being stopped.
+
+Whatever is in the middle turns about its own centre, which takes more care than
+it sounds: an emoji's box is a line box, as tall as the font says and no wider
+than the glyph, so rotating about the centre of that swings it round an axis
+somewhere off its own face. `spin` gives the middle a square box and centres the
+content in it.
+
+`slot="icon-on"` is swapped in while a `toggle` is pressed — but only if you
+gave one. A toggle with a single icon keeps it, rather than being left showing
+nothing at all.
+
+### Which, not how much
+
+A traffic light is not a low value of green. Some dials are showing which of
+several things they are, and for those the ring is a lamp and the press is a
+selector:
+
+```html
+<cj-knob button readout="none"
+         states="stop:#ef4444, go:#22c55e, wait:#f59e0b"></cj-knob>
+```
+
+Each press advances one step and wraps. The lamp and the ring take the state's
+colour, the caption takes its name unless you gave the dial one of its own, and
+`cj-press` carries `{state, name}`. Read it back as `.state`.
+
+### Rises and falls
+
+```html
+<cj-knob value="68" readout="value" decimals="2" unit="$" label="ACME"
+         trend="1.84" trend-unit="%"></cj-knob>
+```
+
+A price is two readings — where it is and which way it went — and a dial that
+only shows the first is half a dial. `trend` puts the move under the number
+with an arrow and a sign colour (`--cj-up`, `--cj-down`, `--cj-flat`). The
+arrow is drawn rather than typed: a glyph is at the mercy of whatever font the
+page happens to be in, and a triangle that renders as a box on one machine is
+not a trend. The delta drops its own sign, because the arrow is already
+carrying it.
+
+### Day and night
+
+`turn` swings the middle round to an angle and leaves it there — a discrete
+move rather than `spin`'s continuous one. On a `toggle` button it swings back
+when released, which is a day/night face in markup:
+
+```html
+<cj-knob button toggle turn="180" readout="none" label="day">
+  <svg slot="icon" viewBox="0 0 100 100">…sky above, night below…</svg>
+</cj-knob>
+```
 
 ### Gas
 
@@ -665,7 +722,7 @@ The demo lives at the repository root so that `./src/cj-knob.js` never points ou
 
 ```sh
 npm run dev     # then open http://127.0.0.1:8765/
-npm test        # 273 Playwright checks: geometry, needle, radar, horizon, keyboard, a11y
+npm test        # 296 Playwright checks: geometry, needle, radar, horizon, keyboard, a11y
 ```
 
 ## Browser support

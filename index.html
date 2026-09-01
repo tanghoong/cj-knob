@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>cj-knob — one element, every dial</title>
-<meta name="description" content="A knob, gauge and meter as a single custom element. Zero dependencies, no build step, 21.4 KB gzipped. Works in plain HTML, React, Vue and Svelte.">
+<meta name="description" content="A knob, gauge and meter as a single custom element. Zero dependencies, no build step, 23.6 KB gzipped. Works in plain HTML, React, Vue and Svelte.">
 <!-- Holds each element's space before its module lands, so the page does not
      jump when they upgrade. No JavaScript; it stops applying by itself. -->
 <link rel="stylesheet" href="src/cj-skeleton.css">
@@ -328,9 +328,9 @@
       </div>
 
       <ul class="facts">
-        <li><b>21.4 KB</b><span>gzipped</span></li>
+        <li><b>23.6 KB</b><span>gzipped</span></li>
         <li><b>0</b><span>dependencies</span></li>
-        <li><b>37</b><span>attributes</span></li>
+        <li><b>42</b><span>attributes</span></li>
         <li><b>7</b><span>elements</span></li>
       </ul>
 
@@ -453,7 +453,7 @@
   <div class="wrap">
     <h2>Small on purpose. Complete anyway.</h2>
     <p class="sub">
-      Everything below ships inside the 21.4 KB. There is no pro tier, no plugin system,
+      Everything below ships inside the 23.6 KB. There is no pro tier, no plugin system,
       and nothing to install alongside it.
     </p>
 
@@ -652,6 +652,71 @@
   </div>
 </div>
 
+<h3>Life is full of dials</h3>
+<p class="note">Temperature, brightness, a switch, a price, a signal, a light —
+  none of these are charts. They are all the same ring, read differently.</p>
+<div class="grid">
+  <div class="card">
+    <cj-knob id="w-stock" value="68" min="0" max="120" readout="value" decimals="2"
+             unit="$" label="ACME" trend="1.84" trend-unit="%" color="#16a34a"></cj-knob>
+    <code><code>trend</code> — a price is two readings:<br>where it is and which way it went</code>
+  </div>
+  <div class="card">
+    <cj-knob id="w-light" button readout="none" style="--cj-thickness:11"
+             states="stop:#ef4444, go:#22c55e, wait:#f59e0b"></cj-knob>
+    <code><code>states</code> — press to advance.<br>A light is not a low value of green.</code>
+  </div>
+  <div class="card">
+    <cj-knob id="w-sky" button toggle turn="180" readout="none" label="day" color="#fbbf24">
+      <svg slot="icon" viewBox="0 0 100 100" aria-hidden="true">
+        <defs><linearGradient id="skyg" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#7dd3fc"/><stop offset=".5" stop-color="#fde68a"/>
+          <stop offset=".5" stop-color="#1e293b"/><stop offset="1" stop-color="#0b1120"/>
+        </linearGradient></defs>
+        <circle cx="50" cy="50" r="50" fill="url(#skyg)"/>
+        <circle cx="50" cy="27" r="11" fill="#f59e0b"/>
+        <path d="M56 73a11 11 0 1 1-11-11 9 9 0 0 0 11 11z" fill="#e2e8f0"/>
+        <circle cx="30" cy="80" r="1.6" fill="#e2e8f0"/><circle cx="70" cy="84" r="1.3" fill="#e2e8f0"/>
+        <circle cx="62" cy="92" r="1.1" fill="#e2e8f0"/>
+      </svg>
+    </cj-knob>
+    <code><code>turn="180"</code> — press and it<br>swings round to the other half</code>
+  </div>
+  <div class="card">
+    <cj-knob value="2841" min="0" max="4000" readout="value" unit="kWh" label="meter"
+             decimals="0" ticks="20" tick-major="5" gradient="#22c55e,#f59e0b,#ef4444"></cj-knob>
+    <code>an electricity meter — <code>gradient</code><br>maps the scale, not the value</code>
+  </div>
+  <div class="card">
+    <cj-knob value="63" readout="value" unit="%" label="data" decimals="0"
+             benchmark="80" zones="80-100:#fee2e2" color="#7c3aed"></cj-knob>
+    <code>mobile data against its cap —<br><code>benchmark</code> is the allowance</code>
+  </div>
+  <div class="card">
+    <cj-knob value="86" readout="value" label="safety" decimals="0" sweep="270"
+             zones="0-40:#fee2e2, 40-70:#fef3c7, 70-100:#dcfce7" color="#16a34a"
+             ticks="10" tick-major="5"></cj-knob>
+    <code>a safety index — <code>zones</code> say<br>what the number means</code>
+  </div>
+  <div class="card">
+    <cj-knob id="w-bright" value="72" readout="value" unit="%" label="brightness"
+             interactive color="#f59e0b" style="--cj-thickness:12"></cj-knob>
+    <code>brightness — drag it.<br>The same ring, now an input.</code>
+  </div>
+  <div class="card">
+    <cj-knob id="w-switch" button toggle readout="none" label="off" color="#64748b"
+             style="--cj-thickness:10">
+      <span slot="icon">⏻</span><span slot="icon-on">⏻</span>
+    </cj-knob>
+    <code>a switch — <code>toggle</code> and two<br>icon slots is the whole of it</code>
+  </div>
+  <div class="card">
+    <cj-knob value="41" min="0" max="100" liquid readout="value" unit="%" label="tank"
+             ticks="10" tick-major="5" color="#0ea5e9" style="--cj-liquid:#0ea5e9"></cj-knob>
+    <code>a water tank — the face is the vessel</code>
+  </div>
+</div>
+
 <h3>Buttons, gas and voice</h3>
 <div class="grid">
   <div class="card wide">
@@ -690,24 +755,42 @@
     <cj-knob id="ex-vinyl" button toggle spin="33" value="21" readout="none" label="Blue Train"
              color="#e0b04a" style="--cj-size:170px;--cj-thickness:5">
       <svg slot="icon" viewBox="0 0 100 100" aria-hidden="true">
-        <circle cx="50" cy="50" r="50" fill="#1c1c1e"/>
-        <g stroke="#000" stroke-opacity=".5" fill="none">
-          <circle cx="50" cy="50" r="45"/><circle cx="50" cy="50" r="41"/><circle cx="50" cy="50" r="37"/>
-          <circle cx="50" cy="50" r="33"/><circle cx="50" cy="50" r="29"/><circle cx="50" cy="50" r="25"/>
+        <defs>
+          <linearGradient id="sleeveicon" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#2b3a67"/><stop offset=".55" stop-color="#7b3f6b"/>
+            <stop offset="1" stop-color="#d97742"/>
+          </linearGradient>
+        </defs>
+        <circle cx="50" cy="50" r="50" fill="#141416"/>
+        <circle cx="50" cy="50" r="50" fill="url(#sleeveicon)" opacity=".9"/>
+        <g fill="none" stroke="#000" stroke-opacity=".28">
+          <circle cx="50" cy="50" r="46"/><circle cx="50" cy="50" r="42"/><circle cx="50" cy="50" r="38"/>
+          <circle cx="50" cy="50" r="34"/><circle cx="50" cy="50" r="30"/><circle cx="50" cy="50" r="26"/>
         </g>
-        <circle cx="50" cy="50" r="19" fill="#e0b04a"/>
-        <path d="M50 34a16 16 0 0 1 16 16H50z" fill="#c2913a"/>
-        <circle cx="50" cy="50" r="2.4" fill="#f6f7f9"/>
+        <path d="M18 66c14-26 24-34 32-34s16 10 32 30" fill="none" stroke="#f7e7d3" stroke-opacity=".8" stroke-width="2.4"/>
+        <circle cx="66" cy="30" r="7" fill="#f7e7d3" fill-opacity=".85"/>
+        <circle cx="50" cy="50" r="17" fill="#1b1b1e"/>
+        <circle cx="50" cy="50" r="17" fill="#e8c37a" fill-opacity=".92"/>
+        <circle cx="50" cy="50" r="2.3" fill="#0e131a"/>
       </svg>
       <svg slot="icon-on" viewBox="0 0 100 100" aria-hidden="true">
-        <circle cx="50" cy="50" r="50" fill="#1c1c1e"/>
-        <g stroke="#000" stroke-opacity=".5" fill="none">
-          <circle cx="50" cy="50" r="45"/><circle cx="50" cy="50" r="41"/><circle cx="50" cy="50" r="37"/>
-          <circle cx="50" cy="50" r="33"/><circle cx="50" cy="50" r="29"/><circle cx="50" cy="50" r="25"/>
+        <defs>
+          <linearGradient id="sleeveicon-on" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#2b3a67"/><stop offset=".55" stop-color="#7b3f6b"/>
+            <stop offset="1" stop-color="#d97742"/>
+          </linearGradient>
+        </defs>
+        <circle cx="50" cy="50" r="50" fill="#141416"/>
+        <circle cx="50" cy="50" r="50" fill="url(#sleeveicon-on)" opacity=".9"/>
+        <g fill="none" stroke="#000" stroke-opacity=".28">
+          <circle cx="50" cy="50" r="46"/><circle cx="50" cy="50" r="42"/><circle cx="50" cy="50" r="38"/>
+          <circle cx="50" cy="50" r="34"/><circle cx="50" cy="50" r="30"/><circle cx="50" cy="50" r="26"/>
         </g>
-        <circle cx="50" cy="50" r="19" fill="#e0b04a"/>
-        <path d="M50 34a16 16 0 0 1 16 16H50z" fill="#c2913a"/>
-        <circle cx="50" cy="50" r="2.4" fill="#f6f7f9"/>
+        <path d="M18 66c14-26 24-34 32-34s16 10 32 30" fill="none" stroke="#f7e7d3" stroke-opacity=".8" stroke-width="2.4"/>
+        <circle cx="66" cy="30" r="7" fill="#f7e7d3" fill-opacity=".85"/>
+        <circle cx="50" cy="50" r="17" fill="#1b1b1e"/>
+        <circle cx="50" cy="50" r="17" fill="#e8c37a" fill-opacity=".92"/>
+        <circle cx="50" cy="50" r="2.3" fill="#0e131a"/>
       </svg>
     </cj-knob>
     <code><code>spin="33"</code> on a <code>toggle</code> button. It winds up
@@ -1167,7 +1250,7 @@ document.querySelector(<span class="s">'[data-count="1"]'</span>).onclick = () =
 <section class="band" id="api">
   <div class="wrap">
     <h2>The whole API</h2>
-    <p class="sub">Thirty-seven attributes on <code>&lt;cj-knob&gt;</code>, thirteen on
+    <p class="sub">Forty-two attributes on <code>&lt;cj-knob&gt;</code>, thirteen on
       <code>&lt;cj-level&gt;</code>, six on <code>&lt;cj-radar&gt;</code>, four on
       <code>&lt;cj-horizon&gt;</code>. That is all of it — there is no second page.</p>
 
@@ -1196,6 +1279,9 @@ document.querySelector(<span class="s">'[data-count="1"]'</span>).onclick = () =
           <tr><td><code>value-2</code></td><td>—</td><td>A second value, drawn as a second pointer alongside the first.</td></tr>
           <tr><td><code>rotating</code></td><td>—</td><td>The card turns under a fixed index, the way a heading indicator works.</td></tr>
           <tr><td><code>button</code></td><td>—</td><td>The dial becomes a button: focusable, Enter/Space activates it, and it fires <code>cj-press</code>. Add <code>toggle</code> to make it latch, and <code>slot="icon-on"</code> for the pressed glyph.</td></tr>
+          <tr><td><code>trend</code></td><td>—</td><td>A rise or a fall shown beside the number, with a drawn arrow and a sign colour. <code>trend-unit</code> suffixes it.</td></tr>
+          <tr><td><code>states</code></td><td>—</td><td>A button that cycles: <code>"stop:#ef4444, go:#22c55e"</code>. Each press advances, the lamp and ring take the colour, the caption the name. Read it back as <code>.state</code>.</td></tr>
+          <tr><td><code>turn</code></td><td><code>180</code></td><td>The middle swings round to this angle and stays. On a <code>toggle</code> button it swings back when released.</td></tr>
           <tr><td><code>spin</code></td><td><code>33</code></td><td>The middle turns, in revolutions per minute. On a <code>toggle</code> button it only turns while pressed. Winds up like a motor, coasts down like friction.</td></tr>
           <tr><td><code>gas</code></td><td>—</td><td>Fills the face with drifting haze whose density is the value. Liquid has a surface; a gas only has how much of it there is.</td></tr>
           <tr><td><code>slot="inset"</code></td><td>—</td><td>Put a <code>&lt;cj-trace&gt;</code>, a <code>&lt;cj-level&gt;</code> or anything else inside the face. The knob lays it out; it stays an ordinary element you can script.</td></tr>
@@ -1545,6 +1631,21 @@ cj-knob::part(value) { <span class="a">filter</span>: <span class="s">drop-shado
   const heroPlay = document.getElementById('hero-play');
   let playing = false;
   if (heroPlay) heroPlay.addEventListener('cj-press', (e) => { playing = e.detail.pressed; });
+  // ---- the world-view row: the two that read back, and a drifting price ------
+  {
+    const sky = document.getElementById('w-sky');
+    if (sky) sky.addEventListener('cj-press', (e) => {
+      sky.setAttribute('label', e.detail.pressed ? 'night' : 'day');
+      sky.setAttribute('color', e.detail.pressed ? '#64748b' : '#fbbf24');
+    });
+    const sw = document.getElementById('w-switch');
+    if (sw) sw.addEventListener('cj-press', (e) => {
+      sw.setAttribute('label', e.detail.pressed ? 'on' : 'off');
+      sw.setAttribute('color', e.detail.pressed ? '#22c55e' : '#64748b');
+    });
+  }
+  const wStock = document.getElementById('w-stock');
+
   const exVinyl = document.getElementById('ex-vinyl');
   const exPlay = document.getElementById('ex-play');
   let exPlaying = false;
@@ -1747,6 +1848,14 @@ cj-knob::part(value) { <span class="a">filter</span>: <span class="s">drop-shado
     // the record's own progress: spin= handles the platter, the ring is the side
     if (exVinyl && exVinyl.pressed) {
       exVinyl.value = ((+exVinyl.value + dt * 3.5) % 100).toFixed(2);
+    }
+
+    // a price that never moves is not a price
+    if (wStock) {
+      const drift = Math.sin(now / 5200) * 9 + Math.sin(now / 1700) * 1.6;
+      wStock.value = (68 + drift).toFixed(2);
+      wStock.setAttribute('trend', drift.toFixed(2));
+      wStock.setAttribute('color', drift >= 0 ? '#16a34a' : '#dc2626');
     }
 
     // the gyro card keeps turning while Spin is engaged

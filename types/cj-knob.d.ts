@@ -27,12 +27,20 @@ export declare class CJKnob extends HTMLElement {
    */
   pressed: boolean;
   /**
+   * The states a `states` button cycles through. Empty on an ordinary dial.
+   * Read-only.
+   */
+  readonly states: { name: string; color: string }[];
+  /** Which state it is in, by index, or -1 without `states`. Attribute: `state`. */
+  state: number;
+  /**
    * Presentational attributes with no property mirror:
    * `sweep`, `start`, `benchmark`, `zones`, `segments`, `ticks`, `tick-major`,
    * `needle`, `labels`, `label-radius`, `readout`, `unit`, `decimals`, `label`,
    * `color`, `disabled`, `animate-in`, `liquid`, `rotating`, `value-2`,
    * `gradient`, `ballistics`, `peak-hold`, `peak-fall`, `pulse`, `inset`,
-   * `button`, `toggle`, `gas`, `spin`. Set them with `setAttribute`.
+   * `button`, `toggle`, `gas`, `spin`, `trend`, `trend-unit`, `states`,
+   * `turn`. Set them with `setAttribute`.
    *
    * Slots: `icon` in the middle, `icon-on` for the glyph a pressed `toggle`
    * button shows instead, and `inset` for something living inside the face —
@@ -78,8 +86,11 @@ declare global {
     'cj-input': CustomEvent<CJKnobEventDetail | CJKnobRangeEventDetail>;
     /** Fired when an interaction settles (pointer release, key press). */
     'cj-change': CustomEvent<CJKnobEventDetail | CJKnobRangeEventDetail>;
-    /** Fired when a `button` dial is activated by click, Enter or Space. */
-    'cj-press': CustomEvent<{ pressed: boolean }>;
+    /**
+     * Fired when a `button` dial is activated by click, Enter or Space.
+     * `state` and `name` are present only on a `states` button.
+     */
+    'cj-press': CustomEvent<{ pressed: boolean; state?: number; name?: string }>;
   }
 }
 
