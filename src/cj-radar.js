@@ -34,6 +34,7 @@ template.innerHTML = `
     --cjr-mark-size: 6px;
     --cjr-grid-width: .6;
     --cjr-glow: 6px;
+    --cjr-beam-opacity: 0;  /* eased by script as the sweep spins up and down */
     --cjr-tail: 130deg;   /* how far the luminous trail reaches behind the line */
     --cjr-fade: 2.2s;     /* how long a contact stays lit after the beam passes */
 
@@ -87,8 +88,9 @@ template.innerHTML = `
     transform-origin: 50% 50%;
     transform-box: view-box;
   }
-  :host([period="0"]) .beam, :host(:not([period])) .beam,
-  :host([period="0"]) .beam-line, :host(:not([period])) .beam-line { display: none; }
+  /* Driven from script so the beam can wind up and coast down. display:none is
+     what made stopping look like the sweep had been deleted mid-frame. */
+  .beam, .beam-line { opacity: var(--cjr-beam-opacity, 0); }
   /* with no sweep passing over them, static contacts need their own contrast */
   :host([period="0"]) .blips .dot,
   :host(:not([period])) .blips .dot { opacity: .9; }
@@ -159,6 +161,8 @@ export class CJRadar extends HTMLElement {
   #angle = 0;
   #prevAngle = 0;
   #last = 0;
+  #spin = 0;   // current deg/sec, eased toward the target
+  #glow = 0;   // current brightness 0..1, eased toward the target
 
   constructor() {
     super();
@@ -213,6 +217,9 @@ export class CJRadar extends HTMLElement {
 
   disconnectedCallback() {
     cancelAnimationFrame(this.#frame);
+    // clearing the id matters: #loop() treats a non-zero one as "already running",
+    // so a re-attached scope would otherwise never start turning again
+    this.#frame = 0;
     this.removeEventListener('pointerdown', this.#onPointerDown);
   }
 
@@ -307,27 +314,60 @@ export class CJRadar extends HTMLElement {
   }
 
   // ---- the sweep ---------------------------------------------------------
+  /**
+   * Spin the sweep up and down rather than switching it on and off.
+   *
+   * The beam used to be display:none whenever period was 0, so stopping it made
+   * the whole sweep vanish between one frame and the next. Now the loop keeps
+   * running through the transition: the rotation eases toward its target speed
+   * and the brightness eases toward its target, so starting winds up and stopping
+   * coasts to a halt and fades. The loop only lets go once both have settled.
+   */
   #start() {
-    cancelAnimationFrame(this.#frame);
-    if (!this.period) {
-      this.style.setProperty('--cjr-beam-angle', '0deg');
-      return;
-    }
     // Someone who asked for less motion still gets a scope, just a still one:
     // the beam parks off the vertical so it reads as a sweep caught mid-turn.
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      this.#angle = 45;
-      this.style.setProperty('--cjr-beam-angle', '45deg');
+      cancelAnimationFrame(this.#frame);
+      this.#frame = 0;
+      this.#angle = this.period ? 45 : 0;
+      this.style.setProperty('--cjr-beam-angle', `${this.#angle}deg`);
+      this.style.setProperty('--cjr-beam-opacity', this.period ? '1' : '0');
       return;
     }
+    this.#loop();
+  }
+
+  #loop() {
+    if (this.#frame) return;                 // already running; it reads the target itself
     this.#last = performance.now();
+
     const tick = (now) => {
-      const dt = (now - this.#last) / 1000;
+      // a long frame (a background tab, a slow paint) must not teleport the beam
+      const dt = Math.min(0.05, Math.max(0, (now - this.#last) / 1000));
       this.#last = now;
+
+      const spinTo = this.period ? 360 / this.period : 0;
+      const glowTo = this.period ? 1 : 0;
+      // framerate-independent exponential ease: the same curve at 30fps and 144
+      const ease = (tau) => 1 - Math.exp(-dt / tau);
+      this.#spin += (spinTo - this.#spin) * ease(0.55);
+      this.#glow += (glowTo - this.#glow) * ease(0.34);
+
       this.#prevAngle = this.#angle;
-      this.#angle = (this.#angle + (dt / this.period) * 360) % 360;
+      this.#angle = (this.#angle + this.#spin * dt) % 360;
       this.style.setProperty('--cjr-beam-angle', `${this.#angle.toFixed(2)}deg`);
-      this.#detect();
+      this.style.setProperty('--cjr-beam-opacity', this.#glow.toFixed(3));
+
+      // no pings while it is barely turning, or a spin-down would fire a burst
+      if (this.#spin > 2) this.#detect();
+
+      if (!this.period && this.#spin < 1 && this.#glow < 0.01) {
+        this.#spin = 0;
+        this.#glow = 0;
+        this.style.setProperty('--cjr-beam-opacity', '0');
+        this.#frame = 0;
+        return;
+      }
       this.#frame = requestAnimationFrame(tick);
     };
     this.#frame = requestAnimationFrame(tick);

@@ -587,6 +587,39 @@ check('zones render on the column', level.zones === 1, String(level.zones));
 check('the bulb is one closed outline', level.subpaths === 1, `${level.subpaths} subpaths`);
 check('ratio reports the fill', level.ratio === 1, String(level.ratio));
 
+// --- the sweep winds up and coasts down instead of blinking on and off ---
+const spin = await page.evaluate(async () => {
+  const el = document.querySelector('#playground cj-radar');
+  const read = () => ({
+    o: +el.style.getPropertyValue('--cjr-beam-opacity'),
+    a: parseFloat(el.style.getPropertyValue('--cjr-beam-angle')),
+  });
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  el.period = 4;
+  await wait(700);
+  const running = read();
+
+  el.period = 0;
+  const trail = [];
+  for (let i = 0; i < 7; i++) { await wait(150); trail.push(read()); }
+
+  el.period = 4;
+  await wait(600);
+  const restarted = read();
+  return { running, trail, restarted };
+});
+// mid-range opacities are the whole point: a display toggle can only ever be 0 or 1
+check('the sweep fades out through mid values',
+  spin.trail.some((s) => s.o > 0.02 && s.o < 0.9),
+  spin.trail.map((s) => s.o.toFixed(2)).join(' '));
+check('the sweep settles at zero', spin.trail.at(-1).o < 0.05, String(spin.trail.at(-1).o));
+// each sample should advance less than the one before it — that is the coast
+const steps = spin.trail.slice(1).map((s, i) => s.a - spin.trail[i].a).filter((d) => d > 0);
+check('the rotation decelerates rather than stopping dead',
+  steps.length > 2 && steps.at(-1) < steps[0], steps.map((d) => d.toFixed(1)).join(' '));
+check('starting again winds it back up', spin.restarted.o > 0.5, String(spin.restarted.o));
+
 check('still no page errors at end', errors.length === 0, errors.join(' | '));
 
 await browser.close();

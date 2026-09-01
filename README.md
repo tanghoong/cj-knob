@@ -187,7 +187,10 @@ Theme it with `--cjr-field`, `--cjr-grid`, `--cjr-beam`, `--cjr-blip`, `--cjr-ma
 and `--cjr-size`. With no `period` the beam is not drawn at all and the contacts
 carry their own contrast.
 
-**If the sweep is not turning, check your system motion setting.** Under
+The sweep winds up when it starts and coasts to a halt when it stops, rather than
+switching on and off — `period = 0` decelerates and fades instead of vanishing.
+
+**If the sweep is not turning at all, check your system motion setting.** Under
 `prefers-reduced-motion: reduce` the beam parks instead of rotating — it stays
 visible, it just holds still. On Windows that is Settings → Accessibility → Visual
 effects → Animation effects; on macOS, System Settings → Accessibility → Display →
@@ -261,7 +264,7 @@ The demo lives at the repository root so that `./src/cj-knob.js` never points ou
 
 ```sh
 npm run dev     # then open http://127.0.0.1:8765/
-npm test        # 102 Playwright checks: geometry, needle, radar, horizon, keyboard, a11y
+npm test        # 106 Playwright checks: geometry, needle, radar, horizon, keyboard, a11y
 ```
 
 ## Browser support
