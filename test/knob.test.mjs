@@ -834,6 +834,367 @@ const noBallistics = await page.evaluate(async () => {
 });
 check('without ballistics the reading is the value', noBallistics === 90, String(noBallistics));
 
+// --- range: two handles and a band between them ---
+const rangeSetup = await page.evaluate(async () => {
+  const k = document.createElement('cj-knob');
+  k.setAttribute('range', '20 70');
+  k.setAttribute('sweep', '270');
+  k.setAttribute('interactive', '');
+  Object.assign(k.style, { position: 'fixed', left: '100px', top: '100px', zIndex: '99' });
+  k.style.setProperty('--cj-size', '300px');
+  document.body.append(k);
+  await new Promise((r) => requestAnimationFrame(r));
+  k.id = 'test-range'; window.__r = k; window.__ev = [];
+  k.addEventListener('cj-input', (e) => window.__ev.push({ in: e.detail }));
+  k.addEventListener('cj-change', (e) => window.__ev.push({ ch: e.detail }));
+  const v = k.shadowRoot.querySelector('.value');
+  return {
+    // the dial's own start angle, so the drags below aim at the real handles
+    start: parseFloat(k.style.getPropertyValue('--cj-start')),
+    dash: parseFloat(v.getAttribute('stroke-dasharray')),
+    off: parseFloat(v.getAttribute('stroke-dashoffset')),
+    lo: k.style.getPropertyValue('--cj-lo-angle'),
+    hi: k.style.getPropertyValue('--cj-hi-angle'),
+    text: k.shadowRoot.querySelector('.num').textContent,
+    aria: k.getAttribute('aria-valuetext'),
+    handles: !k.shadowRoot.querySelector('.handles').hasAttribute('hidden'),
+    reversed: (() => { k.setAttribute('range', '70 20'); const x = k.range; k.setAttribute('range', '20 70'); return x; })(),
+    fromArray: (() => { k.range = [10, 90]; const a = k.getAttribute('range'); k.range = { low: 20, high: 70 }; return a; })(),
+  };
+});
+const ARC270 = 75;
+check('the band spans exactly low to high', Math.abs(rangeSetup.dash - ARC270 * 0.5) < 1e-6, String(rangeSetup.dash));
+check('the band starts at low, not at the beginning of the arc',
+  Math.abs(rangeSetup.off + ARC270 * 0.2) < 1e-6, String(rangeSetup.off));
+check('the handles sit at the two ends', rangeSetup.lo === '54.00deg' && rangeSetup.hi === '189.00deg',
+  rangeSetup.lo + ' / ' + rangeSetup.hi);
+check('handles are drawn for a range dial', rangeSetup.handles);
+check('the readout shows the span', rangeSetup.text === '20–70', rangeSetup.text);
+check('aria describes the span', rangeSetup.aria === '20 to 70', rangeSetup.aria);
+check('a range written backwards still reads as a span',
+  rangeSetup.reversed.low === 20 && rangeSetup.reversed.high === 70, JSON.stringify(rangeSetup.reversed));
+check('range accepts an array', rangeSetup.fromArray === '10 90', rangeSetup.fromArray);
+
+const rBox = await page.locator('#test-range').boundingBox();
+const rAt = (frac, rr = 110) => {
+  const d = (rangeSetup.start + frac * 270) * Math.PI / 180;
+  return [rBox.x + rBox.width / 2 + Math.cos(d) * rr, rBox.y + rBox.height / 2 + Math.sin(d) * rr];
+};
+const rDrag = async (from, to, steps = 10) => {
+  await page.evaluate(() => { window.__ev.length = 0; });
+  await page.mouse.move(...rAt(from));
+  await page.mouse.down();
+  await page.mouse.move(...rAt(to), { steps });
+  await page.mouse.up();
+  return page.evaluate(() => ({ r: window.__r.range, ev: window.__ev.slice() }));
+};
+
+const dragLow = await rDrag(0.20, 0.40);
+check('dragging the low handle moves only it',
+  dragLow.r.low > 30 && dragLow.r.high === 70, JSON.stringify(dragLow.r));
+check('cj-change on a range carries low and high',
+  dragLow.ev.at(-1).ch && 'low' in dragLow.ev.at(-1).ch, JSON.stringify(dragLow.ev.at(-1)));
+
+await page.evaluate(() => { window.__r.range = [20, 70]; });
+const met = await rDrag(0.20, 0.95, 14);
+check('a handle stops at the other instead of crossing it',
+  met.r.low === met.r.high && met.r.high === 70, JSON.stringify(met.r));
+
+// the pointer passing the far handle must not hand the drag over to it mid-way
+await page.evaluate(() => { window.__r.range = [20, 70]; });
+const kept = await rDrag(0.70, 0.10, 14);
+check('a drag keeps the handle it grabbed', kept.r.low === 20 && kept.r.high === 20, JSON.stringify(kept.r));
+
+const rangeKeys = await page.evaluate(() => {
+  const k = window.__r;
+  k.range = [20, 70];
+  k.focus();
+  const key = (opts) => k.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, ...opts }));
+  key({ key: 'ArrowUp' });
+  const high = k.range.high;
+  key({ key: 'ArrowUp', shiftKey: true });
+  const low = k.range.low;
+  return { high, low };
+});
+check('arrows move the high handle', rangeKeys.high === 71, String(rangeKeys.high));
+check('shift+arrows move the low handle', rangeKeys.low === 21, String(rangeKeys.low));
+await page.evaluate(() => window.__r.remove());
+
+// --- endless: an encoder with no ends ---
+await page.evaluate(async () => {
+  const k = document.createElement('cj-knob');
+  k.setAttribute('endless', '');
+  k.setAttribute('value', '0');
+  k.setAttribute('readout', 'value');
+  k.setAttribute('interactive', '');
+  Object.assign(k.style, { position: 'fixed', left: '100px', top: '100px', zIndex: '99' });
+  k.style.setProperty('--cj-size', '300px');
+  document.body.append(k);
+  await new Promise((r) => requestAnimationFrame(r));
+  k.id = 'test-endless'; window.__e = k;
+});
+const eBox = await page.locator('#test-endless').boundingBox();
+const eAt = (deg, rr = 110) => [
+  eBox.x + eBox.width / 2 + Math.cos(deg * Math.PI / 180) * rr,
+  eBox.y + eBox.height / 2 + Math.sin(deg * Math.PI / 180) * rr,
+];
+const spinTo = async (from, to, steps = 30) => {
+  await page.mouse.move(...eAt(from));
+  await page.mouse.down();
+  for (let i = 1; i <= steps; i++) await page.mouse.move(...eAt(from + (to - from) * i / steps));
+  await page.mouse.up();
+  return page.evaluate(() => window.__e.value);
+};
+
+await page.mouse.move(...eAt(180));
+await page.mouse.down();
+const onPress = await page.evaluate(() => window.__e.value);
+await page.mouse.up();
+check('pressing an encoder does not jump the value', onPress === 0, String(onPress));
+
+// One and a half turns is 150 on a 0..100 dial. Many small steps, so this also
+// catches the encoder drifting: rounding the running total instead of only the
+// committed value made every small step round up, and half a turn arrived as two thirds.
+const spun = await spinTo(-90, -90 + 540, 40);
+check('an encoder counts straight past max', spun > 148 && spun < 152, String(spun));
+
+const eRing = await page.evaluate(() => {
+  const k = window.__e;
+  return {
+    off: parseFloat(k.shadowRoot.querySelector('.value').getAttribute('stroke-dashoffset')),
+    text: k.shadowRoot.querySelector('.num').textContent,
+    over: !k.shadowRoot.querySelector('.overflow-group').hasAttribute('hidden'),
+  };
+});
+check('the ring wraps and shows the part turn', Math.abs(eRing.off - 50) < 4, String(eRing.off));
+check('the readout keeps the running total', parseFloat(eRing.text) === spun, eRing.text);
+check('an encoder has no overflow ring', !eRing.over);
+
+await page.evaluate(() => { window.__e.value = 5; });
+const backwards = await spinTo(0, -180, 20);
+check('turning an encoder back runs below min', backwards < 0, String(backwards));
+
+// the seam at the top is where a naive delta wraps by a whole revolution
+await page.evaluate(() => { window.__e.value = 0; });
+const seam = await spinTo(-95, -85, 4);
+check('crossing the seam is a nudge, not a full turn', Math.abs(seam) < 15, String(seam));
+
+const eKeys = await page.evaluate(() => {
+  const k = window.__e;
+  k.value = 99; k.focus();
+  for (let i = 0; i < 5; i++) k.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }));
+  const past = k.value;
+  const plain = document.createElement('cj-knob');
+  plain.setAttribute('interactive', ''); plain.setAttribute('value', '99');
+  document.body.append(plain); plain.focus();
+  for (let i = 0; i < 5; i++) plain.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }));
+  const capped = plain.value;
+  plain.remove(); k.remove();
+  return { past, capped };
+});
+check('arrow keys step past max on an encoder', eKeys.past === 104, String(eKeys.past));
+check('an ordinary dial still stops at max', eKeys.capped === 100, String(eKeys.capped));
+
+// --- cj-trace: a waveform that writes itself ---
+const trace = await page.evaluate(async () => {
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const mk = (attrs) => {
+    const t = document.createElement('cj-trace');
+    for (const [k, v] of Object.entries(attrs)) t.setAttribute(k, v);
+    document.body.append(t);
+    return t;
+  };
+  const d = (el, cls) => el.shadowRoot.querySelector(cls).getAttribute('d') ?? '';
+  const pts = (str) => str.split(/[ML]/).filter(Boolean);
+  const out = {};
+
+  // a waveform written out in an attribute: no pen, no gap, nothing faded
+  const still = mk({ points: '0,50,100,50,0' });
+  await wait(60);
+  out.staticRuns = d(still, '.fresh').split('M').length - 1;
+  out.staticPts = pts(d(still, '.fresh')).length;
+  out.staticStale = d(still, '.stale');
+  out.staticPen = still.shadowRoot.querySelector('.pen').hasAttribute('hidden');
+  still.remove();
+
+  // a live ECG
+  const live = mk({ beat: '72', label: 'HR', grid: '', samples: '200' });
+  await wait(700);
+  const first = d(live, '.fresh');
+  out.liveDrew = first.length > 50;
+  out.liveText = live.shadowRoot.querySelector('.num').textContent
+               + live.shadowRoot.querySelector('.unit').textContent;
+  out.livePen = !live.shadowRoot.querySelector('.pen').hasAttribute('hidden');
+  out.gridDrew = d(live, '.grid').length > 50;
+  await wait(400);
+  out.liveMoved = d(live, '.fresh') !== first;
+  await wait(2200);
+  // Both layers together are the whole window, however far round the pen is.
+  // Reading .fresh alone is a race: sampled just after a wrap it holds one point.
+  const ys = pts(d(live, '.fresh') + ' ' + d(live, '.stale')).map((s) => +s.split(',')[1]);
+  out.top = Math.min(...ys);
+  out.bottom = Math.max(...ys);
+  out.height = live.clientHeight;
+  // once round, what is ahead of the pen is last time's trace, faded
+  out.hasStale = d(live, '.stale').length > 20;
+  live.remove();
+
+  // the ring shape puts the same samples on a circle, outside the readout
+  const ring = mk({ shape: 'ring', beat: '90' });
+  await wait(900);
+  const rp = pts(d(ring, '.fresh')).map((s) => s.split(',').map(Number));
+  const cx = ring.clientWidth / 2, cy = ring.clientHeight / 2;
+  const radii = rp.map(([x, y]) => Math.hypot(x - cx, y - cy));
+  out.ringSquare = ring.clientWidth === ring.clientHeight;
+  out.ringSize = ring.clientWidth;
+  out.ringMinR = Math.min(...radii);
+  out.ringMaxR = Math.max(...radii);
+  ring.remove();
+
+  // push() is the whole input API
+  const fed = mk({ samples: '10' });
+  for (let i = 0; i < 6; i++) fed.push(i * 10);
+  await wait(50);
+  out.pushLast = fed.last;
+  out.pushPts = pts(d(fed, '.fresh')).length;
+  fed.clear();
+  out.cleared = d(fed, '.fresh');
+  fed.remove();
+
+  // the loop must stop when detached and start again when re-attached
+  const off = mk({ beat: '60' });
+  await wait(300);
+  off.remove();
+  await wait(200);
+  const parked = d(off, '.fresh');
+  await wait(300);
+  out.stopped = d(off, '.fresh') === parked;
+  document.body.append(off);
+  await wait(400);
+  out.restarted = d(off, '.fresh') !== parked;
+  off.remove();
+  return out;
+});
+check('a written-out waveform draws solid and unbroken',
+  trace.staticRuns === 1 && trace.staticPts === 5, trace.staticRuns + " runs, " + trace.staticPts + " points");
+check('a written-out waveform has no faded tail', trace.staticStale === '', trace.staticStale);
+check('a written-out waveform shows no pen', trace.staticPen);
+check('a beat draws and keeps moving', trace.liveDrew && trace.liveMoved,
+  JSON.stringify({ drew: trace.liveDrew, moved: trace.liveMoved }));
+check('a beating trace reads out its rate, not its last sample', trace.liveText === '72bpm', trace.liveText);
+check('a live trace shows its pen', trace.livePen);
+check('grid draws', trace.gridDrew);
+check('once round, the sweep leaves a faded tail behind the gap', trace.hasStale);
+check('the R spike reaches the top of the range',
+  trace.top < trace.height * 0.22 && trace.bottom > trace.height * 0.6,
+  JSON.stringify({ top: trace.top, bottom: trace.bottom, h: trace.height }));
+check('a ring trace is square', trace.ringSquare);
+// it must rise outward from a baseline, never across the middle where the readout is
+check('a ring trace stays clear of the middle',
+  trace.ringMinR > trace.ringSize * 0.25 && trace.ringMaxR < trace.ringSize * 0.5,
+  JSON.stringify({ min: trace.ringMinR, max: trace.ringMaxR, size: trace.ringSize }));
+check('push() writes samples', trace.pushLast === 50 && trace.pushPts === 6,
+  trace.pushLast + " / " + trace.pushPts);
+check('clear() empties the window', trace.cleared === '', trace.cleared);
+check('a detached trace stops its loop', trace.stopped);
+check('a re-attached trace starts again', trace.restarted);
+
+// --- cj-heat: a ring of cells coloured by their own values ---
+const heat = await page.evaluate(async () => {
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const mk = (attrs) => {
+    const h = document.createElement('cj-heat');
+    for (const [k, v] of Object.entries(attrs)) h.setAttribute(k, v);
+    document.body.append(h);
+    return h;
+  };
+  const out = {};
+
+  const day = mk({ values: '0,25,50,75,100', label: 'day', unit: 'C' });
+  await wait(50);
+  const cells = [...day.shadowRoot.querySelectorAll('.cells circle')];
+  out.cellCount = cells.length;
+  out.dashes = cells.map((c) => c.getAttribute('stroke-dasharray').split(' ')[0]);
+  out.offsets = cells.map((c) => +c.getAttribute('stroke-dashoffset'));
+  out.colours = cells.map((c) => c.getAttribute('stroke'));
+  out.radii = cells.map((c) => c.getAttribute('r'));
+  // with no min/max the scale spans the data itself, so the ends hit the ends
+  out.average = day.shadowRoot.querySelector('.num').textContent;
+  day.remove();
+
+  // an explicit domain overrides the data's own extremes
+  const fixed = mk({ values: '50,50,50', min: '0', max: '100' });
+  const flat = mk({ values: '50,50,50' });
+  await wait(50);
+  out.fixedColours = [...fixed.shadowRoot.querySelectorAll('circle')].map((c) => c.getAttribute('stroke'));
+  out.flatColours = [...flat.shadowRoot.querySelectorAll('circle')].map((c) => c.getAttribute('stroke'));
+  fixed.remove(); flat.remove();
+
+  // rows split the list into concentric rings and reserve the middle
+  const week = mk({ rows: '4', values: Array.from({ length: 40 }, (_, i) => i).join(',') });
+  await wait(50);
+  const wc = [...week.shadowRoot.querySelectorAll('circle')];
+  out.rowRadii = [...new Set(wc.map((c) => +c.getAttribute('r')))].sort((a, b) => b - a);
+  out.rowWidth = +wc[0].getAttribute('stroke-width');
+  week.remove();
+
+  // geometry is cached: changing values must not rebuild the cells
+  const cached = mk({ values: '1,2,3,4,5,6,7,8' });
+  await wait(50);
+  const before = cached.shadowRoot.querySelector('circle');
+  cached.values = [8, 7, 6, 5, 4, 3, 2, 1];
+  await wait(50);
+  out.sameNodes = cached.shadowRoot.querySelector('circle') === before;
+  out.recoloured = before.getAttribute('stroke');
+  cached.remove();
+
+  // hovering names a cell
+  const hot = mk({ values: '0,10,20,30', interactive: '' });
+  Object.assign(hot.style, { position: 'fixed', left: '80px', top: '80px', zIndex: '99' });
+  hot.style.setProperty('--cj-size', '240px');
+  hot.id = 'test-heat';
+  await wait(50);
+  window.__heat = hot; window.__hover = [];
+  hot.addEventListener('cj-hover', (e) => window.__hover.push(e.detail));
+  return out;
+});
+check('one cell per value', heat.cellCount === 5, String(heat.cellCount));
+check('the cells divide the ring evenly',
+  new Set(heat.dashes).size === 1, heat.dashes.join(' '));
+check('each cell is pushed to its own place on the ring',
+  heat.offsets.every((v, i) => i === 0 || v < heat.offsets[i - 1]), heat.offsets.join(' '));
+check('every cell gets its own colour', new Set(heat.colours).size === 5, heat.colours.join(' '));
+check('one row sits on one radius', new Set(heat.radii).size === 1, heat.radii.join(' '));
+check('the middle shows the average of the ring', heat.average === '50', heat.average);
+check('an explicit domain differs from an auto-scaled flat one',
+  heat.fixedColours[0] !== heat.flatColours[0],
+  heat.fixedColours[0] + " vs " + heat.flatColours[0]);
+check('rows= makes that many concentric rings', heat.rowRadii.length === 4, heat.rowRadii.join(' '));
+check('rows are squeezed to leave the middle clear',
+  Math.min(...heat.rowRadii) >= 19, heat.rowRadii.join(' '));
+check('rows narrow so they do not overlap',
+  heat.rowWidth < (heat.rowRadii[0] - heat.rowRadii[1]), heat.rowWidth + " in " + (heat.rowRadii[0] - heat.rowRadii[1]).toFixed(2));
+check('changing values recolours the cells instead of rebuilding them', heat.sameNodes);
+
+const hBox = await page.locator('#test-heat').boundingBox();
+// the ring sits at 42% of the box; hover the rim at the top, where cell 0 starts
+await page.mouse.move(hBox.x + hBox.width / 2 + 8, hBox.y + hBox.height / 2 - hBox.height * 0.42);
+await page.waitForTimeout(60);
+const hovered = await page.evaluate(() => ({ hot: window.__heat.hot, ev: window.__hover.slice() }));
+check('hovering a cell names its value', hovered.hot === 0, JSON.stringify(hovered));
+check('cj-hover carries the index and the value',
+  hovered.ev.length > 0 && hovered.ev.at(-1).index === 0, JSON.stringify(hovered.ev.at(-1)));
+const hotText = await page.evaluate(() => window.__heat.shadowRoot.querySelector('.num').textContent);
+check('the middle switches to the hovered cell', hotText === '0', hotText);
+await page.mouse.move(hBox.x + hBox.width / 2, hBox.y + hBox.height / 2);
+await page.waitForTimeout(60);
+const left = await page.evaluate(() => {
+  const back = window.__heat.hot;
+  window.__heat.remove();
+  return back;
+});
+check('moving off the cells clears the reading', left === null, String(left));
+
 check('still no page errors at end', errors.length === 0, errors.join(' | '));
 
 await browser.close();

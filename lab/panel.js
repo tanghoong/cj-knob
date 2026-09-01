@@ -15,6 +15,7 @@ const SVG_ATTRS = [
   'interactive', 'step', 'animate-in',
   'needle', 'labels', 'label-radius', 'value-2', 'rotating', 'liquid',
   'gradient', 'bulb',
+  'ballistics', 'peak-hold', 'peak-fall', 'range', 'endless',
 ];
 
 const make = (tag, cls) => {
