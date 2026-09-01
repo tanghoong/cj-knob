@@ -30,6 +30,9 @@ template.innerHTML = `
     --cj-handle: #ffffff;
     --cj-hit: rgba(127, 127, 127, .13);
     --cj-gas: #9ca3af;
+    --cj-up: #16a34a;
+    --cj-down: #dc2626;
+    --cj-flat: #94a3b8;
     --cj-liquid: #35a7ff;
     --cj-liquid-back: rgba(53, 167, 255, .45);
     --cj-mark: #6b7280;
@@ -205,8 +208,14 @@ template.innerHTML = `
   }
   :host([button]:hover) .hit { opacity: 1; }
   :host([button]:active) .hit { opacity: 1; transform: scale(.94); }
-  :host([button]) .icon { transition: transform 140ms ease; transform-origin: 50% 50%; }
-  :host([button]:active) .icon { transform: scale(.9); }
+  /* The press dip is a scale and the platter is a rotation, and both are the
+     transform property. Written as two rules the second wins and the record
+     stops dead the moment you touch it; transitioned, every frame of the
+     rotation chases a 140ms eased target and the whole thing judders. So they
+     compose in one transform, and only the dip is ever transitioned. */
+  :host([button]) .icon { transform-origin: 50% 50%; }
+  :host([button]:not([spin])) .icon { transition: transform 140ms ease; }
+  :host([button]:active) { --cj-press-scale: .9; }
   /* A button's caption is a caption: it belongs clear of the glyph, not tucked
      against it the way a number's label is. The glyph lifts to make the room.
      The width is the tight part — the space inside a ring narrows fast as you
@@ -236,15 +245,99 @@ template.innerHTML = `
   /* ---- spin: the dial as a turntable ---- */
   /* Only what is in the middle turns. The ring is the scale and the track is
      the progress; a record spinning under both is what the eye reads as playing. */
-  .icon { transform: rotate(var(--cj-spin-angle, 0deg)); }
-  :host([spin]) .icon > * { transform-origin: 50% 50%; }
-  /* a record is round even when the artwork is not */
-  :host([spin]) ::slotted(img), :host([spin]) ::slotted(picture) { border-radius: 50%; }
+  .icon {
+    transform: rotate(calc(var(--cj-spin-angle, 0deg) + var(--cj-turn-angle, 0deg)))
+               scale(var(--cj-press-scale, 1));
+    transform-origin: 50% 50%;
+  }
+  /* a turning face is the content, the same as a record is */
+  :host([turn]) .center:has(.readout[hidden]) {
+    --icon-y: 0px;
+    --cj-icon-size: calc(var(--cj-size) * .40);
+    --label-y: calc(var(--cj-size) * .26);
+  }
+  :host([turn]) .icon {
+    inline-size: var(--cj-icon-size);
+    block-size: var(--cj-icon-size);
+    display: grid;
+    place-items: center;
+    line-height: 1;
+  }
 
-  /* only one of the two glyphs is ever shown; which one is the pressed state */
+  /* A square box with the artwork centred in it, so the thing turns about its
+     own middle. Without this the box is a line box — as tall as the font says
+     and no wider than the glyph — and an emoji rotating about the centre of
+     THAT wobbles round an axis somewhere off its own face. */
+  :host([spin]) .icon {
+    inline-size: var(--cj-icon-size);
+    block-size: var(--cj-icon-size);
+    display: grid;
+    place-items: center;
+    line-height: 1;
+  }
+  :host([spin]) .icon-off,
+  :host([spin]) .center[data-icon-on][data-pressed] .icon-on {
+    display: grid;
+    place-items: center;
+    inline-size: 100%;
+    block-size: 100%;
+  }
+  :host([spin]) .center[data-icon-on][data-pressed] .icon-off { display: none; }
+  /* a record is round even when the artwork is not */
+  :host([spin]) ::slotted(img),
+  :host([spin]) ::slotted(picture),
+  :host([spin]) ::slotted(svg) { border-radius: 50%; }
+
+  /* Only one of the two glyphs is ever shown, and which one is the pressed
+     state — but ONLY when there are two. Swapping unconditionally means a
+     toggle given a single icon has nothing at all to show while it is down. */
   .icon-on { display: none; }
-  :host([pressed]) .icon-off { display: none; }
-  :host([pressed]) .icon-on { display: block; }
+  :host([pressed]) .center[data-icon-on] .icon-off { display: none; }
+  :host([pressed]) .center[data-icon-on] .icon-on { display: block; }
+
+  /* ---- trend: which way it went ---- */
+  /* A price without a direction is half a reading. The arrow carries the sign
+     first, because at a glance colour is the thing the eye gets before digits. */
+  .trend {
+    grid-area: 1 / 1;
+    translate: 0 var(--trend-y, 0px);
+    display: flex;
+    align-items: center;
+    gap: .2em;
+    font-size: calc(var(--cj-num-size) * .42);
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+    color: var(--cj-flat);
+  }
+  .trend[hidden] { display: none; }
+  .trend .arrow { inline-size: .74em; block-size: .74em; fill: currentColor; }
+  .trend.up { color: var(--cj-up); }
+  .trend.down { color: var(--cj-down); }
+  .trend.down .arrow { transform: scaleY(-1); }
+  .trend.flat .arrow { opacity: .45; transform: scaleY(.14); }
+  .center:has(.trend:not([hidden])) { --trend-y: calc(var(--cj-num-size) * .74); }
+  /* the caption moves down to make room, rather than sharing a line with it */
+  .center:has(.trend:not([hidden])):has(.label:not([hidden])) {
+    --label-y: calc(var(--cj-num-size) * 1.34);
+  }
+
+  /* ---- states: an indicator that is in one of several states ---- */
+  .lamp { fill: var(--cj-value); stroke: none; }
+  /* the lamp owns the middle, so its name sits below it */
+  :host([states]) .center:has(.readout[hidden]) { --label-y: calc(var(--cj-size) * .27); }
+  .lamp[hidden] { display: none; }
+  /* the lamp is the reading, so it gets the press feedback the glyph would */
+  :host([button]:active) .lamp { opacity: .72; }
+
+  /* ---- turn: a discrete rotation, not a continuous one ---- */
+  /* Long and eased: this is a thing swinging round to face the other way, and
+     the swing is the whole of what says the state changed. */
+  :host([turn]:not([spin])) .icon {
+    transition: transform 850ms cubic-bezier(.34, .01, .21, 1);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    :host([turn]) .icon { transition: none; }
+  }
 
   /* ---- gas: the third state of matter the dial did not have ---- */
   /* Liquid has a surface and a solid has an edge; a gas has neither, so density
@@ -597,12 +690,19 @@ template.innerHTML = `
   <!-- a ring that swells and fades on the beat, so the rhythm is legible from
        across the room even when the number is not -->
   <circle class="pulse" part="pulse" cx="50" cy="50" r="42" hidden/>
+  <!-- an indicator lamp, for a dial that is showing which of several states it
+       is in rather than how much of something there is -->
+  <circle class="lamp" part="lamp" cx="50" cy="50" r="17" hidden/>
   <circle class="hit" cx="50" cy="50" r="33"/>
   <circle class="focus-ring" cx="50" cy="50" r="49"/>
 </svg>
 
 <div class="center" part="center">
   <div class="readout" part="readout"><span class="num"></span><span class="unit"></span></div>
+  <!-- a rise or a fall, which is the half of a price that a number alone leaves out -->
+  <div class="trend" part="trend" hidden>
+    <svg class="arrow" viewBox="0 0 10 10" aria-hidden="true"><path d="M5 1.4 9.2 8.6H.8z"/></svg><span class="delta"></span>
+  </div>
   <div class="icon">
     <span class="icon-off"><slot name="icon"></slot></span>
     <span class="icon-on"><slot name="icon-on"></slot></span>
@@ -646,6 +746,7 @@ export class CJKnob extends HTMLElement {
     'needle', 'labels', 'label-radius', 'value-2', 'rotating', 'liquid',
     'ballistics', 'peak-hold', 'peak-fall',
     'range', 'endless', 'pulse', 'inset', 'button', 'toggle', 'pressed', 'gas', 'spin',
+    'trend', 'trend-unit', 'states', 'state', 'turn',
     'interactive', 'disabled', 'step',
   ];
 
@@ -661,6 +762,7 @@ export class CJKnob extends HTMLElement {
   // the wave path is geometry, not state — build it once and move it by transform
   #waveBuilt = false;
   #gasBuilt = false;
+  #stateName = '';
   // a turntable takes a moment to come up to speed and longer to stop
   #spinFrame = 0;
   #spinLast = 0;
@@ -710,6 +812,9 @@ export class CJKnob extends HTMLElement {
       insetSlot: q('slot[name="inset"]'),
       pulse: q('.pulse'),
       gas: q('.gas'),
+      trend: q('.trend'),
+      delta: q('.delta'),
+      lamp: q('.lamp'),
       iconOnSlot: q('slot[name="icon-on"]'),
       readout: q('.readout'),
       num: q('.num'),
@@ -718,6 +823,7 @@ export class CJKnob extends HTMLElement {
     };
     this.#els.slot.addEventListener('slotchange', () => this.#syncIcon());
     this.#els.insetSlot.addEventListener('slotchange', () => this.#syncInset());
+    this.#els.iconOnSlot.addEventListener('slotchange', () => this.#syncIcon());
   }
 
   // CSS cannot ask "is anything slotted?", so record it as an attribute it can match.
@@ -727,6 +833,11 @@ export class CJKnob extends HTMLElement {
     const filled = this.#els.slot.assignedNodes({ flatten: true })
       .some((n) => n.nodeType === Node.ELEMENT_NODE || n.textContent.trim());
     this.#els.center.toggleAttribute('data-icon', filled);
+    // a pressed glyph only exists if the author gave one; without it the
+    // resting glyph has to stay put rather than being swapped for nothing
+    const hasOn = this.#els.iconOnSlot.assignedNodes({ flatten: true })
+      .some((nd) => nd.nodeType === Node.ELEMENT_NODE || nd.textContent.trim());
+    this.#els.center.toggleAttribute('data-icon-on', hasOn);
   }
 
   // Same problem as the icon, same answer: CSS cannot ask whether a slot has
@@ -788,6 +899,27 @@ export class CJKnob extends HTMLElement {
   /** Whether a toggle button is currently on. Attribute: `pressed`. */
   get pressed() { return this.hasAttribute('pressed'); }
   set pressed(v) { this.toggleAttribute('pressed', !!v); }
+
+  /**
+   * The states a button cycles through, given as `"stop:#ef4444, go:#22c55e"`.
+   * Empty on an ordinary dial.
+   */
+  get states() {
+    const spec = this.getAttribute('states');
+    if (!spec) return [];
+    return spec.split(',').map((part) => {
+      const [name, color] = part.split(':').map((x) => x.trim());
+      return { name, color: color || '' };
+    }).filter((x) => x.name);
+  }
+
+  /** Which state it is in, by index. Attribute: `state`. */
+  get state() {
+    const n = this.states.length;
+    if (!n) return -1;
+    return ((Math.round(num(this.getAttribute('state'), 0)) % n) + n) % n;
+  }
+  set state(v) { this.setAttribute('state', v); }
 
   /** endless — a knob with no ends: it keeps turning and the value keeps counting. */
   get endless() { return this.hasAttribute('endless'); }
@@ -941,6 +1073,10 @@ export class CJKnob extends HTMLElement {
       this.#ownsColor = false;
     }
 
+    this.#els.center.toggleAttribute('data-pressed', this.pressed);
+    this.#renderTrend();
+    this.#renderStates();
+    this.#renderTurn();
     this.#renderPulse();
     this.#renderText(raw, range);
     this.#renderA11y();
@@ -1358,6 +1494,57 @@ export class CJKnob extends HTMLElement {
   }
 
   /**
+   * trend — which way the number went, next to what it is now.
+   *
+   * A price is two readings: the level and the move. The arrow is drawn rather
+   * than typed because a glyph is at the mercy of whatever font the page is in,
+   * and a triangle that renders as a box on one machine is not a trend.
+   */
+  #renderTrend() {
+    const raw = this.getAttribute('trend');
+    const on = raw !== null && raw !== '';
+    this.#els.trend.toggleAttribute('hidden', !on);
+    if (!on) return;
+    const d = num(raw, 0);
+    const dir = d > 0 ? 'up' : d < 0 ? 'down' : 'flat';
+    this.#els.trend.className = `trend ${dir}`;
+    const decimals = clamp(num(this.getAttribute('decimals'), 0), 0, 6);
+    const unit = this.getAttribute('trend-unit') ?? '';
+    // the sign is already in the arrow, so the number does not repeat it
+    setText(this.#els.delta, `${Math.abs(d).toFixed(decimals)}${unit}`);
+  }
+
+  /**
+   * states — a dial showing which of several things it is, rather than how much.
+   *
+   * A traffic light is not a low value of green. Each press advances one step,
+   * the ring takes the state's colour and the caption its name, which is the
+   * whole of an industrial selector.
+   */
+  #renderStates() {
+    const list = this.states;
+    const on = list.length > 0;
+    this.#els.lamp.toggleAttribute('hidden', !on || this.#els.center.hasAttribute('data-icon'));
+    if (!on) return;
+    const now = list[this.state];
+    if (now?.color) {
+      this.style.setProperty('--cj-value', now.color);
+      this.#ownsColor = true;
+    }
+    this.#stateName = now?.name ?? '';
+  }
+
+  /** turn — the middle swings round to face the other way, and stays there. */
+  #renderTurn() {
+    const raw = this.getAttribute('turn');
+    if (raw === null) return void this.style.removeProperty('--cj-turn-angle');
+    const deg = num(raw, 180);
+    // on a toggle it only turns while pressed, the same bargain spin makes
+    const at = this.hasAttribute('toggle') && !this.pressed ? 0 : deg;
+    this.style.setProperty('--cj-turn-angle', `${at}deg`);
+  }
+
+  /**
    * pulse — a ring that breathes at a rate, so a heart or an engine reads as
    * having a rhythm and not just a number.
    *
@@ -1445,7 +1632,8 @@ export class CJKnob extends HTMLElement {
         setText(this.#els.unit, this.getAttribute('unit') ?? (mode === 'percent' ? '%' : ''));
       }
     }
-    const label = this.getAttribute('label');
+    // a states dial names itself, unless the author has named it
+    const label = this.getAttribute('label') ?? (this.#stateName || null);
     setText(this.#els.label, label ?? '');
     this.#els.label.toggleAttribute('hidden', !label);
     // refit only when something that moves the caption has moved: the text, the
@@ -1621,9 +1809,15 @@ export class CJKnob extends HTMLElement {
   #onActivate = () => {
     if (this.hasAttribute('disabled')) return;
     if (this.hasAttribute('toggle')) this.pressed = !this.pressed;
+    const list = this.states;
+    if (list.length) this.setAttribute('state', String((this.state + 1) % list.length));
     this.#pumpSpin();
     this.dispatchEvent(new CustomEvent('cj-press', {
-      detail: { pressed: this.pressed },
+      detail: {
+        pressed: this.pressed,
+        state: list.length ? this.state : undefined,
+        name: list.length ? list[this.state].name : undefined,
+      },
       bubbles: true,
     }));
   };

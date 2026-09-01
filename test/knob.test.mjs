@@ -1803,6 +1803,197 @@ check('and it does come to rest', platter.stopped);
 check('platter without toggle just runs', platter.plainTurns);
 check('a detached turntable stops its loop', platter.stopsWhenDetached);
 
+// --- trend: which way the number went ---
+const trend = await page.evaluate(async () => {
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const mk = (v, unit) => {
+    const k = document.createElement('cj-knob');
+    k.setAttribute('value', '50');
+    k.setAttribute('readout', 'value');
+    k.setAttribute('decimals', '2');
+    if (v !== null) k.setAttribute('trend', v);
+    if (unit) k.setAttribute('trend-unit', unit);
+    document.body.append(k);
+    return k;
+  };
+  const read = (k) => {
+    const t = k.shadowRoot.querySelector('.trend');
+    return {
+      hidden: t.hasAttribute('hidden'),
+      cls: t.className,
+      text: k.shadowRoot.querySelector('.delta').textContent,
+      colour: getComputedStyle(t).color,
+      flip: getComputedStyle(t.querySelector('.arrow')).transform,
+    };
+  };
+  const none = mk(null), up = mk('1.84', '%'), down = mk('-2.35', '%'), flat = mk('0');
+  await wait(80);
+  const out = { none: read(none), up: read(up), down: read(down), flat: read(flat) };
+  none.remove(); up.remove(); down.remove(); flat.remove();
+  return out;
+});
+check('no trend line without the attribute', trend.none.hidden);
+check('a rise and a fall are told apart',
+  trend.up.cls.includes('up') && trend.down.cls.includes('down'),
+  trend.up.cls + ' / ' + trend.down.cls);
+check('and coloured apart', trend.up.colour !== trend.down.colour,
+  trend.up.colour + ' vs ' + trend.down.colour);
+// the sign is already in the arrow, so the number must not repeat it
+check('the delta drops its sign', trend.down.text === '2.35%', trend.down.text);
+check('the arrow is flipped for a fall', trend.down.flip !== trend.up.flip, trend.down.flip);
+check('a flat trend is neither', trend.flat.cls.includes('flat'), trend.flat.cls);
+
+// --- states: a dial showing which, not how much ---
+const states = await page.evaluate(async () => {
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const k = document.createElement('cj-knob');
+  k.setAttribute('button', '');
+  k.setAttribute('readout', 'none');
+  k.setAttribute('states', 'stop:#ef4444, go:#22c55e, wait:#f59e0b');
+  document.body.append(k);
+  await wait(60);
+  const seen = [];
+  const events = [];
+  k.addEventListener('cj-press', (e) => events.push(e.detail.name));
+  for (let i = 0; i < 4; i++) {
+    seen.push({
+      i: k.state,
+      name: k.shadowRoot.querySelector('.label').textContent,
+      lamp: getComputedStyle(k.shadowRoot.querySelector('.lamp')).fill,
+    });
+    k.click();
+    await wait(40);
+  }
+  const out = { seen, events, count: k.states.length };
+  // an author's own label wins over the state's name
+  k.setAttribute('label', 'signal');
+  await wait(40);
+  out.overridden = k.shadowRoot.querySelector('.label').textContent;
+  k.remove();
+
+  const plain = document.createElement('cj-knob');
+  document.body.append(plain);
+  await wait(30);
+  out.plainState = plain.state;
+  out.noLamp = plain.shadowRoot.querySelector('.lamp').hasAttribute('hidden');
+  plain.remove();
+  return out;
+});
+check('the states are parsed', states.count === 3, String(states.count));
+check('each press advances one',
+  states.seen.map((x) => x.name).join('>') === 'stop>go>wait>stop',
+  states.seen.map((x) => x.name).join('>'));
+check('and it wraps round', states.seen[3].i === 0, String(states.seen[3].i));
+check('every state has its own lamp colour',
+  new Set(states.seen.slice(0, 3).map((x) => x.lamp)).size === 3,
+  states.seen.slice(0, 3).map((x) => x.lamp).join(' '));
+check('cj-press carries the state name', states.events[0] === 'go', JSON.stringify(states.events));
+check('an explicit label beats the state name', states.overridden === 'signal', states.overridden);
+check('an ordinary dial has no state', states.plainState === -1, String(states.plainState));
+check('and no lamp', states.noLamp);
+
+// --- turn: a discrete swing, not a continuous spin ---
+const turn = await page.evaluate(async () => {
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const k = document.createElement('cj-knob');
+  k.setAttribute('button', '');
+  k.setAttribute('toggle', '');
+  k.setAttribute('turn', '180');
+  k.setAttribute('readout', 'none');
+  document.body.append(k);
+  await wait(60);
+  const at = () => k.style.getPropertyValue('--cj-turn-angle');
+  const out = { rest: at() };
+  k.click(); await wait(60);
+  out.down = at();
+  k.click(); await wait(60);
+  out.up = at();
+  k.remove();
+
+  // without toggle it simply holds the angle it was given
+  const held = document.createElement('cj-knob');
+  held.setAttribute('turn', '90');
+  document.body.append(held);
+  await wait(40);
+  out.held = held.style.getPropertyValue('--cj-turn-angle');
+  held.removeAttribute('turn');
+  await wait(40);
+  out.cleared = held.style.getPropertyValue('--cj-turn-angle');
+  held.remove();
+  return out;
+});
+check('a turn dial rests square', turn.rest === '0deg', turn.rest);
+check('pressing swings it round', turn.down === '180deg', turn.down);
+check('pressing again swings it back', turn.up === '0deg', turn.up);
+check('without toggle it just holds the angle', turn.held === '90deg', turn.held);
+check('removing turn clears it', turn.cleared === '', turn.cleared);
+
+// --- the pressed glyph only replaces the resting one if there is one ---
+const glyphs = await page.evaluate(async () => {
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const shown = (k) => ['.icon-off', '.icon-on']
+    .map((sel) => getComputedStyle(k.shadowRoot.querySelector(sel)).display !== 'none');
+  const mk = (both) => {
+    const k = document.createElement('cj-knob');
+    k.setAttribute('button', ''); k.setAttribute('toggle', ''); k.setAttribute('readout', 'none');
+    const a = document.createElement('span');
+    a.setAttribute('slot', 'icon'); a.textContent = 'A';
+    k.append(a);
+    if (both) {
+      const c = document.createElement('span');
+      c.setAttribute('slot', 'icon-on'); c.textContent = 'B';
+      k.append(c);
+    }
+    document.body.append(k);
+    return k;
+  };
+  const two = mk(true), one = mk(false);
+  await wait(120);
+  const out = { twoRest: shown(two), oneRest: shown(one) };
+  two.click(); one.click();
+  await wait(120);
+  out.twoDown = shown(two);
+  out.oneDown = shown(one);
+  two.remove(); one.remove();
+  return out;
+});
+const exactlyOne = (a) => a.filter(Boolean).length === 1;
+check('with two glyphs exactly one shows', exactlyOne(glyphs.twoRest) && exactlyOne(glyphs.twoDown),
+  JSON.stringify(glyphs));
+check('and it swaps on press', glyphs.twoRest[0] && glyphs.twoDown[1]);
+// swapping unconditionally leaves a single-glyph toggle showing nothing at all
+check('with one glyph it stays put when pressed', glyphs.oneRest[0] && glyphs.oneDown[0],
+  JSON.stringify({ rest: glyphs.oneRest, down: glyphs.oneDown }));
+
+// --- a spinning middle turns about its own centre ---
+const centred = await page.evaluate(async () => {
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const k = document.createElement('cj-knob');
+  k.setAttribute('spin', '200');
+  k.setAttribute('readout', 'none');
+  k.style.setProperty('--cj-size', '200px');
+  const sp = document.createElement('span');
+  sp.setAttribute('slot', 'icon'); sp.textContent = '💿';
+  k.append(sp);
+  document.body.append(k);
+  await wait(400);
+  const host = k.getBoundingClientRect();
+  const cx = host.left + host.width / 2, cy = host.top + host.height / 2;
+  const offsets = [];
+  for (let i = 0; i < 10; i++) {
+    const b = k.shadowRoot.querySelector('.icon').getBoundingClientRect();
+    offsets.push(Math.hypot(b.left + b.width / 2 - cx, b.top + b.height / 2 - cy));
+    await wait(40);
+  }
+  k.remove();
+  return { drift: Math.max(...offsets) - Math.min(...offsets), worst: Math.max(...offsets) };
+});
+// an emoji's line box is not square, so rotating about ITS centre wobbles the
+// glyph round an axis somewhere off its own face
+check('a spinning middle turns about its own centre',
+  centred.drift < 0.6 && centred.worst < 0.6,
+  JSON.stringify(centred));
+
 check('still no page errors at end', errors.length === 0, errors.join(' | '));
 
 await browser.close();
