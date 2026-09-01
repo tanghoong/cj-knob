@@ -157,7 +157,13 @@ radar.addEventListener("cj-detect", (e) => console.log(e.detail.bearing));
 
 Theme it with `--cjr-field`, `--cjr-grid`, `--cjr-beam`, `--cjr-blip`, `--cjr-mark`
 and `--cjr-size`. With no `period` the beam is not drawn at all and the contacts
-carry their own contrast, which is also what happens under `prefers-reduced-motion`.
+carry their own contrast.
+
+**If the sweep is not turning, check your system motion setting.** Under
+`prefers-reduced-motion: reduce` the beam parks instead of rotating — it stays
+visible, it just holds still. On Windows that is Settings → Accessibility → Visual
+effects → Animation effects; on macOS, System Settings → Accessibility → Display →
+Reduce motion.
 
 ## `<cj-horizon>`
 
@@ -227,7 +233,7 @@ The demo lives at the repository root so that `./src/cj-knob.js` never points ou
 
 ```sh
 npm run dev     # then open http://127.0.0.1:8765/
-npm test        # 84 Playwright checks: geometry, needle, radar, horizon, keyboard, a11y
+npm test        # 88 Playwright checks: geometry, needle, radar, horizon, keyboard, a11y
 ```
 
 ## Browser support
