@@ -4,7 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>cj-knob — one element, every dial</title>
-<meta name="description" content="A knob, gauge and meter as a single custom element. Zero dependencies, no build step, 16.4 KB gzipped. Works in plain HTML, React, Vue and Svelte.">
+<meta name="description" content="A knob, gauge and meter as a single custom element. Zero dependencies, no build step, 18.4 KB gzipped. Works in plain HTML, React, Vue and Svelte.">
+<!-- Holds each element's space before its module lands, so the page does not
+     jump when they upgrade. No JavaScript; it stops applying by itself. -->
+<link rel="stylesheet" href="src/cj-skeleton.css">
 <style>
   :root {
     color-scheme: light dark;
@@ -126,9 +129,14 @@
     padding: 1.5rem; display: grid; gap: 1rem; justify-items: center;
     box-shadow: 0 1px 3px rgba(16,24,40,.05), 0 12px 32px -18px rgba(16,24,40,.25);
   }
-  .hero-art .big { --cj-size: 190px; --cj-thickness: 7; }
-  .hero-art .strip { display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center; }
-  .hero-art .strip cj-knob { --cj-size: 74px; --cj-thickness: 9; }
+  .hero-art .big { --cj-size: 184px; --cj-thickness: 6; }
+  .hero-art .wave { inline-size: min(330px, 100%); }
+  .hero-art .strip { display: flex; gap: .85rem; flex-wrap: wrap; justify-content: center; }
+  .hero-art .strip cj-knob,
+  .hero-art .strip cj-heat { --cj-size: 82px; --cj-thickness: 9; }
+  .hero-art .cap { font: 500 10px/1 ui-monospace, monospace; color: var(--dim);
+                   letter-spacing: .06em; text-align: center; margin-top: .3rem; }
+  .hero-art figure { margin: 0; display: grid; justify-items: center; }
   .hint { font: 500 11px/1 ui-monospace, monospace; color: var(--dim);
           letter-spacing: .08em; text-transform: uppercase; }
 
@@ -317,9 +325,9 @@
       </div>
 
       <ul class="facts">
-        <li><b>16.4 KB</b><span>gzipped</span></li>
+        <li><b>18.4 KB</b><span>gzipped</span></li>
         <li><b>0</b><span>dependencies</span></li>
-        <li><b>32</b><span>attributes</span></li>
+        <li><b>36</b><span>attributes</span></li>
         <li><b>7</b><span>elements</span></li>
       </ul>
 
@@ -331,22 +339,42 @@
     </div>
 
     <div class="hero-art">
-      <cj-knob class="big" id="hero" value="72" interactive label="drag me"
-               color="#019ae6" ticks="12" tick-major="3" animate-in></cj-knob>
+      <!-- Everything here drives itself. Between them they are the whole library:
+           a dial with a chart living inside it, a breathing ring, a mirrored
+           waveform, a bar ring, a gas fill, a button and a meter with ballistics. -->
+      <cj-knob class="big" id="hero" value="72" min="40" max="180" readout="value"
+               unit="bpm" label="resting" pulse="72" color="#e0433f" animate-in>
+        <cj-trace slot="inset" beat="72" readout="none" pen="none" samples="150"
+                  style="--cj-height:36px;--cj-trace:#e0433f;--cj-width:1.7"></cj-trace>
+      </cj-knob>
+
+      <cj-trace class="wave" id="hero-voice" voice mirror pen="none"
+                style="--cj-height:52px;--cj-trace:#0ea5e9;--cj-width:1.3"></cj-trace>
+
       <div class="strip">
-        <cj-knob value="64" sweep="270" color="#7c3aed" readout="none" animate-in>
-          <span slot="icon">⚡</span>
-        </cj-knob>
-        <cj-knob value="88" color="#16a34a" readout="none" animate-in>
-          <span slot="icon">🌿</span>
-        </cj-knob>
-        <cj-knob readout="none" segments="42:#f59e0b, 33:#ef4444, 25:#64748b" animate-in>
-          <span slot="icon">💾</span>
-        </cj-knob>
-        <cj-knob value="0" readout="none" ticks="24" tick-major="6" color="transparent"
-                 style="--cj-thickness:5"><span slot="icon">🧭</span></cj-knob>
+        <figure>
+          <cj-knob id="hero-play" button toggle value="37" readout="none" color="#16a34a">
+            <span slot="icon">▶</span><span slot="icon-on">❚❚</span>
+          </cj-knob>
+          <figcaption class="cap">button</figcaption>
+        </figure>
+        <figure>
+          <cj-heat id="hero-year" shape="bars" readout="none"></cj-heat>
+          <figcaption class="cap">a year</figcaption>
+        </figure>
+        <figure>
+          <cj-knob gas value="61" readout="none" color="#a3e635"
+                   style="--cj-gas:#a3e635"><span slot="icon">☁️</span></cj-knob>
+          <figcaption class="cap">gas</figcaption>
+        </figure>
+        <figure>
+          <cj-knob class="vu" data-vu="4" sweep="270" readout="none" needle="hand"
+                   ballistics=".01 .55" peak-hold="1.2" ticks="10" tick-major="5"
+                   color="#14161a" style="--cj-thickness:5"></cj-knob>
+          <figcaption class="cap">VU</figcaption>
+        </figure>
       </div>
-      <div class="hint">live · drag the big one</div>
+      <div class="hint">all live · press play</div>
     </div>
   </div>
 </section>
@@ -421,7 +449,7 @@
   <div class="wrap">
     <h2>Small on purpose. Complete anyway.</h2>
     <p class="sub">
-      Everything below ships inside the 16.4 KB. There is no pro tier, no plugin system,
+      Everything below ships inside the 18.4 KB. There is no pro tier, no plugin system,
       and nothing to install alongside it.
     </p>
 
@@ -617,6 +645,41 @@
     <cj-trace shape="ring" beat="66" label="pulse"
               style="--cj-trace:#0ea5e9;--cj-size:150px"></cj-trace>
     <code>shape="ring" — the same trace,<br>wrapped round the dial</code>
+  </div>
+</div>
+
+<h3>Buttons, gas and voice</h3>
+<div class="grid">
+  <div class="card">
+    <cj-knob id="ex-play" button toggle value="37" readout="none" label="Midnight City"
+             color="#16a34a">
+      <span slot="icon">▶</span><span slot="icon-on">❚❚</span>
+    </cj-knob>
+    <code><code>button toggle</code> with two icon slots.<br>The ring is how far through the song you are.</code>
+  </div>
+  <div class="card">
+    <cj-knob gas value="26" readout="value" unit="ppm" label="CO₂" color="#a3e635"
+             style="--cj-gas:#a3e635"></cj-knob>
+    <code><code>gas</code> — liquid has a surface,<br>a gas only has density</code>
+  </div>
+  <div class="card">
+    <cj-knob gas value="81" readout="value" unit="ppm" label="CO₂" color="#f87171"
+             style="--cj-gas:#f87171"></cj-knob>
+    <code>the same dial, thicker air</code>
+  </div>
+  <div class="card wide">
+    <cj-trace id="ex-voice" voice mirror grid
+              style="--cj-trace:#0ea5e9;--cj-height:104px;--cj-width:1.4"></cj-trace>
+    <code><code>voice mirror</code> — it jumps while someone is talking
+      and lies flat while nobody is. <span id="ex-voice-state">silent</span></code>
+  </div>
+  <div class="card">
+    <cj-knob id="ex-listen" value="0" readout="none" label="listening" color="#0ea5e9"
+             style="--cj-thickness:6">
+      <cj-trace slot="inset" voice mirror pen="none"
+                style="--cj-height:34px;--cj-trace:#0ea5e9;--cj-width:1.3"></cj-trace>
+    </cj-knob>
+    <code>the same waveform inside a dial,<br>the ring following <code>.level</code></code>
   </div>
 </div>
 
@@ -1061,7 +1124,7 @@ document.querySelector(<span class="s">'[data-count="1"]'</span>).onclick = () =
 <section class="band" id="api">
   <div class="wrap">
     <h2>The whole API</h2>
-    <p class="sub">Thirty-two attributes on <code>&lt;cj-knob&gt;</code>, thirteen on
+    <p class="sub">Thirty-six attributes on <code>&lt;cj-knob&gt;</code>, thirteen on
       <code>&lt;cj-level&gt;</code>, six on <code>&lt;cj-radar&gt;</code>, four on
       <code>&lt;cj-horizon&gt;</code>. That is all of it — there is no second page.</p>
 
@@ -1089,6 +1152,8 @@ document.querySelector(<span class="s">'[data-count="1"]'</span>).onclick = () =
           <tr><td><code>label-radius</code></td><td><code>29.5</code></td><td>How far out the captions sit, in the 0–100 viewBox.</td></tr>
           <tr><td><code>value-2</code></td><td>—</td><td>A second value, drawn as a second pointer alongside the first.</td></tr>
           <tr><td><code>rotating</code></td><td>—</td><td>The card turns under a fixed index, the way a heading indicator works.</td></tr>
+          <tr><td><code>button</code></td><td>—</td><td>The dial becomes a button: focusable, Enter/Space activates it, and it fires <code>cj-press</code>. Add <code>toggle</code> to make it latch, and <code>slot="icon-on"</code> for the pressed glyph.</td></tr>
+          <tr><td><code>gas</code></td><td>—</td><td>Fills the face with drifting haze whose density is the value. Liquid has a surface; a gas only has how much of it there is.</td></tr>
           <tr><td><code>slot="inset"</code></td><td>—</td><td>Put a <code>&lt;cj-trace&gt;</code>, a <code>&lt;cj-level&gt;</code> or anything else inside the face. The knob lays it out; it stays an ordinary element you can script.</td></tr>
           <tr><td><code>inset</code></td><td><code>low</code></td><td>Where the inset sits: <code>low</code> for a chart under the number, <code>fill</code> for a tube up the middle.</td></tr>
           <tr><td><code>pulse</code></td><td><code>60</code></td><td>A ring that swells and fades at this many beats per minute, so the rhythm is legible from across the room.</td></tr>
@@ -1414,6 +1479,32 @@ cj-knob::part(value) { <span class="a">filter</span>: <span class="s">drop-shado
     });
   }
 
+  // ---- voice: the state readout, and a ring that follows the level --------
+  {
+    const v = document.getElementById('ex-voice');
+    const state = document.getElementById('ex-voice-state');
+    if (v && state) v.addEventListener('cj-speech', (e) => {
+      state.textContent = e.detail.speaking ? 'speaking' : 'silent';
+    });
+  }
+  const listen = document.getElementById('ex-listen');
+  const listenTrace = listen?.querySelector('cj-trace');
+
+  // ---- the hero's own two scripted bits -----------------------------------
+  {
+    const hy = document.getElementById('hero-year');
+    // 52 weeks, not 365 days: at eighty pixels a year of towers is a smudge,
+    // and a week each is the same shape you can actually count
+    if (hy) hy.values = Array.from({ length: 52 }, (_, w) =>
+      Math.max(0, Math.round(60 + 52 * Math.sin((w / 52) * Math.PI * 2 - 1.6) + (w * 7 % 9) - 4)));
+  }
+  const heroPlay = document.getElementById('hero-play');
+  let playing = false;
+  if (heroPlay) heroPlay.addEventListener('cj-press', (e) => { playing = e.detail.pressed; });
+  const exPlay = document.getElementById('ex-play');
+  let exPlaying = false;
+  if (exPlay) exPlay.addEventListener('cj-press', (e) => { exPlaying = e.detail.pressed; });
+
   // ---- heat rings: made-up data, but shaped like the real thing ----------
   {
     const yearRing = document.getElementById('ex-year');
@@ -1580,6 +1671,19 @@ cj-knob::part(value) { <span class="a">filter</span>: <span class="s">drop-shado
         const burst = Math.max(0, Math.sin(t / 1.7)) ** 6 * 48;   // work arriving in bursts
         exTrace.push(Math.max(2, Math.min(98, idle + burst + (Math.random() - 0.5) * 4)));
       }
+    }
+
+    // the ring reads the trace's own envelope, which is the whole reason
+    // .level exists rather than making everyone sample the buffer themselves
+    if (listen && listenTrace) listen.value = (listenTrace.level * 100).toFixed(1);
+
+    // the song only advances while it is playing — a progress ring that moves
+    // with the button pressed out would be a lie
+    if (heroPlay && playing) {
+      heroPlay.value = ((+heroPlay.value + dt * 6) % 100).toFixed(2);
+    }
+    if (exPlay && exPlaying) {
+      exPlay.value = ((+exPlay.value + dt * 6) % 100).toFixed(2);
     }
 
     // the gyro card keeps turning while Spin is engaged

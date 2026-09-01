@@ -1,0 +1,104 @@
+/* -------------------------------------------------
+ * cj-skeleton.css — hold the space before the elements upgrade
+ * https://github.com/tanghoong/cj-knob
+ *
+ *   <link rel="stylesheet" href="cj-knob/src/cj-skeleton.css">
+ *
+ * Every element sizes itself from inside its own shadow root, and that root does
+ * not exist until its module has downloaded and run. Until then the browser sees
+ * an unknown inline element with no content: zero wide, one line tall. A page of
+ * them collapses, and then everything below it jumps down when the modules land.
+ *
+ * That gap cannot be closed from JavaScript, because any CSS a module injects
+ * arrives at the very moment the element upgrades — exactly too late to have
+ * helped. It has to be a stylesheet in the <head>, which is what this is: no
+ * JavaScript, nothing to import, and it stops applying by itself the instant
+ * each element is defined.
+ *
+ * The sizes here mirror each element's own :host rules, including the same
+ * custom properties and the same defaults, so the box the skeleton holds is the
+ * box the real thing takes.
+ * ------------------------------------------------- */
+
+:where(cj-knob, cj-heat, cj-rings, cj-radar, cj-horizon, cj-level, cj-trace):not(:defined) {
+  display: inline-grid;
+  box-sizing: border-box;
+  background: var(--cj-skeleton, rgba(127, 127, 127, .11));
+  /* the round dials are the majority; the two that are not override it below */
+  border-radius: 50%;
+  /* slotted content is still ordinary light DOM until the parent upgrades, so an
+     icon or a nested dial would otherwise spill out as raw inline content */
+  overflow: hidden;
+  animation: cj-skeleton-breathe 1.4s ease-in-out infinite;
+}
+
+:where(cj-knob, cj-heat, cj-rings, cj-radar, cj-horizon, cj-level, cj-trace):not(:defined) > * {
+  visibility: hidden;
+}
+
+@keyframes cj-skeleton-breathe {
+  50% { opacity: .45; }
+}
+
+/* Parked rather than removed: a still placeholder is the point of the thing.
+   Taking the animation away must not take the reserved space with it. */
+@media (prefers-reduced-motion: reduce) {
+  :where(cj-knob, cj-heat, cj-rings, cj-radar, cj-horizon, cj-level, cj-trace):not(:defined) {
+    animation: none;
+  }
+}
+
+/* ---- the square dials ---- */
+cj-knob:not(:defined),
+cj-heat:not(:defined) {
+  inline-size: var(--cj-size, 220px);
+  block-size: var(--cj-size, 220px);
+}
+
+cj-rings:not(:defined) {
+  inline-size: var(--cjs-size, 220px);
+  block-size: var(--cjs-size, 220px);
+}
+
+cj-radar:not(:defined) {
+  inline-size: var(--cjr-size, 260px);
+  block-size: var(--cjr-size, 260px);
+}
+
+cj-horizon:not(:defined) {
+  inline-size: var(--cjh-size, 220px);
+  block-size: var(--cjh-size, 220px);
+}
+
+/* ---- the two that are not circles ---- */
+/* a strip fills its container and stands --cj-height tall */
+cj-trace:not(:defined) {
+  display: block;
+  inline-size: 100%;
+  block-size: var(--cj-height, 130px);
+  border-radius: 10px;
+}
+
+cj-trace:not(:defined)[shape="ring"] {
+  display: inline-grid;
+  inline-size: var(--cj-size, 220px);
+  block-size: var(--cj-size, 220px);
+  border-radius: 50%;
+}
+
+/* A column is .32 as wide as it is tall, and its readout and label each add a
+   row under it. The three cases below are what a level actually measures; a
+   fourth combination is close enough that nobody sees the difference. */
+cj-level:not(:defined) {
+  inline-size: calc(var(--cjl-height, 220px) * .32);
+  block-size: calc(var(--cjl-height, 220px) * 1.133);
+  border-radius: calc(var(--cjl-height, 220px) * .16);
+}
+
+cj-level:not(:defined)[readout="none"] {
+  block-size: var(--cjl-height, 220px);
+}
+
+cj-level:not(:defined)[label] {
+  block-size: calc(var(--cjl-height, 220px) * 1.221);
+}

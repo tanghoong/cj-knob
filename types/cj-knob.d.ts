@@ -22,16 +22,22 @@ export declare class CJKnob extends HTMLElement {
    */
   endless: boolean;
   /**
+   * Whether a `toggle` button is currently on. Attribute: `pressed`.
+   * Meaningless without `button`.
+   */
+  pressed: boolean;
+  /**
    * Presentational attributes with no property mirror:
    * `sweep`, `start`, `benchmark`, `zones`, `segments`, `ticks`, `tick-major`,
    * `needle`, `labels`, `label-radius`, `readout`, `unit`, `decimals`, `label`,
    * `color`, `disabled`, `animate-in`, `liquid`, `rotating`, `value-2`,
-   * `gradient`, `ballistics`, `peak-hold`, `peak-fall`, `pulse`, `inset`.
-   * Set them with `setAttribute`.
+   * `gradient`, `ballistics`, `peak-hold`, `peak-fall`, `pulse`, `inset`,
+   * `button`, `toggle`, `gas`. Set them with `setAttribute`.
    *
-   * Slots: `icon` in the middle, and `inset` for something living inside the
-   * face — a `<cj-trace>` under the number, a `<cj-level>` up the middle. The
-   * knob lays the slotted element out; it does not draw it.
+   * Slots: `icon` in the middle, `icon-on` for the glyph a pressed `toggle`
+   * button shows instead, and `inset` for something living inside the face —
+   * a `<cj-trace>` under the number, a `<cj-level>` up the middle. The knob
+   * lays the slotted element out; it does not draw it.
    */
   /** Normalised position: `(value - min) / (max - min)`. Exceeds 1 when value > max. Read-only. */
   readonly ratio: number;
@@ -72,6 +78,8 @@ declare global {
     'cj-input': CustomEvent<CJKnobEventDetail | CJKnobRangeEventDetail>;
     /** Fired when an interaction settles (pointer release, key press). */
     'cj-change': CustomEvent<CJKnobEventDetail | CJKnobRangeEventDetail>;
+    /** Fired when a `button` dial is activated by click, Enter or Space. */
+    'cj-press': CustomEvent<{ pressed: boolean }>;
   }
 }
 

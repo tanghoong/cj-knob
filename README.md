@@ -12,6 +12,27 @@ A knob, gauge and meter as a single custom element. **Zero runtime dependencies,
 
 Because it is a custom element it works the same in plain HTML, React, Vue, Svelte, Astro or anything else that renders DOM.
 
+## Before it loads
+
+Each element sizes itself from inside its own shadow root, and that root does not
+exist until its module has run. Until then the browser sees an unknown inline
+element: zero wide, one line tall. A page of them collapses, and everything below
+jumps down when the modules land.
+
+That gap cannot be closed from JavaScript — any CSS a module injects arrives at
+the very moment the element upgrades, which is exactly too late to have helped.
+So it is a stylesheet:
+
+```html
+<link rel="stylesheet" href="cj-knob/src/cj-skeleton.css">
+```
+
+It reserves each element's exact box from the same custom properties the element
+itself uses, draws a soft placeholder in the meantime, and stops applying by
+itself the instant each element is defined. There is nothing to import and
+nothing to call. On this project's own landing page it takes the jump from 3110
+pixels to 5.
+
 ## Install
 
 ```sh
@@ -54,6 +75,10 @@ Or drop it in with no tooling at all:
 | `rotating` | — | The card turns under a fixed index, the way a heading indicator works. |
 | `range` | — | Two handles with a band between them: `range="20 70"`. Reads back as `{low, high}`. |
 | `endless` | — | No ends: dragging reports movement, so the value keeps counting past `max` while the ring wraps. |
+| `button` | — | The dial becomes a button: focusable, Enter/Space activates it, fires `cj-press`. |
+| `toggle` | — | Makes a `button` latch. Pairs with `slot="icon-on"` for the pressed glyph. |
+| `pressed` | — | Whether a `toggle` button is on. Also `.pressed`. |
+| `gas` | — | Fills the face with drifting haze whose density is the value. |
 | `pulse` | `60` | A ring that swells and fades at this many beats per minute. |
 | `inset` | `low` | Where `slot="inset"` content sits: `low` under the number, `fill` up the middle. |
 | `ballistics` | — | Meter ballistics: `"attack release"` in seconds, one number for both. |
@@ -89,6 +114,12 @@ cj-knob {
   --cj-mark-size: 7px;      /* in the 0-100 viewBox, so it scales */
   --cj-needle-2: #2f7ae5;   /* the second pointer */
   --cj-liquid: #35a7ff;     /* the fluid, and --cj-liquid-back behind it */
+  --cj-gas: #9ca3af;        /* the haze a gas dial fills with */
+  --cj-icon-size: 3rem;     /* 20% of --cj-size beside a number, 34% without one */
+  --cj-hit: rgba(127,127,127,.13);  /* the press highlight on a button dial */
+  --cj-pulse: currentColor; /* the breathing ring; defaults to --cj-value */
+  --cj-handle: #ffffff;     /* the two range handles */
+  --cj-peak: #ffc61a;       /* the held peak marker */
   --cj-duration: 600ms;
   --cj-easing: cubic-bezier(.22,.61,.36,1);
 }
@@ -146,6 +177,40 @@ set, untouched.
 
 The element runs a frame loop only while something is still moving, and lets go of it
 once the needle has settled and the peak has caught up.
+
+### The dial as a button
+
+```html
+<cj-knob button toggle value="37" readout="none" label="Midnight City">
+  <span slot="icon">▶</span>
+  <span slot="icon-on">❚❚</span>
+</cj-knob>
+```
+
+`button` makes the whole face a control: focusable, activated by click, Enter or
+Space, and `role="button"` to anything reading the page. It fires `cj-press`
+with `{pressed}`. `toggle` makes it latch and keeps `aria-pressed` in step, and
+`slot="icon-on"` is the glyph shown while it is down — which is a play/pause
+button with no script at all, the ring left free to carry progress.
+
+The press lands on the face rather than the ring, because a ring is a hairline
+and the middle is what anyone actually aims at. Use `button` or `interactive`,
+not both: one wants a click and the other wants a drag.
+
+### Gas
+
+Liquid has a surface and a solid has an edge. A gas has neither, so the only
+thing left to carry a value is how much of the dial is occupied by it:
+
+```html
+<cj-knob gas value="26" readout="value" unit="ppm" label="CO₂"
+         style="--cj-gas:#a3e635"></cj-knob>
+```
+
+Eighteen blurred blobs are scattered on the golden angle so they never band, and
+they are built once: the value decides how many exist, not where they are. A
+rising value therefore thickens the same cloud rather than rearranging it, and
+the blob at the edge fades in instead of popping.
 
 ### Putting something inside the face
 
@@ -273,6 +338,8 @@ which reads as the worst possible thing.
 | `samples` | `240` | How many samples the window holds. |
 | `points` | — | A written-out waveform: `"12,40,38,90"`. No pen, nothing faded. |
 | `beat` | — | Beats per minute of a built-in ECG. Omit to feed it yourself. |
+| `voice` | — | A built-in talker instead: bursts of speech and real silences. Optionally `0`–`1` for how loud. |
+| `mirror` | — | The waveform straddles the centre line instead of rising from the floor. |
 | `rate` | `125` | Samples per second while self-driving — the paper speed. |
 | `min` / `max` | `0` / `100` | The vertical scale. |
 | `grid` | — | Graph paper behind the trace, ruled square or polar to match the shape. |
@@ -282,7 +349,32 @@ which reads as the worst possible thing.
 | `readout` | auto | The rate when `beat` is set, else the last sample. `none` to hide. |
 | `unit` / `decimals` / `label` / `color` | — | As on `<cj-knob>`. |
 
-Properties: `.push(v)`, `.clear()`, `.last`, `.samples`, `.min`, `.max`, `.beat`.
+`voice mirror` is the other kind of trace — a sound wave rather than a
+heartbeat. It jumps while someone is talking and lies flat while nobody is, and
+the flat part is the point: a nearly-still line still reads as noise, so silence
+writes the baseline exactly. `.level` is how loud the talker is right now
+(exactly `0` between phrases), `.speaking` is the same thing as a boolean, and
+`cj-speech` fires on each change — which is enough to drive a ring around it:
+
+```html
+<cj-knob id="listening" value="0" readout="none" label="listening">
+  <cj-trace slot="inset" voice mirror pen="none" style="--cj-height:34px"></cj-trace>
+</cj-knob>
+```
+
+```js
+const trace = listening.querySelector('cj-trace');
+const tick = () => { listening.value = trace.level * 100; requestAnimationFrame(tick); };
+tick();
+```
+
+Phrases run about a second and a half against a window that holds two, so a strip
+nearly always shows both a burst and the quiet either side of it. More lifelike
+phrasing is useless here: one phrase fills the whole window and the trace looks
+like it never stops talking.
+
+Properties: `.push(v)`, `.clear()`, `.last`, `.level`, `.speaking`, `.samples`,
+`.min`, `.max`, `.beat`.
 
 Tokens: `--cj-trace`, `--cj-trace-stale`, `--cj-stale-opacity`, `--cj-pen`, `--cj-grid`,
 `--cj-grid-step`, `--cj-face`, `--cj-width`, `--cj-height`, `--cj-size`.
@@ -493,7 +585,7 @@ The demo lives at the repository root so that `./src/cj-knob.js` never points ou
 
 ```sh
 npm run dev     # then open http://127.0.0.1:8765/
-npm test        # 211 Playwright checks: geometry, needle, radar, horizon, keyboard, a11y
+npm test        # 249 Playwright checks: geometry, needle, radar, horizon, keyboard, a11y
 ```
 
 ## Browser support

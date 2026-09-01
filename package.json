@@ -35,7 +35,8 @@
     "./heat": {
       "types": "./types/cj-heat.d.ts",
       "default": "./src/cj-heat.js"
-    }
+    },
+    "./skeleton.css": "./src/cj-skeleton.css"
   },
   "files": [
     "src",
