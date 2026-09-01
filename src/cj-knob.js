@@ -25,6 +25,7 @@ template.innerHTML = `
     --cj-tick: #9aa3ae;
     --cj-tick-width: .8;
     --cj-needle: #e0433f;
+    --cj-needle-2: #2f7ae5;
     --cj-mark: #6b7280;
     --cj-mark-major: #14161a;
     --cj-mark-size: 7px;
@@ -128,6 +129,28 @@ template.innerHTML = `
     transition: transform var(--cj-duration) var(--cj-easing);
   }
   .needle[hidden] { display: none; }
+
+  /* a second pointer, for dials where the two ends mean different things */
+  .needle-2 {
+    fill: var(--cj-needle-2);
+    transform: rotate(var(--cj-needle-2-angle, 0deg));
+    transform-origin: 50% 50%;
+    transform-box: view-box;
+    transition: transform var(--cj-duration) var(--cj-easing);
+  }
+  .needle-2[hidden] { display: none; }
+
+  /* Rotating-card dial: the graduations and captions turn under a fixed index,
+     the way a heading indicator works, instead of a pointer moving over a fixed
+     card. The card turns by -value, so the current heading ends up under the index. */
+  .ticks, .marks {
+    transform: rotate(var(--cj-card-angle, 0deg));
+    transform-origin: 50% 50%;
+    transform-box: view-box;
+    transition: transform var(--cj-duration) var(--cj-easing);
+  }
+  .lubber { fill: var(--cj-needle); }
+  .lubber[hidden] { display: none; }
 
   /* bearing labels. Outside .rings so they stay upright instead of turning with it. */
   .marks text {
@@ -252,8 +275,13 @@ template.innerHTML = `
       <!-- drawn pointing right, i.e. at 0deg before .rings applies --cj-start -->
       <polygon points="87.5,50 79.5,46.3 79.5,53.7"/>
     </g>
+    <g class="needle-2" part="needle-2" hidden>
+      <polygon points="85.5,50 78.5,47.4 78.5,52.6"/>
+    </g>
   </g>
   <g class="marks" part="marks"></g>
+  <!-- a fixed index for the rotating-card dial, the way a heading indicator has one -->
+  <polygon class="lubber" part="lubber" points="50,4.5 46.6,11 53.4,11" hidden/>
   <circle class="focus-ring" cx="50" cy="50" r="49"/>
 </svg>
 
@@ -275,7 +303,7 @@ export class CJKnob extends HTMLElement {
     'value', 'min', 'max', 'benchmark', 'sweep', 'start',
     'readout', 'unit', 'decimals', 'label', 'color',
     'zones', 'segments', 'ticks', 'tick-major',
-    'needle', 'labels', 'label-radius',
+    'needle', 'labels', 'label-radius', 'value-2', 'rotating',
     'interactive', 'disabled', 'step',
   ];
 
@@ -283,9 +311,8 @@ export class CJKnob extends HTMLElement {
   #els;
   #dragging = false;
   #ownsColor = false;
-  // the needle's unwrapped angle, so a full dial never spins the long way round
-  #needleTurn = 0;
-  #needleRaw = 0;
+  // unwrapped angles per pointer, so a full dial never spins the long way round
+  #turns = {};
 
   constructor() {
     super();
@@ -302,6 +329,8 @@ export class CJKnob extends HTMLElement {
       segments: q('.segments'),
       ticks: q('.ticks'),
       needle: q('.needle'),
+      needle2: q('.needle-2'),
+      lubber: q('.lubber'),
       marks: q('.marks'),
       center: q('.center'),
       slot: q('slot[name="icon"]'),
@@ -418,6 +447,7 @@ export class CJKnob extends HTMLElement {
     this.#renderSegments(arc, min, max);
     this.#renderTicks(sweep);
     this.#renderNeedle(sweep, pct);
+    this.#renderCard(sweep, pct);
     this.#renderMarks(sweep, this.#start);
 
     // `color` is a shorthand for the --cj-value custom property. Only clear it again if
@@ -487,25 +517,48 @@ export class CJKnob extends HTMLElement {
     this.#els.segments.replaceChildren(frag);
   }
 
-  /** needle — a pointer that swings to the current value */
+  /**
+   * On a closed dial 359° -> 1° is a 2° move, not a 358° one. Accumulate an
+   * unwrapped angle per pointer so each always takes the short way round.
+   */
+  #unwrap(key, target, sweep) {
+    if (sweep < 360) return target;
+    const s = (this.#turns[key] ??= { turn: 0, raw: 0 });
+    let step = target - s.raw;
+    step -= Math.round(step / 360) * 360;
+    s.turn += step;
+    s.raw = target;
+    return s.turn;
+  }
+
+  /** needle — one or two pointers that swing to the value(s) */
   #renderNeedle(sweep, pct) {
+    // Angles are relative: .rings already carries --cj-start.
     const on = this.hasAttribute('needle');
     this.#els.needle.toggleAttribute('hidden', !on);
-    if (!on) return;
-
-    // Angles are relative: .rings already carries --cj-start.
-    const target = pct * sweep;
-    if (sweep >= 360) {
-      // On a closed dial 359° -> 1° is a 2° move, not a 358° one. Accumulate the
-      // unwrapped angle so the needle always takes the short way round.
-      let step = target - this.#needleRaw;
-      step -= Math.round(step / 360) * 360;
-      this.#needleTurn += step;
-      this.#needleRaw = target;
-      this.style.setProperty('--cj-needle-angle', `${this.#needleTurn.toFixed(2)}deg`);
-    } else {
-      this.style.setProperty('--cj-needle-angle', `${target.toFixed(2)}deg`);
+    if (on) {
+      const a = this.#unwrap('n1', pct * sweep, sweep);
+      this.style.setProperty('--cj-needle-angle', `${a.toFixed(2)}deg`);
     }
+
+    // a second pointer, for dials whose two ends mean different things
+    const raw2 = this.getAttribute('value-2');
+    const has2 = on && raw2 !== null;
+    this.#els.needle2.toggleAttribute('hidden', !has2);
+    if (has2) {
+      const span = (this.max - this.min) || 1;
+      const pct2 = clamp((num(raw2, this.min) - this.min) / span, 0, 1);
+      const a2 = this.#unwrap('n2', pct2 * sweep, sweep);
+      this.style.setProperty('--cj-needle-2-angle', `${a2.toFixed(2)}deg`);
+    }
+  }
+
+  /** rotating — the card turns under a fixed index instead of a pointer moving */
+  #renderCard(sweep, pct) {
+    const on = this.hasAttribute('rotating');
+    this.#els.lubber.toggleAttribute('hidden', !on);
+    const a = on ? -this.#unwrap('card', pct * sweep, sweep) : 0;
+    this.style.setProperty('--cj-card-angle', `${a.toFixed(2)}deg`);
   }
 
   /** labels="N,E,S,W" — upright captions spaced around the arc */

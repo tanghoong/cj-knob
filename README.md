@@ -50,6 +50,8 @@ Or drop it in with no tooling at all:
 | `needle` | — | A pointer that swings to the value, taking the short way round a closed dial. |
 | `labels` | — | Upright captions spaced round the arc: `"N,E,S,W"`. Every fourth reads heavier. |
 | `label-radius` | `29.5` | How far out the captions sit, in the 0–100 viewBox. |
+| `value-2` | — | A second value, drawn as a second pointer alongside the first. |
+| `rotating` | — | The card turns under a fixed index, the way a heading indicator works. |
 | `zones` | — | Coloured bands on the track, in value units: `"0-60:#22c55e, 60-85:#f59e0b, 85-100:#ef4444"`. |
 | `segments` | — | Consecutive stacked slices in place of the value ring: `"42:#3b82f6, 23:#8b5cf6"`. |
 | `ticks` | — | Number of graduations around the arc. |
@@ -135,6 +137,9 @@ a mode — import it only if you want it.
 | `blips` | — | Contacts as `bearing:range` pairs, range 0 at the centre to 1 at the rim. |
 | `interactive` | — | Clicking the scope adds a contact where you clicked. |
 
+Tune the sweep with `--cjr-tail` (how far the luminous trail reaches behind the leading
+line) and `--cjr-fade` (how long a contact stays lit after a pass).
+
 Contacts are also a property, so they do not have to go through an attribute:
 
 ```js
@@ -150,6 +155,29 @@ radar.addEventListener("cj-detect", (e) => console.log(e.detail.bearing));
 Theme it with `--cjr-field`, `--cjr-grid`, `--cjr-beam`, `--cjr-blip`, `--cjr-mark`
 and `--cjr-size`. With no `period` the beam is not drawn at all and the contacts
 carry their own contrast, which is also what happens under `prefers-reduced-motion`.
+
+## `<cj-horizon>`
+
+The artificial horizon an aircraft shows you: sky over ground, tipping with bank and
+sliding with pitch, read against a fixed aircraft symbol. Two angles across a whole
+face rather than one number on a rim, so it is a third element rather than a knob mode.
+
+```html
+<script type="module" src="cj-knob/src/cj-horizon.js"></script>
+
+<cj-horizon pitch="8" roll="-20"></cj-horizon>
+```
+
+| Attribute | Default | Description |
+|---|---|---|
+| `pitch` | `0` | Nose-up in degrees. Positive slides the horizon down the face. |
+| `roll` | `0` | Right bank in degrees. Positive lifts the horizon's right-hand end — the ground rises to your right, as it does out of the window. |
+| `ladder-step` | `10` | Degrees between pitch-ladder rungs. |
+| `ladder-max` | `30` | Highest rung drawn, either side of the horizon. |
+
+`pitch` and `roll` are also properties, and `.attitude` returns the state in words
+(`"climbing, left bank"`) — which is what the element puts in its own `aria-label`.
+Theme it with `--cjh-sky`, `--cjh-ground`, `--cjh-craft`, `--cjh-index` and `--cjh-size`.
 
 ## The instrument lab
 
@@ -195,7 +223,7 @@ The demo lives at the repository root so that `./src/cj-knob.js` never points ou
 
 ```sh
 npm run dev     # then open http://127.0.0.1:8765/
-npm test        # 60 Playwright checks: geometry, needle, radar, keyboard, pointer, a11y
+npm test        # 76 Playwright checks: geometry, needle, radar, horizon, keyboard, a11y
 ```
 
 ## Browser support
