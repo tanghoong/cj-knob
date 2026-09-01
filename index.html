@@ -235,6 +235,13 @@
   .ctl button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
   .play-card .cap { font-size: 11px; color: var(--dim); text-align: center; line-height: 1.5; }
   .play-card .cap span { font-variant-numeric: tabular-nums; }
+  .note {
+    margin: 0 0 .75rem; padding: .5rem .7rem; font-size: 12.5px;
+    border-radius: 8px; color: var(--accent-ink);
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--accent) 26%, transparent);
+  }
+  .note[hidden] { display: none; }
 
   /* ---------- API table ---------- */
   .api { width: 100%; border-collapse: collapse; font-size: 13.5px; }
@@ -572,6 +579,10 @@
 </div>
 
 <h3>Radar — a filled field instead of a rim arc</h3>
+<p class="note" id="motion-note" hidden>
+  Your system asks for reduced motion, so the sweep is parked rather than turning.
+  Turn animation effects back on to watch it run.
+</p>
 <div class="grid">
   <div class="card">
     <cj-radar period="4" rings="4" spokes="8" labels="N,E,S,W"
@@ -600,7 +611,36 @@
   </div>
 </div>
 
-<h3>Instruments — attitude, gyro, two pointers</h3>
+<h3>Liquid — for anything that really is a fluid</h3>
+<div class="grid">
+  <div class="card">
+    <cj-knob liquid value="72" readout="value" unit="%" label="H₂O"
+             style="--cj-thickness:5" color="#35a7ff"></cj-knob>
+    <code>liquid — waves drift while it sits</code>
+  </div>
+  <div class="card">
+    <cj-knob id="tank" liquid value="34" readout="value" unit="L" min="0" max="60"
+             label="petrol" style="--cj-thickness:5;--cj-liquid:#f0a020;
+             --cj-liquid-back:rgba(240,160,32,.45)" color="#f0a020"></cj-knob>
+    <code>themed with --cj-liquid<br>(click to pour)</code>
+  </div>
+  <div class="card">
+    <cj-knob liquid value="18" readout="value" unit="%" label="reagent"
+             sweep="270" ticks="10" tick-major="5"
+             style="--cj-thickness:5;--cj-liquid:#a3e635;
+             --cj-liquid-back:rgba(163,230,53,.4)" color="#a3e635"
+             zones="0-20:#fee2e2"></cj-knob>
+    <code>liquid + zones + ticks</code>
+  </div>
+  <div class="card">
+    <cj-knob liquid value="91" readout="value" unit="%" label="coolant"
+             style="--cj-thickness:5;--cj-liquid:#f472b6;
+             --cj-liquid-back:rgba(244,114,182,.4)" color="#f472b6"></cj-knob>
+    <code>a nearly full tank</code>
+  </div>
+</div>
+
+<h3>Instruments — hands, attitude, gyro, two pointers</h3>
 <div class="grid">
   <div class="card">
     <cj-horizon pitch="0" roll="0" style="--cjh-size:132px"></cj-horizon>
@@ -621,6 +661,33 @@
              readout="none" label="min · max" color="#019ae6"
              style="--cj-thickness:6"></cj-knob>
     <code>value-2 — a second pointer</code>
+  </div>
+</div>
+
+<div class="grid">
+  <div class="card">
+    <cj-knob id="handclock" needle="hand" min="0" max="60" value="0" value-2="0"
+             ticks="60" tick-major="5" labels="12,1,2,3,4,5,6,7,8,9,10,11"
+             readout="none" color="transparent" style="--cj-thickness:3"></cj-knob>
+    <code>needle="hand" + value-2<br>= a live clock face</code>
+  </div>
+  <div class="card">
+    <cj-knob needle="hand" value="72" min="0" max="160" sweep="270"
+             ticks="8" tick-major="4" readout="none" label="psi"
+             zones="130-160:#fee2e2" color="#019ae6" style="--cj-thickness:5"></cj-knob>
+    <code>a hand on a pressure gauge</code>
+  </div>
+  <div class="card">
+    <cj-knob needle="hand" value="6200" min="0" max="9000" sweep="240" start="150"
+             ticks="9" tick-major="3" readout="value" label="rpm"
+             zones="7000-9000:#fee2e2" color="#dc2626" style="--cj-thickness:5"></cj-knob>
+    <code>tachometer — hand + red line</code>
+  </div>
+  <div class="card">
+    <cj-knob needle value="88" min="0" max="100" sweep="270"
+             ticks="10" tick-major="5" readout="value" unit="dB" label="peak"
+             color="#16a34a" style="--cj-thickness:6"></cj-knob>
+    <code>the default rim marker</code>
   </div>
 </div>
 
@@ -798,7 +865,7 @@ document.querySelector(<span class="s">'[data-count="1"]'</span>).onclick = () =
           <tr><td><code>label-radius</code></td><td><code>29.5</code></td><td>How far out the captions sit, in the 0–100 viewBox.</td></tr>
           <tr><td><code>value-2</code></td><td>—</td><td>A second value, drawn as a second pointer alongside the first.</td></tr>
           <tr><td><code>rotating</code></td><td>—</td><td>The card turns under a fixed index, the way a heading indicator works.</td></tr>
-          <tr><td><code>liquid</code></td><td>—</td><td>Fills the dial with fluid whose surface sits at the value, with drifting waves.</td></tr>
+          <tr><td><code>liquid</code></td><td>—</td><td>Fills the dial with fluid whose surface sits at the value, with drifting waves. Theme with <code>--cj-liquid</code>.</td></tr>
         </tbody>
       </table>
     </div>
@@ -814,6 +881,7 @@ document.querySelector(<span class="s">'[data-count="1"]'</span>).onclick = () =
           <tr><td><code>labels</code></td><td>—</td><td>Bearing captions, spaced evenly from north.</td></tr>
           <tr><td><code>blips</code></td><td>—</td><td>Contacts as <code>bearing:range</code> pairs: <code>"45:0.6, 210:0.35"</code>.</td></tr>
           <tr><td><code>interactive</code></td><td>—</td><td>Clicking the scope adds a contact where you clicked.</td></tr>
+          <tr><td colspan="3" style="color:var(--dim)">Under <code>prefers-reduced-motion</code> the sweep parks rather than turning — it stays visible, it just holds still.</td></tr>
         </tbody>
       </table>
     </div>
@@ -1026,6 +1094,21 @@ cj-knob::part(value) { <span class="a">filter</span>: <span class="s">drop-shado
     setHeading(a === 'turn' ? compass.value + 45 : Number(a)));
   setHeading(0);
 
+  // Say out loud why the sweep is parked, rather than leaving it looking broken.
+  // A stationary scope is the correct answer to the preference, not a bug.
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    document.getElementById('motion-note').hidden = false;
+  }
+
+  // the petrol tank pours when you click it
+  const tank = $('#tank');
+  tank.addEventListener('click', () => {
+    tank.value = (tank.value > 45 ? 6 + Math.random() * 12 : 46 + Math.random() * 13).toFixed(0);
+  });
+
+  // a real clock on the hand-pointer face: value is seconds, value-2 is minutes
+  const handclock = $('#handclock');
+
   // attitude indicator — two angles instead of one value
   const horizon = $('#pg-horizon');
   const attState = $('#pg-att-state');
@@ -1108,6 +1191,11 @@ cj-knob::part(value) { <span class="a">filter</span>: <span class="s">drop-shado
       sw.at = (sw.at + dt) % 60;
       swPaint();
     }
+    // the hand-pointer face runs off the wall clock: seconds on one hand, minutes on the other
+    const wall = new Date();
+    handclock.value = (wall.getSeconds() + wall.getMilliseconds() / 1000).toFixed(2);
+    handclock.setAttribute('value-2', (wall.getMinutes() + wall.getSeconds() / 60).toFixed(3));
+
     // the gyro card keeps turning while Spin is engaged
     if (spinning) gyro.value = (((gyro.value + spinning * dt) % 360) + 360) % 360;
 

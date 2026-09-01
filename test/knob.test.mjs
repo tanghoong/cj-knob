@@ -481,6 +481,32 @@ check('needle="hand" hides the rim marker', hand.markHidden);
 check('the hand gets a hub to pivot on', hand.hub);
 check('plain needle goes back to the rim marker', hand.markBack);
 
+// --- reduced motion parks the sweep, it does not delete it ---
+// Hiding the beam outright made the scope look broken on any machine with
+// animation effects turned off, which is a very common default.
+const reduced = await browser.newContext({ reducedMotion: 'reduce' });
+const rmPage = await reduced.newPage();
+await rmPage.goto(BASE, { waitUntil: 'networkidle' });
+await rmPage.waitForTimeout(700);
+const parked = await rmPage.evaluate(async () => {
+  const el = document.querySelector('#playground cj-radar');
+  const r = el.shadowRoot;
+  const first = el.style.getPropertyValue('--cjr-beam-angle');
+  await new Promise((res) => setTimeout(res, 400));
+  return {
+    beam: getComputedStyle(r.querySelector('.beam')).display,
+    line: getComputedStyle(r.querySelector('.beam-line')).display,
+    first, second: el.style.getPropertyValue('--cjr-beam-angle'),
+    noteShown: !document.getElementById('motion-note').hidden,
+  };
+});
+await reduced.close();
+check('reduced motion keeps the beam visible', parked.beam !== 'none', parked.beam);
+check('reduced motion keeps the leading line visible', parked.line !== 'none', parked.line);
+check('reduced motion stops the sweep turning', parked.first === parked.second,
+  `${parked.first} -> ${parked.second}`);
+check('the page explains why the sweep is still', parked.noteShown);
+
 check('still no page errors at end', errors.length === 0, errors.join(' | '));
 
 await browser.close();

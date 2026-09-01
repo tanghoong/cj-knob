@@ -128,8 +128,10 @@ template.innerHTML = `
     dominant-baseline: central;
   }
 
+  /* Reduced motion parks the sweep instead of deleting it. Hiding it outright made
+     the scope look broken rather than calm — you lose the thing that says "radar"
+     and gain nothing, since a stationary beam moves no pixels either way. */
   @media (prefers-reduced-motion: reduce) {
-    .beam, .beam-line { display: none; }
     .blip .dot { opacity: .85; transition: none; }
     .blip[data-ping] .halo { animation: none; }
   }
@@ -309,6 +311,13 @@ export class CJRadar extends HTMLElement {
     cancelAnimationFrame(this.#frame);
     if (!this.period) {
       this.style.setProperty('--cjr-beam-angle', '0deg');
+      return;
+    }
+    // Someone who asked for less motion still gets a scope, just a still one:
+    // the beam parks off the vertical so it reads as a sweep caught mid-turn.
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      this.#angle = 45;
+      this.style.setProperty('--cjr-beam-angle', '45deg');
       return;
     }
     this.#last = performance.now();
