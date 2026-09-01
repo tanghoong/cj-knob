@@ -67,13 +67,16 @@
       {
         size: 'md',
         items: [
-          // the two wet stores read as liquid; everything else is a dry count
-          { id: 'oil', cap: 'fryer oil', min: 0, max: 100, readout: 'value', unit: '%',
-            liquid: '', label: 'litres', color: 'var(--a3)',
-            style: '--cj-liquid:#e8b33c;--cj-liquid-back:rgba(232,179,60,.45);--cj-thickness:5' },
-          { id: 'milk', cap: 'milk', min: 0, max: 100, readout: 'value', unit: '%',
-            liquid: '', label: 'litres', color: '#dfe7f0',
-            style: '--cj-liquid:#eef3f8;--cj-liquid-back:rgba(238,243,248,.4);--cj-thickness:5' },
+          // The two wet stores are tanks, so they get tanks — a probe in a drum
+          // reads as a column, not as a ring.
+          // The caption under each card already names them, so the tubes carry no
+          // label of their own — those two spare text lines are what overflowed.
+          { id: 'oil', cap: 'fryer oil', tag: 'cj-level', min: 0, max: 100, unit: '%',
+            liquid: '', color: '#e8b33c', ticks: 10, tickMajor: 5, zones: '0-20:#ef4444',
+            style: '--cjl-height:min(86px,10.5vh);--cjl-fill-back:rgba(232,179,60,.45)' },
+          { id: 'milk', cap: 'milk', tag: 'cj-level', min: 0, max: 100, unit: '%',
+            liquid: '', color: '#dbe4ee', ticks: 10, tickMajor: 5, zones: '0-20:#ef4444',
+            style: '--cjl-height:min(86px,10.5vh);--cjl-fill-back:rgba(219,228,238,.4)' },
           ...STOCK.map(([name, color, icon, unit]) => ({
             id: name.replace(' ', '-'), cap: name, min: 0, max: 100, sweep: 270,
             readout: 'value', unit: '%', ticks: 10, tickMajor: 5, label: unit, color,

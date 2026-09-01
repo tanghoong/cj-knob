@@ -131,3 +131,15 @@ cj-knob {
 }
 .row.lg cj-knob { --cj-size: 186px; --cj-thickness: 6; }
 .row.sm cj-knob { --cj-size: 86px; --cj-thickness: 9; }
+
+/* The panels are dark whatever the OS is set to, so the elements' own
+   prefers-color-scheme defaults never fire here — map the tokens explicitly. */
+cj-level {
+  --cjl-tube: var(--track);
+  --cjl-wall: var(--edge);
+  --cjl-tick: var(--tick);
+  --cjl-text: var(--ink);
+  --cjl-muted: var(--dim);
+  --cjl-duration: 260ms;
+}
+cj-horizon { --cjh-duration: 260ms; }
