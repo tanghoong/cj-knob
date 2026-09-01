@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>cj-knob — one element, every dial</title>
-<meta name="description" content="A knob, gauge and meter as a single custom element. Zero dependencies, no build step, 6.8 KB gzipped. Works in plain HTML, React, Vue and Svelte.">
+<meta name="description" content="A knob, gauge and meter as a single custom element. Zero dependencies, no build step, 7.8 KB gzipped. Works in plain HTML, React, Vue and Svelte.">
 <style>
   :root {
     color-scheme: light dark;
@@ -215,6 +215,27 @@
   .spinner { animation: cj-spin 900ms linear infinite; }
   .wide { grid-column: span 2; }
 
+  /* ---------- playground ---------- */
+  .play { display: grid; gap: .75rem; margin-bottom: 1.25rem;
+          grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+  .play-card {
+    background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 1.1rem .8rem .85rem; display: grid; justify-items: center; gap: .7rem;
+    align-content: start;
+  }
+  .ctl { display: flex; flex-wrap: wrap; gap: .3rem; justify-content: center; }
+  .ctl button {
+    font: 600 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    padding: .4rem .55rem; border-radius: 7px; cursor: pointer;
+    border: 1px solid var(--line); background: var(--bg-soft); color: var(--fg);
+    min-width: 2.1rem;
+  }
+  .ctl button:hover { border-color: var(--accent); color: var(--accent-ink); }
+  .ctl button:active { transform: translateY(1px); }
+  .ctl button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .play-card .cap { font-size: 11px; color: var(--dim); text-align: center; line-height: 1.5; }
+  .play-card .cap span { font-variant-numeric: tabular-nums; }
+
   /* ---------- API table ---------- */
   .api { width: 100%; border-collapse: collapse; font-size: 13.5px; }
   .api th, .api td { text-align: left; padding: .5rem .65rem; border-bottom: 1px solid var(--line); vertical-align: top; }
@@ -261,6 +282,7 @@
       <a href="#start">Quick start</a>
       <a href="#why">Why</a>
       <a href="#examples">Examples</a>
+      <a href="#playground">Playground</a>
       <a href="#api">API</a>
       <a class="cta" href="lab/">Instrument lab &rarr;</a>
     </nav>
@@ -286,9 +308,9 @@
       </div>
 
       <ul class="facts">
-        <li><b>6.8 KB</b><span>gzipped</span></li>
+        <li><b>7.8 KB</b><span>gzipped</span></li>
         <li><b>0</b><span>dependencies</span></li>
-        <li><b>18</b><span>attributes</span></li>
+        <li><b>21</b><span>attributes</span></li>
         <li><b>29</b><span>demo panels</span></li>
       </ul>
 
@@ -390,7 +412,7 @@
   <div class="wrap">
     <h2>Small on purpose. Complete anyway.</h2>
     <p class="sub">
-      Everything below ships inside the 6.8 KB. There is no pro tier, no plugin system,
+      Everything below ships inside the 7.8 KB. There is no pro tier, no plugin system,
       and nothing to install alongside it.
     </p>
 
@@ -497,9 +519,10 @@
     <code>zones + ticks + tick-major</code>
   </div>
   <div class="card">
-    <cj-knob readout="none" ticks="24" tick-major="6" label="compass"
-             value="0" style="--cj-thickness:5" color="transparent"><span slot="icon">🧭</span></cj-knob>
-    <code>ticks="24" tick-major="6"</code>
+    <cj-knob value="42" min="0" max="360" readout="value" unit="°" needle
+             ticks="24" tick-major="6" labels="N,E,S,W" color="transparent"
+             style="--cj-thickness:4"></cj-knob>
+    <code>needle + labels="N,E,S,W"</code>
   </div>
   <div class="card">
     <cj-knob readout="none" label="disk"
@@ -548,6 +571,35 @@
   </div>
 </div>
 
+<h3>Radar — a filled field instead of a rim arc</h3>
+<div class="grid">
+  <div class="card">
+    <cj-radar period="4" rings="4" spokes="8" labels="N,E,S,W"
+              blips="35:0.62, 118:0.34, 214:0.78, 300:0.5"
+              style="--cjr-size:132px"></cj-radar>
+    <code>period="4" — sweeping</code>
+  </div>
+  <div class="card">
+    <cj-radar rings="6" spokes="12" labels="N,E,S,W"
+              blips="20:0.9, 75:0.45, 160:0.66, 250:0.28, 330:0.82"
+              style="--cjr-size:132px"></cj-radar>
+    <code>no period — static range rings</code>
+  </div>
+  <div class="card">
+    <cj-radar period="2.4" rings="3" spokes="0" blips="90:0.5, 270:0.5"
+              style="--cjr-size:132px;--cjr-field:#0b1020;--cjr-grid:#2b4a8a;
+                     --cjr-beam:#5b9cff;--cjr-blip:#5b9cff"></cj-radar>
+    <code>themed with --cjr-* variables</code>
+  </div>
+  <div class="card">
+    <cj-radar period="6" rings="5" spokes="16" labels="N,NE,E,SE,S,SW,W,NW"
+              blips="10:0.3, 55:0.7, 140:0.5, 200:0.9, 280:0.4"
+              style="--cjr-size:132px;--cjr-field:#1a0f14;--cjr-grid:#7a2a3a;
+                     --cjr-beam:#ff5c7a;--cjr-blip:#ff5c7a;--cjr-mark:#b06070"></cj-radar>
+    <code>rings="5" spokes="16"</code>
+  </div>
+</div>
+
 <h3>Interactive — drag or use arrow keys</h3>
 <div class="grid">
   <div class="card">
@@ -567,11 +619,110 @@
   </div>
 </section>
 
+<!-- =========================== PLAYGROUND =========================== -->
+<section class="band" id="playground">
+  <div class="wrap">
+    <h2>Driven by your own buttons</h2>
+    <p class="sub">
+      The element holds no state you cannot reach. Set <code>value</code> from a click
+      handler and the dial follows — that is the whole integration story for a timer,
+      a counter, a thermostat or a radar.
+    </p>
+
+    <div class="play">
+      <div class="play-card">
+        <cj-knob id="pg-timer" min="0" max="60" value="60" readout="value" unit="s"
+                 decimals="1" color="#dc2626" label="countdown"
+                 style="--cj-size:150px;--cj-duration:0ms"></cj-knob>
+        <div class="ctl">
+          <button data-timer="start">Start</button>
+          <button data-timer="pause">Pause</button>
+          <button data-timer="reset">Reset</button>
+        </div>
+        <div class="cap">Countdown · <span id="pg-timer-state">stopped</span></div>
+      </div>
+
+      <div class="play-card">
+        <cj-knob id="pg-watch" min="0" max="60" value="0" readout="value" unit="s"
+                 decimals="2" color="#16a34a" label="stopwatch" ticks="12" tick-major="3"
+                 style="--cj-size:150px;--cj-duration:0ms"></cj-knob>
+        <div class="ctl">
+          <button data-watch="start">Start</button>
+          <button data-watch="pause">Pause</button>
+          <button data-watch="reset">Reset</button>
+        </div>
+        <div class="cap">Stopwatch · <span id="pg-watch-state">stopped</span></div>
+      </div>
+
+      <div class="play-card">
+        <cj-knob id="pg-count" min="0" max="20" value="7" readout="value"
+                 color="#7c3aed" label="items" ticks="20" tick-major="5"
+                 style="--cj-size:150px"></cj-knob>
+        <div class="ctl">
+          <button data-count="-5">−5</button>
+          <button data-count="-1">−1</button>
+          <button data-count="1">+1</button>
+          <button data-count="5">+5</button>
+          <button data-count="reset">Reset</button>
+        </div>
+        <div class="cap">Counter · clamped to 0–20</div>
+      </div>
+
+      <div class="play-card">
+        <cj-knob id="pg-thermo" min="10" max="32" value="21" step="0.5" sweep="270"
+                 readout="value" unit="°C" decimals="1" color="#f97316" label="target"
+                 ticks="11" tick-major="5"
+                 zones="10-16:#dbeafe, 26-32:#fee2e2"
+                 style="--cj-size:150px"></cj-knob>
+        <div class="ctl">
+          <button data-thermo="-0.5">−</button>
+          <button data-thermo="0.5">+</button>
+          <button data-thermo="eco">Eco 18°</button>
+          <button data-thermo="warm">Warm 24°</button>
+        </div>
+        <div class="cap">Thermostat · half-degree steps</div>
+      </div>
+
+      <div class="play-card">
+        <cj-knob id="pg-compass" min="0" max="360" value="0" readout="value" unit="°"
+                 needle ticks="36" tick-major="9" labels="N,NE,E,SE,S,SW,W,NW"
+                 color="transparent" style="--cj-size:150px;--cj-thickness:4"></cj-knob>
+        <div class="ctl">
+          <button data-heading="0">N</button>
+          <button data-heading="90">E</button>
+          <button data-heading="180">S</button>
+          <button data-heading="270">W</button>
+          <button data-heading="turn">Turn 45°</button>
+        </div>
+        <div class="cap">Compass · <span id="pg-compass-state">heading 000°</span></div>
+      </div>
+
+      <div class="play-card">
+        <cj-radar id="pg-radar" period="4" rings="4" spokes="8" labels="N,E,S,W"
+                  interactive style="--cjr-size:150px"></cj-radar>
+        <div class="ctl">
+          <button data-radar="scatter">Scatter</button>
+          <button data-radar="clear">Clear</button>
+          <button data-radar="sweep">Stop sweep</button>
+        </div>
+        <div class="cap">Radar · click the scope to add a contact<br>
+          <span id="pg-radar-state">0 contacts</span></div>
+      </div>
+    </div>
+
+<pre><span class="c">// there is no API to learn — it is just an attribute</span>
+document.querySelector(<span class="s">'[data-count="1"]'</span>).onclick = () =&gt; {
+  knob.value = Math.min(<span class="s">20</span>, knob.value + <span class="s">1</span>);
+};</pre>
+  </div>
+</section>
+
 <!-- =============================== API =============================== -->
 <section class="band" id="api">
   <div class="wrap">
     <h2>The whole API</h2>
-    <p class="sub">Eighteen attributes. That is all of it — there is no second page.</p>
+    <p class="sub">Twenty-one attributes on <code>&lt;cj-knob&gt;</code>, seven on <code>&lt;cj-radar&gt;</code>.
+      That is all of it — there is no second page.</p>
 
     <div class="table-scroll">
       <table class="api">
@@ -592,9 +743,32 @@
           <tr><td><code>interactive</code> / <code>step</code></td><td>— / <code>1</code></td><td>Turns it into a draggable, keyboard-operable slider.</td></tr>
           <tr><td><code>disabled</code></td><td>—</td><td>Dims it and ignores input.</td></tr>
           <tr><td><code>animate-in</code></td><td>—</td><td>Grow from empty on first paint.</td></tr>
+          <tr><td><code>needle</code></td><td>—</td><td>A pointer that swings to the value, taking the short way round a closed dial.</td></tr>
+          <tr><td><code>labels</code></td><td>—</td><td>Upright captions spaced round the arc: <code>"N,E,S,W"</code>. Every fourth reads heavier.</td></tr>
+          <tr><td><code>label-radius</code></td><td><code>29.5</code></td><td>How far out the captions sit, in the 0–100 viewBox.</td></tr>
         </tbody>
       </table>
     </div>
+
+    <h3>&lt;cj-radar&gt;</h3>
+    <div class="table-scroll">
+      <table class="api">
+        <thead><tr><th>Attribute</th><th>Default</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr><td><code>rings</code></td><td><code>4</code></td><td>Concentric range rings.</td></tr>
+          <tr><td><code>spokes</code></td><td><code>8</code></td><td>Bearing spokes. <code>0</code> for none.</td></tr>
+          <tr><td><code>period</code></td><td>—</td><td>Seconds per sweep revolution. Omit or <code>0</code> for a static scope.</td></tr>
+          <tr><td><code>labels</code></td><td>—</td><td>Bearing captions, spaced evenly from north.</td></tr>
+          <tr><td><code>blips</code></td><td>—</td><td>Contacts as <code>bearing:range</code> pairs: <code>"45:0.6, 210:0.35"</code>.</td></tr>
+          <tr><td><code>interactive</code></td><td>—</td><td>Clicking the scope adds a contact where you clicked.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+<pre><span class="c">// contacts are a property, not just an attribute</span>
+radar.blips = [{ <span class="a">bearing</span>: <span class="s">45</span>, <span class="a">range</span>: <span class="s">0.6</span> }];
+radar.scatter(<span class="s">6</span>);
+radar.addEventListener(<span class="s">'cj-detect'</span>, (e) =&gt; hit(e.detail.bearing));</pre>
 
     <h3>Theming</h3>
 <pre>cj-knob {
@@ -656,7 +830,7 @@ cj-knob::part(value) { <span class="a">filter</span>: <span class="s">drop-shado
      Say so out loud instead of failing silently. -->
 <script>
   setTimeout(() => {
-    if (customElements.get('cj-knob')) return;
+    if (customElements.get('cj-knob') && customElements.get('cj-radar')) return;
     const b = document.createElement('div');
     b.style.cssText = 'position:fixed;inset:0 0 auto 0;padding:1rem 1.25rem;background:#b91c1c;color:#fff;font:14px/1.5 ui-monospace,monospace;z-index:99';
     b.innerHTML = '<strong>cj-knob failed to load.</strong> Serve from the repository root, not from a subfolder &mdash;'
@@ -668,6 +842,7 @@ cj-knob::part(value) { <span class="a">filter</span>: <span class="s">drop-shado
 
 <script type="module">
   import './src/cj-knob.js';
+  import './src/cj-radar.js';
 
   // ---- copy the install line --------------------------------------------
   const copy = document.getElementById('copy');
@@ -723,11 +898,97 @@ cj-knob::part(value) { <span class="a">filter</span>: <span class="s">drop-shado
   const timeEl = clock.querySelector('.clock-time');
   const pad = (n) => String(n).padStart(2, '0');
 
+  // ---- playground: everything below is just buttons setting .value ---------
+  const $ = (s) => document.querySelector(s);
+  const on = (sel, fn) => document.querySelectorAll(sel).forEach(
+    (b) => b.addEventListener('click', () => fn(b.dataset)));
+
+  // countdown — 60s, running only while started
+  const cd = { knob: $('#pg-timer'), left: 60, running: false };
+  const cdState = $('#pg-timer-state');
+  const cdPaint = () => {
+    cd.knob.value = cd.left.toFixed(1);
+    cdState.textContent = cd.running ? 'running' : cd.left <= 0 ? 'finished' : 'stopped';
+  };
+  on('[data-timer]', ({ timer: a }) => {
+    if (a === 'start') cd.running = cd.left > 0;
+    if (a === 'pause') cd.running = false;
+    if (a === 'reset') { cd.running = false; cd.left = 60; }
+    cdPaint();
+  });
+
+  // stopwatch — counts up, wraps at 60
+  const sw = { knob: $('#pg-watch'), at: 0, running: false };
+  const swState = $('#pg-watch-state');
+  const swPaint = () => {
+    sw.knob.value = sw.at.toFixed(2);
+    swState.textContent = sw.running ? 'running' : 'stopped';
+  };
+  on('[data-watch]', ({ watch: a }) => {
+    if (a === 'start') sw.running = true;
+    if (a === 'pause') sw.running = false;
+    if (a === 'reset') { sw.running = false; sw.at = 0; }
+    swPaint();
+  });
+
+  // counter — the plainest case: clamp and assign
+  const counter = $('#pg-count');
+  on('[data-count]', ({ count: a }) => {
+    counter.value = a === 'reset'
+      ? 7
+      : Math.max(0, Math.min(20, counter.value + Number(a)));
+  });
+
+  // thermostat — steps and presets
+  const thermo = $('#pg-thermo');
+  on('[data-thermo]', ({ thermo: a }) => {
+    if (a === 'eco') return void (thermo.value = 18);
+    if (a === 'warm') return void (thermo.value = 24);
+    thermo.value = Math.max(10, Math.min(32, thermo.value + Number(a))).toFixed(1);
+  });
+
+  // compass — the needle takes the short way round on its own
+  const compass = $('#pg-compass');
+  const compassState = $('#pg-compass-state');
+  const setHeading = (deg) => {
+    compass.value = ((deg % 360) + 360) % 360;
+    compassState.textContent = 'heading ' + String(compass.value).padStart(3, '0') + '°';
+  };
+  on('[data-heading]', ({ heading: a }) =>
+    setHeading(a === 'turn' ? compass.value + 45 : Number(a)));
+  setHeading(0);
+
+  // radar — scatter, clear, and stop/start the sweep
+  const radar = $('#pg-radar');
+  const radarState = $('#pg-radar-state');
+  const radarCount = () => {
+    radarState.textContent = `${radar.blips.length} contact${radar.blips.length === 1 ? '' : 's'}`;
+  };
+  radar.scatter(5);
+  radarCount();
+  radar.addEventListener('cj-blip', radarCount);
+  on('[data-radar]', ({ radar: a }) => {
+    if (a === 'scatter') radar.scatter(4 + Math.floor(Math.random() * 4));
+    if (a === 'clear') radar.clearBlips();
+    if (a === 'sweep') {
+      const btn = document.querySelector('[data-radar="sweep"]');
+      const running = radar.period > 0;
+      radar.period = running ? 0 : 4;
+      btn.textContent = running ? 'Start sweep' : 'Stop sweep';
+    }
+    radarCount();
+  });
+
   // a countdown on the same primitive
   const timer = document.getElementById('timer');
   const started = performance.now();
 
+  let prev = performance.now();
+
   function frame(now) {
+    const dt = (now - prev) / 1000;
+    prev = now;
+
     const d = new Date();
     const sec = d.getSeconds() + d.getMilliseconds() / 1000;
     const min = d.getMinutes() + sec / 60;
@@ -738,8 +999,22 @@ cj-knob::part(value) { <span class="a">filter</span>: <span class="s">drop-shado
     timeEl.textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 
     timer.value = (10 - ((now - started) / 1000) % 10).toFixed(1);
+
+    // the two playground clocks advance only while their Start button says so
+    if (cd.running) {
+      cd.left = Math.max(0, cd.left - dt);
+      if (cd.left === 0) cd.running = false;
+      cdPaint();
+    }
+    if (sw.running) {
+      sw.at = (sw.at + dt) % 60;
+      swPaint();
+    }
+
     requestAnimationFrame(frame);
   }
+  cdPaint();
+  swPaint();
   requestAnimationFrame(frame);
 </script>
 
