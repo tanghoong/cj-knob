@@ -52,6 +52,9 @@ Or drop it in with no tooling at all:
 | `label-radius` | `29.5` | How far out the captions sit, in the 0–100 viewBox. |
 | `value-2` | — | A second value, drawn as a second pointer alongside the first. |
 | `rotating` | — | The card turns under a fixed index, the way a heading indicator works. |
+| `ballistics` | — | Meter ballistics: `"attack release"` in seconds, one number for both. |
+| `peak-hold` | `1.2` | Seconds to hold the highest reading before it falls. Draws a marker in `--cj-peak`. |
+| `peak-fall` | — | How fast the held peak decays, in value units per second. |
 | `liquid` | — | Fills the dial with fluid whose surface sits at the value, with drifting waves. Good for tanks, fuel, reagents. |
 | `gradient` | — | A colour ramp that follows the arc: `"#22c55e,#f59e0b,#ef4444"`. Colour maps to the scale, so the value reveals part of the ramp rather than compressing all of it. |
 | `zones` | — | Coloured bands on the track, in value units: `"0-60:#22c55e, 60-85:#f59e0b, 85-100:#ef4444"`. |
@@ -118,6 +121,27 @@ knob.addEventListener('cj-change', (e) => console.log(e.detail.value));
 - Arrow keys step by `step`, PageUp/PageDown by ten steps, Home/End jump to the bounds.
 - Animation is dropped under `prefers-reduced-motion: reduce`.
 - Geometry and ARIA are written synchronously on connect, so assistive tech and server-side snapshots never see an empty element.
+
+### Ballistics and peak hold
+
+A meter needle does not track its input. It snaps up and sags back, because the mass
+behind it can be flicked upward far faster than gravity and damping return it. That
+asymmetry is what makes a needle readable on music, and it is what `ballistics` gives
+you — two time constants, one for rising and one for falling.
+
+```html
+<cj-knob sweep="100" needle="hand" readout="none"
+         ballistics=".02 .5" peak-hold="1"
+         ticks="10" tick-major="5" zones="80-100:#fee2e2"></cj-knob>
+```
+
+`peak-hold` adds a marker parked at the highest reading, held for that many seconds
+and then decaying at `peak-fall` units per second. Read the current pair from script
+with `.shown` (what the dial is drawing) and `.peak`; `.value` stays the number you
+set, untouched.
+
+The element runs a frame loop only while something is still moving, and lets go of it
+once the needle has settled and the peak has caught up.
 
 ## `<cj-rings>`
 
@@ -296,7 +320,7 @@ The demo lives at the repository root so that `./src/cj-knob.js` never points ou
 
 ```sh
 npm run dev     # then open http://127.0.0.1:8765/
-npm test        # 121 Playwright checks: geometry, needle, radar, horizon, keyboard, a11y
+npm test        # 130 Playwright checks: geometry, needle, radar, horizon, keyboard, a11y
 ```
 
 ## Browser support
