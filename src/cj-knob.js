@@ -28,6 +28,8 @@ template.innerHTML = `
     --cj-needle-2: #2f7ae5;
     --cj-peak: #ffc61a;
     --cj-handle: #ffffff;
+    --cj-hit: rgba(127, 127, 127, .13);
+    --cj-gas: #9ca3af;
     --cj-liquid: #35a7ff;
     --cj-liquid-back: rgba(53, 167, 255, .45);
     --cj-mark: #6b7280;
@@ -182,6 +184,46 @@ template.innerHTML = `
   /* the plain ring steps aside when a gradient is painting the value */
   :host([gradient]) .value { display: none; }
 
+  /* ---- button: the dial is the control, not just the readout ---- */
+  /* The face takes the press, not the ring: a ring is a hairline and the middle
+     is the part anyone actually aims at. */
+  :host([button]) { cursor: pointer; }
+  :host([button][disabled]) { cursor: not-allowed; }
+  .hit {
+    fill: var(--cj-hit);
+    stroke: none;
+    opacity: 0;
+    transition: opacity 140ms ease, transform 140ms ease;
+    transform-origin: 50% 50%;
+    transform-box: view-box;
+  }
+  :host([button]:hover) .hit { opacity: 1; }
+  :host([button]:active) .hit { opacity: 1; transform: scale(.94); }
+  :host([button]) .icon { transition: transform 140ms ease; transform-origin: 50% 50%; }
+  :host([button]:active) .icon { transform: scale(.9); }
+  /* only one of the two glyphs is ever shown; which one is the pressed state */
+  .icon-on { display: none; }
+  :host([pressed]) .icon-off { display: none; }
+  :host([pressed]) .icon-on { display: block; }
+
+  /* ---- gas: the third state of matter the dial did not have ---- */
+  /* Liquid has a surface and a solid has an edge; a gas has neither, so density
+     is the only thing left to carry the value. Blobs are stacked, blurred and
+     drifting, and the value decides how many of them exist. */
+  .gas[hidden] { display: none; }
+  .gas circle {
+    fill: var(--cj-gas);
+    stroke: none;
+    animation: cj-waft var(--cj-waft, 9s) ease-in-out infinite alternate;
+  }
+  @keyframes cj-waft {
+    from { transform: translate(0, 0) scale(1); }
+    to   { transform: translate(var(--dx), var(--dy)) scale(var(--ds)); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .gas circle { animation: none; }
+  }
+
   /* range — a band floating between two handles, instead of a fill from the start */
   .handles[hidden] { display: none; }
   .handle {
@@ -288,10 +330,13 @@ template.innerHTML = `
     --label-y: calc(var(--cj-num-size) * .82);
   }
   .center:has(.readout[hidden]) { --icon-y: 0px; --label-y: 0px; }
-  /* an icon on its own is the centre; an icon WITH a label shares the space with it */
+  /* An icon on its own is the centre; an icon WITH a label shares the space.
+     The offsets key off the icon, not the label: now that a centre icon is a
+     third of the dial, spacing them by the caption's size puts the caption
+     inside the glyph. */
   .center[data-icon]:has(.readout[hidden]):has(.label:not([hidden])) {
-    --icon-y: calc(var(--cj-label-size) * -1);
-    --label-y: calc(var(--cj-label-size) * 1.5);
+    --icon-y: calc(var(--cj-icon-size) * -.34);
+    --label-y: calc(var(--cj-icon-size) * .62);
   }
 
   /* A centre hand pivots exactly where the number sits, so the number drops below
@@ -421,10 +466,15 @@ template.innerHTML = `
   /* with no number in the way the label gets the full inner circle to wrap into */
   .center:has(.readout[hidden]) .label { max-inline-size: calc(var(--cj-size) * .62); }
 
-  /* graphics get sized by width; anything else (an emoji, a glyph) by font-size */
-  ::slotted(*) { font-size: calc(var(--cj-size) * .2); line-height: 1; }
+  /* Graphics get sized by width; anything else (an emoji, a glyph) by font-size.
+     With a number in the middle the icon is a label for it and steps back. With
+     readout="none" the icon IS the middle, and it should look like it — a line
+     drawing at 15% of the dial is a smudge you have to lean in to identify. */
+  :host { --cj-icon-size: calc(var(--cj-size) * .2); }
+  .center:has(.readout[hidden]) { --cj-icon-size: calc(var(--cj-size) * .34); }
+  ::slotted(*) { font-size: var(--cj-icon-size); line-height: 1; }
   ::slotted(img), ::slotted(svg), ::slotted(picture) {
-    inline-size: calc(var(--cj-size) * .15);
+    inline-size: var(--cj-icon-size);
     block-size: auto;
     display: block;
   }
@@ -443,6 +493,9 @@ template.innerHTML = `
 <svg viewBox="0 0 100 100" part="svg" aria-hidden="true" focusable="false">
   <defs>
     <clipPath id="cj-vessel"><circle cx="50" cy="50" r="33"/></clipPath>
+    <filter id="cj-haze" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="3.4"/>
+    </filter>
     <mask id="cj-arcmask" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100">
       <circle class="value-mask" cx="50" cy="50" r="42" pathLength="100"
               fill="none" stroke="#fff" stroke-linecap="round"
@@ -453,6 +506,8 @@ template.innerHTML = `
   <!-- Liquid: a wave-topped body whose surface sits at the value. Two waves of
        different wavelength and speed drift across each other, which reads as
        moving fluid rather than a bar that happens to have a wavy edge. -->
+  <g class="gas" part="gas" clip-path="url(#cj-vessel)" filter="url(#cj-haze)" hidden></g>
+
   <g class="liquid" part="liquid" clip-path="url(#cj-vessel)" hidden>
     <g class="level">
       <path class="wave wave-b"/>
@@ -502,12 +557,16 @@ template.innerHTML = `
   <!-- a ring that swells and fades on the beat, so the rhythm is legible from
        across the room even when the number is not -->
   <circle class="pulse" part="pulse" cx="50" cy="50" r="42" hidden/>
+  <circle class="hit" cx="50" cy="50" r="33"/>
   <circle class="focus-ring" cx="50" cy="50" r="49"/>
 </svg>
 
 <div class="center" part="center">
   <div class="readout" part="readout"><span class="num"></span><span class="unit"></span></div>
-  <div class="icon"><slot name="icon"></slot></div>
+  <div class="icon">
+    <span class="icon-off"><slot name="icon"></slot></span>
+    <span class="icon-on"><slot name="icon-on"></slot></span>
+  </div>
   <div class="label" part="label" hidden></div>
   <!-- Anything that belongs inside the face rather than beside it: a trace, a
        tube, a sparkline. Kept inside the ring's inner circle so it cannot poke
@@ -546,7 +605,7 @@ export class CJKnob extends HTMLElement {
     'zones', 'segments', 'ticks', 'tick-major', 'gradient',
     'needle', 'labels', 'label-radius', 'value-2', 'rotating', 'liquid',
     'ballistics', 'peak-hold', 'peak-fall',
-    'range', 'endless', 'pulse', 'inset',
+    'range', 'endless', 'pulse', 'inset', 'button', 'toggle', 'pressed', 'gas',
     'interactive', 'disabled', 'step',
   ];
 
@@ -561,6 +620,7 @@ export class CJKnob extends HTMLElement {
   #turns = {};
   // the wave path is geometry, not state — build it once and move it by transform
   #waveBuilt = false;
+  #gasBuilt = false;
   #tick = 0;        // ballistics frame id
   #tickLast = 0;
   #shown = 0;       // the reading being drawn, lagging value when ballistics are on
@@ -601,6 +661,8 @@ export class CJKnob extends HTMLElement {
       slot: q('slot[name="icon"]'),
       insetSlot: q('slot[name="inset"]'),
       pulse: q('.pulse'),
+      gas: q('.gas'),
+      iconOnSlot: q('slot[name="icon-on"]'),
       readout: q('.readout'),
       num: q('.num'),
       unit: q('.unit'),
@@ -675,6 +737,10 @@ export class CJKnob extends HTMLElement {
     this.setAttribute('range', `${low} ${high}`);
   }
 
+  /** Whether a toggle button is currently on. Attribute: `pressed`. */
+  get pressed() { return this.hasAttribute('pressed'); }
+  set pressed(v) { this.toggleAttribute('pressed', !!v); }
+
   /** endless — a knob with no ends: it keeps turning and the value keeps counting. */
   get endless() { return this.hasAttribute('endless'); }
   set endless(v) { this.toggleAttribute('endless', !!v); }
@@ -707,7 +773,7 @@ export class CJKnob extends HTMLElement {
   // correct in the DOM the moment the element connects, not one animation frame later
   // (rAF is throttled in background tabs, and assistive tech reads the DOM, not the paint).
   attributeChangedCallback(name) {
-    if (name === 'interactive' || name === 'disabled') this.#syncInteractivity();
+    if (name === 'interactive' || name === 'disabled' || name === 'button') this.#syncInteractivity();
     if (name === 'inset') this.#syncInset();
     if (!this.isConnected) return;
     this.#render();
@@ -797,6 +863,7 @@ export class CJKnob extends HTMLElement {
     this.#renderNeedle(sweep, pct);
     this.#renderCard(sweep, pct);
     this.#renderLiquid(pct);
+    this.#renderGas(pct);
     this.#renderMarks(sweep, this.#start);
 
     // `color` is a shorthand for the --cj-value custom property. Only clear it again if
@@ -1063,6 +1130,55 @@ export class CJKnob extends HTMLElement {
     this.#els.liquid.style.setProperty('--cj-level', `${(R - pct * 2 * R).toFixed(2)}px`);
   }
 
+  /**
+   * gas — density instead of a level.
+   *
+   * Liquid has a surface and a solid has an edge; a gas has neither, so the only
+   * thing left to carry the value is how much of the dial is occupied. The blobs
+   * are built once and then switched on and off: the value decides how many
+   * exist, not where they are, so a rising value thickens the cloud instead of
+   * rearranging it.
+   */
+  #renderGas(pct) {
+    const on = this.hasAttribute('gas');
+    this.#els.gas.toggleAttribute('hidden', !on);
+    if (!on) return;
+
+    const COUNT = 18;
+    if (!this.#gasBuilt) {
+      const frag = document.createDocumentFragment();
+      for (let i = 0; i < COUNT; i++) {
+        // A deterministic scatter, not Math.random: two dials showing the same
+        // value should look the same, and a re-render must not reshuffle it.
+        const a = i * 2.399963;                 // the golden angle, so they never band
+        const r = 6 + 26 * Math.sqrt((i + 0.5) / COUNT);
+        const c = document.createElementNS(SVG_NS, 'circle');
+        c.setAttribute('cx', (50 + Math.cos(a) * r).toFixed(2));
+        c.setAttribute('cy', (50 + Math.sin(a) * r).toFixed(2));
+        c.setAttribute('r', (4.5 + (i % 5) * 1.6).toFixed(2));
+        c.style.setProperty('--dx', `${(Math.cos(a * 3.1) * 7).toFixed(2)}px`);
+        c.style.setProperty('--dy', `${(Math.sin(a * 2.7) * 7).toFixed(2)}px`);
+        c.style.setProperty('--ds', (1 + (i % 4) * 0.09).toFixed(2));
+        c.style.setProperty('--cj-waft', `${(7 + (i % 6) * 1.3).toFixed(1)}s`);
+        c.style.animationDelay = `-${(i * 0.7).toFixed(1)}s`;
+        frag.append(c);
+      }
+      this.#els.gas.replaceChildren(frag);
+      this.#gasBuilt = true;
+    }
+
+    const live = Math.floor(pct * COUNT);
+    const edge = pct * COUNT - live;
+    const blobs = this.#els.gas.children;
+    for (let i = 0; i < blobs.length; i++) {
+      // the blob at the edge fades in rather than popping, so a slowly rising
+      // value thickens smoothly instead of ticking over like a counter
+      const o = i < live ? 1 : (i === live ? edge : 0);
+      const next = (o * 0.42).toFixed(3);
+      if (blobs[i].getAttribute('opacity') !== next) blobs[i].setAttribute('opacity', next);
+    }
+  }
+
   /** rotating — the card turns under a fixed index instead of a pointer moving */
   #renderCard(sweep, pct) {
     const on = this.hasAttribute('rotating');
@@ -1158,7 +1274,16 @@ export class CJKnob extends HTMLElement {
 
   #renderA11y() {
     const range = this.range;
-    this.setAttribute('role', this.interactive ? 'slider' : 'meter');
+    if (this.hasAttribute('button')) {
+      this.setAttribute('role', 'button');
+      // a plain button has no pressed state to announce; a toggle does
+      if (this.hasAttribute('toggle')) this.setAttribute('aria-pressed', String(this.pressed));
+      else this.removeAttribute('aria-pressed');
+    } else {
+      this.removeAttribute('aria-pressed');
+      this.setAttribute('role', this.interactive ? 'slider' : 'meter');
+    }
+    if (this.hasAttribute('button')) return this.#renderA11yLabel();
     this.setAttribute('aria-valuenow', String(range ? range.high : this.value));
     this.setAttribute('aria-valuemin', String(this.min));
     this.setAttribute('aria-valuemax', String(this.max));
@@ -1169,14 +1294,35 @@ export class CJKnob extends HTMLElement {
     this.setAttribute('aria-valuetext', text);
   }
 
+  /** the accessible name, which a button needs even though its numbers do not apply */
+  #renderA11yLabel() {
+    const label = this.getAttribute('label');
+    if (label && !this.hasAttribute('aria-label')) this.setAttribute('aria-label', label);
+  }
+
   // ---- interaction -------------------------------------------------------
   #syncInteractivity() {
+    // A button is a different control from a slider, so it gets its own wiring
+    // rather than sharing the drag path: the ring is a hairline, and what anyone
+    // aims at on a button is the whole face.
+    const isButton = this.hasAttribute('button') && !this.hasAttribute('disabled');
+    if (isButton) {
+      if (!this.hasAttribute('tabindex')) this.setAttribute('tabindex', '0');
+      this.addEventListener('click', this.#onActivate);
+      this.addEventListener('keydown', this.#onButtonKey);
+    } else {
+      this.removeEventListener('click', this.#onActivate);
+      this.removeEventListener('keydown', this.#onButtonKey);
+      if (!this.interactive) this.removeAttribute('tabindex');
+    }
     if (this.interactive) {
       if (!this.hasAttribute('tabindex')) this.setAttribute('tabindex', '0');
       this.addEventListener('pointerdown', this.#onPointerDown);
       this.addEventListener('keydown', this.#onKeyDown);
     } else {
-      this.removeAttribute('tabindex');
+      // a button put that tabindex there a moment ago; only a dial that is
+      // neither a slider nor a button has no reason to be focusable
+      if (!isButton) this.removeAttribute('tabindex');
       this.removeEventListener('pointerdown', this.#onPointerDown);
       this.removeEventListener('keydown', this.#onKeyDown);
     }
@@ -1286,6 +1432,23 @@ export class CJKnob extends HTMLElement {
     this.removeEventListener('pointerup', this.#onPointerUp);
     this.removeEventListener('pointercancel', this.#onPointerUp);
   }
+
+  #onActivate = () => {
+    if (this.hasAttribute('disabled')) return;
+    if (this.hasAttribute('toggle')) this.pressed = !this.pressed;
+    this.dispatchEvent(new CustomEvent('cj-press', {
+      detail: { pressed: this.pressed },
+      bubbles: true,
+    }));
+  };
+
+  // Enter and Space are what a button answers to. Space is also the one a browser
+  // scrolls the page with, so it has to be swallowed.
+  #onButtonKey = (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+    e.preventDefault();
+    this.#onActivate();
+  };
 
   #onKeyDown = (e) => {
     const s = this.step;

@@ -1,3 +1,7 @@
+/* Reserves each element's box before its module upgrades it. Must come first:
+   @import is only legal ahead of every other rule. */
+@import url("../src/cj-skeleton.css");
+
 /* ---------------------------------------------------------------
    Shared instrument-panel skeleton.
 

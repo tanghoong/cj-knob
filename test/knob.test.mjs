@@ -1369,6 +1369,253 @@ check('the trace readout sits in the top corner by default', corner.topHalf);
 check('readout-at moves it down', corner.movedDown);
 check('readout-at moves it across', corner.movedRight);
 
+// --- the loading skeleton: no jump when the modules land ---
+// The reported bug: every element is an unknown inline box until its module
+// runs, so the whole page collapses and then snaps back. Measured with the
+// modules blocked, which is exactly what a slow network looks like.
+{
+  const cold = await browser.newPage({ viewport: { width: 1080, height: 900 } });
+  await cold.route('**/src/cj-*.js', (r) => r.abort());
+  await cold.goto(BASE, { waitUntil: 'domcontentloaded' });
+  await cold.waitForTimeout(700);
+  const undef = await cold.evaluate(() => {
+    const pick = (sel) => {
+      const e = document.querySelector(sel);
+      if (!e) return null;
+      const b = e.getBoundingClientRect();
+      return { w: Math.round(b.width), h: Math.round(b.height), defined: e.matches(':defined') };
+    };
+    return {
+      knob: pick('#examples cj-knob'), heat: pick('cj-heat'), radar: pick('cj-radar'),
+      horizon: pick('cj-horizon'), rings: pick('cj-rings'), trace: pick('cj-trace:not([slot])'),
+      level: pick('cj-level'), docH: document.documentElement.scrollHeight,
+    };
+  });
+  await cold.close();
+
+  const warm = await browser.newPage({ viewport: { width: 1080, height: 900 } });
+  await warm.goto(BASE, { waitUntil: 'domcontentloaded' });
+  await warm.waitForTimeout(2500);
+  const hot = await warm.evaluate(() => {
+    const pick = (sel) => {
+      const e = document.querySelector(sel);
+      if (!e) return null;
+      const b = e.getBoundingClientRect();
+      return { w: Math.round(b.width), h: Math.round(b.height) };
+    };
+    return {
+      knob: pick('#examples cj-knob'), heat: pick('cj-heat'), radar: pick('cj-radar'),
+      horizon: pick('cj-horizon'), rings: pick('cj-rings'), trace: pick('cj-trace:not([slot])'),
+      level: pick('cj-level'), docH: document.documentElement.scrollHeight,
+    };
+  });
+  await warm.close();
+
+  check('the skeleton applies only while undefined', undef.knob.defined === false);
+  for (const part of ['knob', 'heat', 'radar', 'horizon', 'rings', 'trace']) {
+    check('the skeleton holds ' + part + "'s exact box",
+      undef[part].w === hot[part].w && undef[part].h === hot[part].h,
+      JSON.stringify(undef[part]) + ' vs ' + JSON.stringify(hot[part]));
+  }
+  // a column's height depends on whether it is showing text, so it is approximate
+  check("the skeleton holds a level's width", undef.level.w === hot.level.w,
+    undef.level.w + ' vs ' + hot.level.w);
+  // this is the number that matters: nothing below may move when the modules land
+  const drift = Math.abs(undef.docH - hot.docH);
+  check('the page does not jump when the elements upgrade', drift < 40,
+    drift + 'px of ' + hot.docH);
+}
+
+// --- voice: a waveform that goes genuinely flat ---
+const voice = await page.evaluate(async () => {
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const t = document.createElement('cj-trace');
+  t.setAttribute('voice', '');
+  t.setAttribute('mirror', '');
+  t.setAttribute('samples', '200');
+  document.body.append(t);
+  const out = { states: [], levels: [] };
+  t.addEventListener('cj-speech', (e) => out.states.push(e.detail.speaking));
+  await wait(1500);
+  const d = t.shadowRoot.querySelector('.fresh').getAttribute('d') ?? '';
+  // mirrored, the trace is drawn once each way and the two runs never join
+  out.runs = d.split('M').length - 1;
+  const ys = d.split(/[ML]/).filter(Boolean).map((s) => +s.split(',')[1]);
+  const mid = t.clientHeight / 2;
+  out.above = ys.some((y) => y < mid - 4);
+  out.below = ys.some((y) => y > mid + 4);
+  // over a few seconds it must both talk and stop talking
+  for (let i = 0; i < 40; i++) { out.levels.push(t.level); await wait(70); }
+  out.sawSilence = out.levels.some((v) => v === 0);
+  out.sawSpeech = out.levels.some((v) => v > 0.15);
+  out.speakingMatchesLevel = t.speaking === (t.level > 0.02);
+  t.remove();
+
+  // unmirrored, the same samples rise from the floor instead
+  const flat = document.createElement('cj-trace');
+  flat.setAttribute('voice', '');
+  document.body.append(flat);
+  await wait(600);
+  const fd = flat.shadowRoot.querySelector('.fresh').getAttribute('d') ?? '';
+  out.plainRuns = fd.split('M').length - 1;
+  out.readoutHidden = flat.shadowRoot.querySelector('.readout').hasAttribute('hidden');
+  flat.remove();
+  return out;
+});
+check('a mirrored waveform is drawn as two runs', voice.runs >= 2, String(voice.runs));
+check('it reaches both sides of the centre line', voice.above && voice.below,
+  JSON.stringify({ above: voice.above, below: voice.below }));
+check('an unmirrored voice trace is one run', voice.plainRuns === 1, String(voice.plainRuns));
+check('a voice trace hides its readout by default', voice.readoutHidden);
+check('the talker actually talks', voice.sawSpeech);
+// the gate is the whole point: silence has to be genuinely zero, not merely quiet
+check('and actually stops', voice.sawSilence);
+check('cj-speech fires on both edges', voice.states.includes(true) && voice.states.includes(false),
+  JSON.stringify(voice.states.slice(0, 6)));
+check('speaking agrees with level', voice.speakingMatchesLevel);
+
+// --- button: the dial as a control ---
+const button = await page.evaluate(async () => {
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const k = document.createElement('cj-knob');
+  k.setAttribute('button', '');
+  k.setAttribute('toggle', '');
+  k.setAttribute('value', '30');
+  k.setAttribute('label', 'play');
+  const on = document.createElement('span');
+  on.setAttribute('slot', 'icon-on');
+  on.textContent = 'B';
+  const off = document.createElement('span');
+  off.setAttribute('slot', 'icon');
+  off.textContent = 'A';
+  k.append(off, on);
+  document.body.append(k);
+  await wait(60);
+  const out = {
+    role: k.getAttribute('role'),
+    tabindex: k.getAttribute('tabindex'),
+    ariaPressed: k.getAttribute('aria-pressed'),
+    label: k.getAttribute('aria-label'),
+    offShown: getComputedStyle(k.shadowRoot.querySelector('.icon-off')).display,
+    onShown: getComputedStyle(k.shadowRoot.querySelector('.icon-on')).display,
+    events: [],
+  };
+  k.addEventListener('cj-press', (e) => out.events.push(e.detail.pressed));
+  k.click();
+  await wait(30);
+  out.afterClick = k.pressed;
+  out.ariaAfter = k.getAttribute('aria-pressed');
+  out.onShownAfter = getComputedStyle(k.shadowRoot.querySelector('.icon-on')).display;
+  k.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true }));
+  await wait(30);
+  out.afterSpace = k.pressed;
+  k.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+  await wait(30);
+  out.afterEnter = k.pressed;
+
+  // a plain (non-toggle) button must not claim a pressed state it does not have
+  const plain = document.createElement('cj-knob');
+  plain.setAttribute('button', '');
+  document.body.append(plain);
+  await wait(30);
+  out.plainAria = plain.getAttribute('aria-pressed');
+  plain.click();
+  await wait(20);
+  out.plainStaysUp = plain.pressed;
+  plain.remove();
+
+  // without button= it is still a meter, not a control
+  const meter = document.createElement('cj-knob');
+  document.body.append(meter);
+  await wait(20);
+  out.meterRole = meter.getAttribute('role');
+  meter.remove();
+  k.remove();
+  return out;
+});
+check('a button dial is a button', button.role === 'button', button.role);
+check('a button dial is focusable', button.tabindex === '0', String(button.tabindex));
+check('a toggle announces its state', button.ariaPressed === 'false', String(button.ariaPressed));
+check('the label becomes the accessible name', button.label === 'play', String(button.label));
+check('only the off glyph shows at rest',
+  button.offShown !== 'none' && button.onShown === 'none',
+  button.offShown + ' / ' + button.onShown);
+check('clicking fires cj-press', button.events.length >= 1, JSON.stringify(button.events));
+check('toggle latches on click', button.afterClick === true);
+check('aria-pressed follows it', button.ariaAfter === 'true', String(button.ariaAfter));
+check('the pressed glyph takes over', button.onShownAfter !== 'none', button.onShownAfter);
+check('Space toggles it back', button.afterSpace === false);
+check('Enter toggles it again', button.afterEnter === true);
+check('a plain button has no pressed state', button.plainAria === null, String(button.plainAria));
+check('a plain button does not latch', button.plainStaysUp === false);
+check('a dial without button= is still a meter', button.meterRole === 'meter', button.meterRole);
+
+// --- gas: density instead of a level ---
+const gas = await page.evaluate(async () => {
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const mk = (v) => {
+    const k = document.createElement('cj-knob');
+    if (v !== null) k.setAttribute('gas', '');
+    k.setAttribute('value', String(v ?? 50));
+    document.body.append(k);
+    return k;
+  };
+  const lit = (k) => [...k.shadowRoot.querySelectorAll('.gas circle')]
+    .filter((c) => +c.getAttribute('opacity') > 0).length;
+  const none = mk(null);
+  none.removeAttribute('gas');
+  await wait(40);
+  const out = { off: none.shadowRoot.querySelector('.gas').hasAttribute('hidden') };
+  none.remove();
+
+  const low = mk(20), high = mk(90), full = mk(100);
+  await wait(60);
+  out.total = high.shadowRoot.querySelectorAll('.gas circle').length;
+  out.low = lit(low); out.high = lit(high); out.full = lit(full);
+  // the cloud must thicken, not rearrange: the blobs keep their places
+  const before = [...high.shadowRoot.querySelectorAll('.gas circle')].map((c) => c.getAttribute('cx'));
+  high.value = 40;
+  await wait(60);
+  const after = [...high.shadowRoot.querySelectorAll('.gas circle')].map((c) => c.getAttribute('cx'));
+  out.stable = before.join() === after.join();
+  out.thinned = lit(high) < out.high;
+  low.remove(); high.remove(); full.remove();
+  return out;
+});
+check('no gas layer without the attribute', gas.off);
+check('a gas dial has a cloud', gas.total === 18, String(gas.total));
+check('density follows the value', gas.low < gas.high && gas.high < gas.full,
+  [gas.low, gas.high, gas.full].join(' < '));
+check('a full dial lights the whole cloud', gas.full === gas.total, String(gas.full));
+check('changing the value thins the cloud rather than moving it',
+  gas.stable && gas.thinned, JSON.stringify({ stable: gas.stable, thinned: gas.thinned }));
+
+// --- the centre icon has to be recognisable ---
+const icon = await page.evaluate(async () => {
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const mk = (readout) => {
+    const k = document.createElement('cj-knob');
+    k.setAttribute('value', '60');
+    k.setAttribute('readout', readout);
+    k.style.setProperty('--cj-size', '200px');
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('slot', 'icon');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    k.append(svg);
+    document.body.append(k);
+    return k;
+  };
+  const withNum = mk('value'), alone = mk('none');
+  await wait(80);
+  const w = (k) => k.querySelector('svg').getBoundingClientRect().width;
+  const out = { withNum: Math.round(w(withNum)), alone: Math.round(w(alone)) };
+  withNum.remove(); alone.remove();
+  return out;
+});
+// with no number the icon IS the middle, and a line drawing has to be big enough to read
+check('an icon sharing the middle stays modest', icon.withNum === 40, String(icon.withNum));
+check('an icon that IS the middle is large', icon.alone === 68, String(icon.alone));
+
 check('still no page errors at end', errors.length === 0, errors.join(' | '));
 
 await browser.close();

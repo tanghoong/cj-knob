@@ -11,6 +11,11 @@
 // It is the same data a knob shows, kept for a few hundred samples instead of
 // one — so it belongs beside them rather than in a charting library.
 //
+// mirror + voice is the other kind of trace: a waveform straddling the centre
+// line that jumps while someone is talking and lies flat while nobody is. What
+// makes it read as speech is not the noise but the gate — silence has to be
+// genuinely, boringly still, or every pause looks like more talking.
+//
 // Two shapes, one set of samples. shape="line" writes across a strip the way a
 // bedside monitor does; shape="ring" wraps the same trace round a circle and
 // deflects outward, which is what the rest of this project is for. The buffer,
@@ -38,6 +43,32 @@ const ecg = (t) =>
   bump(t, 0.280, 0.0085, 1.00) +   // R — the spike everyone pictures
   bump(t, 0.304, 0.0085, -0.28) +  // S
   bump(t, 0.450, 0.0420, 0.24);    // T — the ventricles resetting
+
+/**
+ * A talker. Phrases arrive and stop; inside one, syllables come at about four a
+ * second. Between them the envelope is exactly zero rather than merely small,
+ * because a nearly-flat line still reads as noise and the whole point of this
+ * shape is that you can see at a glance whether anyone is saying anything.
+ *
+ * Phrases run about a second and a half against a window that holds two, so a
+ * strip nearly always shows both a burst and the quiet either side of it. Slower
+ * phrasing is more lifelike and completely useless here: one phrase fills the
+ * whole window and the trace looks like it never stops talking.
+ */
+const voiceEnvelope = (t) => {
+  const phrase = Math.sin(t * 2.1) + Math.sin(t * 1.15 + 1.7);
+  if (phrase <= 0.35) return 0;
+  const syllable = 0.55 + 0.45 * Math.sin(t * 25);
+  return Math.min(1, (phrase - 0.35) * 2.4) * syllable;
+};
+
+// Speech at this zoom is a band of noise under an envelope, so the texture has
+// to be per sample. A hash, not Math.random, so a paused trace redrawn from the
+// same buffer is the same picture.
+const hashNoise = (i) => {
+  const x = Math.sin(i * 12.9898) * 43758.5453;
+  return (x - Math.floor(x)) * 2 - 1;
+};
 
 const template = document.createElement('template');
 template.innerHTML = `
@@ -154,7 +185,7 @@ template.innerHTML = `
 export class CJTrace extends HTMLElement {
   static observedAttributes = [
     'shape', 'mode', 'samples', 'points', 'min', 'max',
-    'beat', 'rate', 'sweep', 'start', 'amplitude',
+    'beat', 'voice', 'mirror', 'rate', 'sweep', 'start', 'amplitude',
     'grid', 'pen', 'readout', 'unit', 'decimals', 'label', 'color',
   ];
 
@@ -169,6 +200,9 @@ export class CJTrace extends HTMLElement {
   #last = 0;
   #phase = 0;     // where we are inside the current beat, 0..1
   #carry = 0;     // fractional samples owed from the previous frame
+  #level = 0;     // how loud the talker is right now, 0..1
+  #speaking = false;
+  #seed = 0;
   #ownsColor = false;
   #gridSig = '';
   // whether a pen is actually travelling. A written-out waveform has no pen, so
@@ -232,6 +266,16 @@ export class CJTrace extends HTMLElement {
 
   /** samples written per second while self-driving — the paper speed */
   get rate() { return clamp(num(this.getAttribute('rate'), 125), 1, 2000); }
+
+  /**
+   * How loud the voice is right now, 0..1, while the trace is driving itself.
+   * Zero when nobody is talking — which is the reading the gate exists to make
+   * unambiguous.
+   */
+  get level() { return this.#level; }
+
+  /** Whether anyone is talking. Flips fire a cj-speech event. */
+  get speaking() { return this.#speaking; }
 
   /** the most recent sample, or null before anything has been written */
   get last() { return this.#filled ? this.#buf[(this.#head - 1 + this.#buf.length) % this.#buf.length] : null; }
@@ -301,7 +345,10 @@ export class CJTrace extends HTMLElement {
    */
   #geometry() {
     const { w, h } = this.#box;
-    const g = { w, h, span: (this.max - this.min) || 1, min: this.min, ring: this.#ring };
+    const g = {
+      w, h, span: (this.max - this.min) || 1, min: this.min, ring: this.#ring,
+      mirror: this.hasAttribute('mirror'),
+    };
     if (g.ring) {
       g.sweep = clamp(num(this.getAttribute('sweep'), 360), 1, 360);
       g.start = num(this.getAttribute('start'), -90);
@@ -320,13 +367,23 @@ export class CJTrace extends HTMLElement {
     return g;
   }
 
-  /** index in the window (0 = left edge / start of the arc) -> a point */
-  #point(g, i, n, value) {
+  /**
+   * Index in the window (0 = left edge / start of the arc) -> a point.
+   * side is +1 or -1 and only means anything when mirrored: a waveform is drawn
+   * once each way off the centre line, which is what makes it read as sound
+   * rather than as a level that happens to be jittery.
+   */
+  #point(g, i, n, value, side = 1) {
     const over = g.ring && g.wrap ? n : Math.max(1, n - 1);
     const t = n > 1 ? i / over : 0;
     const norm = clamp((value - g.min) / g.span, 0, 1);
-    if (!g.ring) return [t * g.w, g.h - g.pad - norm * (g.h - g.pad * 2)];
-    const r = g.base + norm * g.amp * g.size;
+    if (!g.ring) {
+      if (g.mirror) return [t * g.w, g.h / 2 - side * norm * (g.h / 2 - g.pad)];
+      return [t * g.w, g.h - g.pad - norm * (g.h - g.pad * 2)];
+    }
+    const r = g.mirror
+      ? g.base + side * norm * g.amp * g.size * 0.5
+      : g.base + norm * g.amp * g.size;
     const a = (g.start + t * g.sweep) * Math.PI / 180;
     return [g.w / 2 + Math.cos(a) * r, g.h / 2 + Math.sin(a) * r];
   }
@@ -369,6 +426,26 @@ export class CJTrace extends HTMLElement {
       if (wiped) { fresh.push(null); stale.push(null); }
       else if (ahead) { fresh.push(null); stale.push(p); }
       else { fresh.push(p); stale.push(null); }
+    }
+
+    // The other half of a mirrored waveform: the same samples reflected, joined
+    // to the first run by a pen-up so the two halves never close into a shape.
+    if (g.mirror) {
+      const under = [];
+      const underStale = [];
+      for (let k = 0; k < n; k++) {
+        const idx = order(k);
+        const v = this.#buf[idx];
+        if (!Number.isFinite(v)) { under.push(null); underStale.push(null); continue; }
+        const ahead = sweeping && k >= this.#head;
+        const wiped = ahead && k < this.#head + GAP;
+        const q = this.#point(g, k, n, v, -1);
+        if (wiped) { under.push(null); underStale.push(null); }
+        else if (ahead) { under.push(null); underStale.push(q); }
+        else { under.push(q); underStale.push(null); }
+      }
+      fresh.push(null, ...under);
+      stale.push(null, ...underStale);
     }
 
     this.#els.fresh.setAttribute('d', this.#path(fresh));
@@ -440,7 +517,8 @@ export class CJTrace extends HTMLElement {
   }
 
   #renderText() {
-    const mode = this.getAttribute('readout') ?? (this.beat ? 'beat' : 'value');
+    const mode = this.getAttribute('readout')
+      ?? (this.beat ? 'beat' : this.hasAttribute('voice') ? 'none' : 'value');
     const hide = mode === 'none';
     this.#els.readout.toggleAttribute('hidden', hide);
     if (!hide) {
@@ -459,7 +537,8 @@ export class CJTrace extends HTMLElement {
   // ---- the pen -----------------------------------------------------------
   #pump() {
     const bpm = this.beat;
-    if (!bpm) {
+    const talking = this.hasAttribute('voice');
+    if (!bpm && !talking) {
       cancelAnimationFrame(this.#frame);
       this.#frame = 0;
       return;
@@ -473,7 +552,11 @@ export class CJTrace extends HTMLElement {
       if (this.#filled < this.#buf.length || !this.#buf.length) {
         this.#alloc();
         const n = this.#buf.length;
-        for (let i = 0; i < n; i++) this.#write((i / n) * 3 % 1);
+        // a heartbeat still has to look like a heartbeat; a talker parked
+        // mid-sentence is just a smear, so it parks in the silence instead
+        if (talking) this.#buf.fill(this.min);
+        else for (let i = 0; i < n; i++) this.#write((i / n) * 3 % 1);
+        this.#filled = n;
         // no pen is travelling, so the whole window draws solid and stays put
         this.#running = false;
         this.#render();
@@ -490,16 +573,48 @@ export class CJTrace extends HTMLElement {
       const owed = dt * this.rate + this.#carry;
       const whole = Math.floor(owed);
       this.#carry = owed - whole;
-      const per = 60 / this.beat * this.rate;   // samples in one beat
+      const per = 60 / (this.beat || 60) * this.rate;   // samples in one beat
       if (!this.#buf.length) this.#alloc();
+      const seconds = now / 1000;
       for (let i = 0; i < Math.min(whole, this.#buf.length); i++) {
-        this.#phase = (this.#phase + 1 / per) % 1;
-        this.#write(this.#phase);
+        if (talking) this.#speak(seconds);
+        else {
+          this.#phase = (this.#phase + 1 / per) % 1;
+          this.#write(this.#phase);
+        }
       }
       if (whole) this.#render();
       this.#frame = requestAnimationFrame(step);
     };
     this.#frame = requestAnimationFrame(step);
+  }
+
+  /**
+   * One sample of speech. The envelope decides whether there is any at all; the
+   * noise only gives the band its texture. Silence writes the baseline exactly,
+   * so it draws as one flat line and not as a quiet fuzz.
+   */
+  #speak(seconds) {
+    const gain = clamp(num(this.getAttribute('voice'), 1), 0, 1);
+    const env = voiceEnvelope(seconds) * gain;
+    const was = this.#speaking;
+    this.#level = env;
+    this.#speaking = env > 0.02;
+    if (this.#speaking !== was) {
+      this.dispatchEvent(new CustomEvent('cj-speech', {
+        detail: { speaking: this.#speaking, level: env },
+        bubbles: true,
+      }));
+    }
+    const span = (this.max - this.min) || 1;
+    // mirrored, the baseline is the bottom of the range and the trace grows off
+    // the middle; unmirrored it is an ordinary level rising from the floor
+    const v = this.min + span * Math.abs(env * hashNoise(this.#seed++));
+    if (this.#buf.length !== this.samples) this.#alloc();
+    this.#buf[this.#head] = v;
+    this.#head = (this.#head + 1) % this.#buf.length;
+    this.#filled = Math.min(this.#filled + 1, this.#buf.length);
+    this.#running = true;
   }
 
   #write(phase) {
