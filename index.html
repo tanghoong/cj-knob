@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>cj-knob — one element, every dial</title>
-<meta name="description" content="A knob, gauge and meter as a single custom element. Zero dependencies, no build step, 11.2 KB gzipped. Works in plain HTML, React, Vue and Svelte.">
+<meta name="description" content="A knob, gauge and meter as a single custom element. Zero dependencies, no build step, 12.6 KB gzipped. Works in plain HTML, React, Vue and Svelte.">
 <style>
   :root {
     color-scheme: light dark;
@@ -317,9 +317,9 @@
       </div>
 
       <ul class="facts">
-        <li><b>11.2 KB</b><span>gzipped</span></li>
+        <li><b>12.6 KB</b><span>gzipped</span></li>
         <li><b>0</b><span>dependencies</span></li>
-        <li><b>25</b><span>attributes</span></li>
+        <li><b>28</b><span>attributes</span></li>
         <li><b>5</b><span>elements</span></li>
       </ul>
 
@@ -421,7 +421,7 @@
   <div class="wrap">
     <h2>Small on purpose. Complete anyway.</h2>
     <p class="sub">
-      Everything below ships inside the 11.2 KB. There is no pro tier, no plugin system,
+      Everything below ships inside the 12.6 KB. There is no pro tier, no plugin system,
       and nothing to install alongside it.
     </p>
 
@@ -552,6 +552,34 @@
   <figure><cj-knob value="72" color="#019ae6" style="--cj-size:80px"></cj-knob><figcaption>80px</figcaption></figure>
   <figure><cj-knob value="72" color="#019ae6" style="--cj-size:120px" label="Load"></cj-knob><figcaption>120px</figcaption></figure>
   <figure><cj-knob value="72" color="#019ae6" style="--cj-size:180px" label="Load"></cj-knob><figcaption>180px</figcaption></figure>
+</div>
+
+<h3>VU &amp; peak hold — a needle with ballistics</h3>
+<div class="grid">
+  <div class="card">
+    <cj-knob class="vu" data-vu="0" sweep="100" needle="hand" readout="none"
+             ballistics=".02 .5" peak-hold="1" ticks="10" tick-major="5"
+             zones="80-100:#fee2e2" color="#14161a"
+             style="--cj-thickness:5"></cj-knob>
+    <code>ballistics=".02 .5" peak-hold="1"<br>a classic VU face</code>
+  </div>
+  <div class="card">
+    <cj-knob class="vu" data-vu="1" sweep="270" readout="value" unit="dB" label="left"
+             ballistics=".01 .8" peak-hold="1.4" ticks="10" tick-major="5"
+             zones="85-100:#fee2e2" color="#16a34a"></cj-knob>
+    <code>the bar reads, the tick holds the peak</code>
+  </div>
+  <div class="card">
+    <cj-knob class="vu" data-vu="2" sweep="270" readout="value" unit="dB" label="right"
+             ballistics=".01 .8" peak-hold="1.4" ticks="10" tick-major="5"
+             zones="85-100:#fee2e2" color="#16a34a"></cj-knob>
+    <code>same signal, its own peak</code>
+  </div>
+  <div class="card">
+    <cj-knob class="vu" data-vu="3" sweep="270" readout="value" unit="dB" label="no ballistics"
+             ticks="10" tick-major="5" zones="85-100:#fee2e2" color="#64748b"></cj-knob>
+    <code>the same numbers, unsmoothed<br>— every transient reads the same</code>
+  </div>
 </div>
 
 <h3>&lt;cj-rings&gt; — concentric knobs without the arithmetic</h3>
@@ -905,6 +933,19 @@
       </div>
 
       <div class="play-card">
+        <cj-knob id="pg-vu" sweep="270" readout="value" unit="dB" label="output"
+                 ballistics=".015 .7" peak-hold="1.5" ticks="10" tick-major="5"
+                 zones="85-100:#fee2e2" color="#16a34a"
+                 style="--cj-size:150px"></cj-knob>
+        <div class="ctl">
+          <button data-vuctl="hit">Hit</button>
+          <button data-vuctl="run" aria-pressed="true">Pause</button>
+        </div>
+        <div class="cap">VU · needle snaps up, sags back<br>
+          <span id="pg-vu-state">peak —</span></div>
+      </div>
+
+      <div class="play-card">
         <cj-radar id="pg-radar" period="4" rings="4" spokes="8" labels="N,E,S,W"
                   interactive style="--cjr-size:150px"></cj-radar>
         <div class="ctl">
@@ -928,7 +969,7 @@ document.querySelector(<span class="s">'[data-count="1"]'</span>).onclick = () =
 <section class="band" id="api">
   <div class="wrap">
     <h2>The whole API</h2>
-    <p class="sub">Twenty-five attributes on <code>&lt;cj-knob&gt;</code>, thirteen on
+    <p class="sub">Twenty-eight attributes on <code>&lt;cj-knob&gt;</code>, thirteen on
       <code>&lt;cj-level&gt;</code>, six on <code>&lt;cj-radar&gt;</code>, four on
       <code>&lt;cj-horizon&gt;</code>. That is all of it — there is no second page.</p>
 
@@ -956,6 +997,9 @@ document.querySelector(<span class="s">'[data-count="1"]'</span>).onclick = () =
           <tr><td><code>label-radius</code></td><td><code>29.5</code></td><td>How far out the captions sit, in the 0–100 viewBox.</td></tr>
           <tr><td><code>value-2</code></td><td>—</td><td>A second value, drawn as a second pointer alongside the first.</td></tr>
           <tr><td><code>rotating</code></td><td>—</td><td>The card turns under a fixed index, the way a heading indicator works.</td></tr>
+          <tr><td><code>ballistics</code></td><td>—</td><td>Meter ballistics: <code>"attack release"</code> in seconds, one number for both. The reading snaps up and sags back instead of tracking the value.</td></tr>
+          <tr><td><code>peak-hold</code></td><td><code>1.2</code></td><td>Seconds to hold the highest reading before it starts to fall. Draws a marker in <code>--cj-peak</code>.</td></tr>
+          <tr><td><code>peak-fall</code></td><td>—</td><td>How fast the held peak decays, in value units per second.</td></tr>
           <tr><td><code>liquid</code></td><td>—</td><td>Fills the dial with fluid whose surface sits at the value, with drifting waves. Theme with <code>--cj-liquid</code>.</td></tr>
           <tr><td><code>gradient</code></td><td>—</td><td>A colour ramp that follows the arc: <code>"#22c55e,#f59e0b,#ef4444"</code>. Colour maps to the scale, so the value reveals part of the ramp.</td></tr>
         </tbody>
@@ -1255,6 +1299,21 @@ cj-knob::part(value) { <span class="a">filter</span>: <span class="s">drop-shado
   const rs = ringClock.querySelector('[data-s]');
   const rt = ringClock.querySelector('[data-t]');
 
+  // The VU signal: a slow envelope with sharp transients on the beat. A steady
+  // level would make ballistics invisible — it is the hits that show the
+  // difference between a needle and a number.
+  const vus = [...document.querySelectorAll('.vu')];
+  const pgVu = $('#pg-vu');
+  const pgVuState = $('#pg-vu-state');
+  let vuRunning = true;
+  let vuHit = 0;
+  on('[data-vuctl]', ({ vuctl: a }) => {
+    if (a === 'hit') { vuHit = 1; return; }
+    vuRunning = !vuRunning;
+    document.querySelector('[data-vuctl="run"]').textContent = vuRunning ? 'Pause' : 'Play';
+    document.querySelector('[data-vuctl="run"]').setAttribute('aria-pressed', String(vuRunning));
+  });
+
   // attitude indicator — two angles instead of one value
   const horizon = $('#pg-horizon');
   const attState = $('#pg-att-state');
@@ -1349,6 +1408,21 @@ cj-knob::part(value) { <span class="a">filter</span>: <span class="s">drop-shado
     }
     handclock.value = (wall.getSeconds() + wall.getMilliseconds() / 1000).toFixed(2);
     handclock.setAttribute('value-2', (wall.getMinutes() + wall.getSeconds() / 60).toFixed(3));
+
+    // feed every meter the same signal, so the only difference on screen is ballistics
+    {
+      const t = now / 1000;
+      const beat = (t * 2) % 1;                       // 120 bpm
+      const hit = Math.exp(-beat * 9) * 46;           // a transient on each beat
+      const bed = 34 + Math.sin(t / 3.1) * 14;        // the slow envelope under it
+      vuHit = Math.max(0, vuHit - dt * 2.2);
+      const level = Math.max(0, Math.min(100, bed + hit + vuHit * 55));
+      for (const v of vus) v.value = level.toFixed(1);
+      if (vuRunning) {
+        pgVu.value = level.toFixed(1);
+        pgVuState.textContent = 'peak ' + (pgVu.peak ?? 0).toFixed(1) + ' dB';
+      }
+    }
 
     // the gyro card keeps turning while Spin is engaged
     if (spinning) gyro.value = (((gyro.value + spinning * dt) % 360) + 360) % 360;

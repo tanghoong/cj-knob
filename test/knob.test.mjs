@@ -767,6 +767,73 @@ check('every ring gets the same pixel stroke', rings.equalStrokes, `${rings.stro
 check('rings that do not fit are dropped', rings.clipped > 0, `${rings.clipped} clipped`);
 check('the rings stay ordinary knobs', rings.ringsAreKnobs);
 
+// --- ballistics and peak hold ---
+const vu = await page.evaluate(async () => {
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const k = document.createElement('cj-knob');
+  k.setAttribute('ballistics', '.02 .5');
+  k.setAttribute('peak-hold', '0.5');
+  k.setAttribute('peak-fall', '40');
+  k.setAttribute('value', '0');
+  document.body.append(k);
+  await wait(120);
+
+  const out = { seeded: k.shown };
+  // A needle snaps up and sags back. Same size of step, same elapsed time,
+  // very different distance covered — that asymmetry IS the ballistics.
+  k.value = 90;
+  await wait(90);
+  out.rose = +k.shown.toFixed(1);
+  out.peakTookIt = +k.peak.toFixed(1);
+
+  k.value = 0;
+  await wait(90);
+  out.fellTo = +k.shown.toFixed(1);
+  await wait(600);
+  out.laterFellTo = +k.shown.toFixed(1);
+  out.peakHeld = +k.peak.toFixed(1);
+  await wait(1500);
+  out.peakDecayed = +k.peak.toFixed(1);
+
+  // and it must stop: a settled meter should not still be animating
+  await wait(600);
+  const settled = k.shown;
+  let churn = 0;
+  const obs = new MutationObserver((ms) => { for (const m of ms) churn += m.addedNodes.length; });
+  obs.observe(k.shadowRoot, { childList: true, subtree: true });
+  await wait(400);
+  obs.disconnect();
+  out.settledChurn = churn;
+  out.settledAt = +settled.toFixed(2);
+
+  k.remove();
+  return out;
+});
+check('the reading starts at the value, not at zero', vu.seeded === 0, String(vu.seeded));
+check('the needle rises fast', vu.rose > 80, `${vu.rose} of 90 in 90ms`);
+check('the peak takes a new high at once', Math.abs(vu.peakTookIt - vu.rose) < 0.2);
+// the asymmetry: it covered >80 rising, but <30 falling, in the same 90ms
+check('the needle falls slower than it rose', 90 - vu.fellTo < vu.rose,
+  `rose ${vu.rose}, fell ${(90 - vu.fellTo).toFixed(1)} in the same time`);
+check('it keeps falling', vu.laterFellTo < vu.fellTo, `${vu.fellTo} -> ${vu.laterFellTo}`);
+check('the peak stays above the reading during the hold', vu.peakHeld > vu.laterFellTo,
+  `peak ${vu.peakHeld} vs reading ${vu.laterFellTo}`);
+check('the peak decays once the hold expires', vu.peakDecayed < vu.peakHeld,
+  `${vu.peakHeld} -> ${vu.peakDecayed}`);
+check('a settled meter stops animating', vu.settledChurn === 0, `${vu.settledChurn} nodes`);
+
+const noBallistics = await page.evaluate(async () => {
+  const k = document.createElement('cj-knob');
+  k.setAttribute('value', '10');
+  document.body.append(k);
+  await new Promise((r) => requestAnimationFrame(r));
+  k.value = 90;
+  const immediate = k.shown;
+  k.remove();
+  return immediate;
+});
+check('without ballistics the reading is the value', noBallistics === 90, String(noBallistics));
+
 check('still no page errors at end', errors.length === 0, errors.join(' | '));
 
 await browser.close();

@@ -26,6 +26,7 @@ template.innerHTML = `
     --cj-tick-width: .8;
     --cj-needle: #e0433f;
     --cj-needle-2: #2f7ae5;
+    --cj-peak: #ffc61a;
     --cj-liquid: #35a7ff;
     --cj-liquid-back: rgba(53, 167, 255, .45);
     --cj-mark: #6b7280;
@@ -92,6 +93,22 @@ template.innerHTML = `
     stroke-width: calc(var(--cj-thickness) * 1.5);
   }
   .benchmark[hidden] { display: none; }
+  /* the peak marker: the highest reading still being held, drawn like the
+     benchmark but in its own colour so the two never read as the same thing */
+  .peak {
+    stroke: var(--cj-peak);
+    stroke-linecap: butt;
+    stroke-width: calc(var(--cj-thickness) * 1.5);
+  }
+  .peak[hidden] { display: none; }
+  /* With ballistics the script is already easing the reading frame by frame.
+     Leaving the CSS transition on as well would smooth an already-smoothed
+     value and the needle would never keep up with its own attack. */
+  :host([ballistics]) .value,
+  :host([ballistics]) .needle,
+  :host([ballistics]) .needle-2,
+  :host([ballistics]) .value-mask,
+  :host([ballistics]) .peak { transition: none; }
   .track-2   { stroke: var(--cj-track); stroke-width: var(--cj-thickness-overflow); }
   .overflow  { stroke: var(--cj-value); stroke-width: var(--cj-thickness-overflow); }
 
@@ -348,6 +365,7 @@ template.innerHTML = `
     <g class="segments" part="segments"></g>
     <g class="ticks"    part="ticks"></g>
     <circle class="benchmark" part="benchmark" cx="50" cy="50" r="42" pathLength="100" stroke-dasharray="0 100" hidden/>
+    <circle class="peak" part="peak" cx="50" cy="50" r="42" pathLength="100" stroke-dasharray="0 100" hidden/>
     <g class="overflow-group" hidden>
       <circle class="track-2"  part="track-overflow" cx="50" cy="50" r="31" pathLength="100" stroke-dasharray="100 100"/>
       <circle class="overflow" part="overflow"       cx="50" cy="50" r="31" pathLength="100" stroke-dasharray="100 100" stroke-dashoffset="100"/>
@@ -407,6 +425,7 @@ export class CJKnob extends HTMLElement {
     'readout', 'unit', 'decimals', 'label', 'color',
     'zones', 'segments', 'ticks', 'tick-major', 'gradient',
     'needle', 'labels', 'label-radius', 'value-2', 'rotating', 'liquid',
+    'ballistics', 'peak-hold', 'peak-fall',
     'interactive', 'disabled', 'step',
   ];
 
@@ -418,6 +437,11 @@ export class CJKnob extends HTMLElement {
   #turns = {};
   // the wave path is geometry, not state — build it once and move it by transform
   #waveBuilt = false;
+  #tick = 0;        // ballistics frame id
+  #tickLast = 0;
+  #shown = 0;       // the reading being drawn, lagging value when ballistics are on
+  #peak = 0;        // the highest reading still held
+  #peakAge = 0;
   // last-rendered signature per geometry part, so none of them rebuild for free
   #sig = {};
 
@@ -440,6 +464,7 @@ export class CJKnob extends HTMLElement {
       needle: q('.needle'),
       needle2: q('.needle-2'),
       lubber: q('.lubber'),
+      peak: q('.peak'),
       hub: q('.hub'),
       liquid: q('.liquid'),
       waveA: q('.wave-a'),
@@ -499,10 +524,17 @@ export class CJKnob extends HTMLElement {
   connectedCallback() {
     this.#syncInteractivity();
     this.#syncIcon();
+    // seed the reading at the value, or every meter would sweep up from zero on load
+    this.#shown = this.value;
+    this.#peak = this.value;
     this.#render();
+    this.#pump();
   }
 
   disconnectedCallback() {
+    cancelAnimationFrame(this.#tick);
+    // clearing the id matters: #pump() reads a non-zero one as already running
+    this.#tick = 0;
     this.#teardownPointer();
     this.removeEventListener('pointerdown', this.#onPointerDown);
     this.removeEventListener('keydown', this.#onKeyDown);
@@ -513,7 +545,10 @@ export class CJKnob extends HTMLElement {
   // (rAF is throttled in background tabs, and assistive tech reads the DOM, not the paint).
   attributeChangedCallback(name) {
     if (name === 'interactive' || name === 'disabled') this.#syncInteractivity();
-    if (this.isConnected) this.#render();
+    if (!this.isConnected) return;
+    this.#render();
+    // a new value is a target for the ballistics, not a jump
+    this.#pump();
   }
 
   // ---- render ------------------------------------------------------------
@@ -522,7 +557,9 @@ export class CJKnob extends HTMLElement {
     const { min, max } = this;
     const sweep = this.#sweep;
     const arc = (sweep / 360) * PATH_LENGTH;
-    const raw = this.ratio;
+    // the dial draws the reading, which is the value unless ballistics lag it
+    const span = (max - min) || 1;
+    const raw = (this.shown - min) / span;
     const pct = clamp(raw, 0, 1);
     const over = clamp(raw - 1, 0, 1);
 
@@ -538,6 +575,16 @@ export class CJKnob extends HTMLElement {
     this.#els.value.setAttribute('stroke-dashoffset', arc * (1 - pct));
     this.#els.valueMask.setAttribute('stroke-dasharray', dash);
     this.#els.valueMask.setAttribute('stroke-dashoffset', arc * (1 - pct));
+
+    // peak hold: the same short tick, parked at the highest reading still held
+    const holding = this.hasAttribute('peak-hold');
+    this.#els.peak.toggleAttribute('hidden', !holding);
+    if (holding) {
+      const pk = clamp((this.#peak - min) / ((max - min) || 1), 0, 1);
+      const tick = 1.2;
+      this.#els.peak.setAttribute('stroke-dasharray', `${tick} ${PATH_LENGTH}`);
+      this.#els.peak.setAttribute('stroke-dashoffset', -(arc * pk - tick / 2));
+    }
 
     // benchmark: a short tick positioned on the arc, not a fill from zero
     const bm = this.getAttribute('benchmark');
@@ -678,6 +725,83 @@ export class CJKnob extends HTMLElement {
       at += len;
     }
     this.#els.segments.replaceChildren(frag);
+  }
+
+  // ---- ballistics and peak hold -------------------------------------------
+  /**
+   * A meter needle does not track its input. It has ballistics: it snaps up and
+   * sags back, because the mass behind it can be flicked upward far faster than
+   * gravity and damping can return it. `ballistics="attack release"` in seconds
+   * gives the two time constants; one number sets both.
+   */
+  get #ballistics() {
+    if (!this.hasAttribute('ballistics')) return null;
+    const parts = (this.getAttribute('ballistics') || '').trim().split(/\s+/).filter(Boolean);
+    const attack = num(parts[0], 0.02);
+    return { attack, release: num(parts[1], parts.length > 1 ? 0.45 : attack) };
+  }
+
+  /** The reading the dial is drawing, which lags the value when ballistics are on. */
+  get shown() {
+    return this.#ballistics ? this.#shown : this.value;
+  }
+
+  /** The highest reading still being held, or null when peak hold is off. */
+  get peak() {
+    return this.hasAttribute('peak-hold') ? this.#peak : null;
+  }
+
+  /**
+   * Advance the reading and the peak, then draw. Runs only while something is
+   * still moving: once the needle has settled and the peak has caught up with
+   * it there is nothing left to animate, so the loop lets go of the frame.
+   */
+  #pump() {
+    if (!this.#ballistics && !this.hasAttribute('peak-hold')) {
+      cancelAnimationFrame(this.#tick);
+      this.#tick = 0;
+      return;
+    }
+    if (this.#tick) return;              // already running; it reads the target itself
+    this.#tickLast = performance.now();
+
+    const step = (now) => {
+      // a long frame must not let the needle teleport past its own ballistics
+      const dt = Math.min(0.05, Math.max(0, (now - this.#tickLast) / 1000));
+      this.#tickLast = now;
+
+      const target = this.value;
+      const b = this.#ballistics;
+      if (b) {
+        // rising and falling are different constants — that is the whole effect
+        const tau = target > this.#shown ? b.attack : b.release;
+        this.#shown += (target - this.#shown) * (tau > 0 ? 1 - Math.exp(-dt / tau) : 1);
+      } else {
+        this.#shown = target;
+      }
+
+      let busy = Math.abs(target - this.#shown) > (Math.abs(target) + 1) * 1e-4;
+
+      if (this.hasAttribute('peak-hold')) {
+        const hold = num(this.getAttribute('peak-hold'), 1.2);
+        const fall = num(this.getAttribute('peak-fall'),
+          Math.abs(this.max - this.min) * 0.35);
+        if (this.#shown >= this.#peak) {
+          // a new high is taken instantly; that is what makes it a peak
+          this.#peak = this.#shown;
+          this.#peakAge = 0;
+        } else {
+          this.#peakAge += dt;
+          if (this.#peakAge > hold) this.#peak = Math.max(this.#shown, this.#peak - fall * dt);
+        }
+        busy = busy || this.#peak > this.#shown;
+      }
+
+      this.#render();
+      if (!busy) { this.#tick = 0; return; }
+      this.#tick = requestAnimationFrame(step);
+    };
+    this.#tick = requestAnimationFrame(step);
   }
 
   /**
