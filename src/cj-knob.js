@@ -26,6 +26,8 @@ template.innerHTML = `
     --cj-tick-width: .8;
     --cj-needle: #e0433f;
     --cj-needle-2: #2f7ae5;
+    --cj-liquid: #35a7ff;
+    --cj-liquid-back: rgba(53, 167, 255, .45);
     --cj-mark: #6b7280;
     --cj-mark-major: #14161a;
     --cj-mark-size: 7px;
@@ -116,6 +118,32 @@ template.innerHTML = `
   }
   .ticks line.major { stroke-width: calc(var(--cj-tick-width) * 2); }
 
+  /* ---- liquid fill ---- */
+  .liquid[hidden] { display: none; }
+  /* the surface rises with the value; the transition is what makes filling and
+     draining look like pouring rather than a jump cut */
+  .level {
+    transform: translateY(var(--cj-level, 34px));
+    transition: transform var(--cj-duration) var(--cj-easing);
+  }
+  .wave {
+    fill: var(--cj-liquid);
+    transform-box: view-box;
+  }
+  /* the readout sits over the fluid, so it needs its own contrast — a pale liquid
+     otherwise swallows pale text entirely */
+  :host([liquid]) .readout, :host([liquid]) .label {
+    text-shadow: 0 1px 2px rgba(0, 0, 0, .5), 0 0 6px rgba(0, 0, 0, .3);
+  }
+  .wave-a { animation: cj-drift 3.1s linear infinite; }
+  .wave-b { fill: var(--cj-liquid-back); animation: cj-drift 4.7s linear infinite reverse; }
+  /* sliding by exactly one wavelength puts the shape back where it started */
+  @keyframes cj-drift {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-34px); }
+  }
+  @media (prefers-reduced-motion: reduce) { .wave { animation: none; } }
+
   /* zones sit on the track; segments replace the value ring */
   .zones circle, .segments circle { stroke-width: var(--cj-thickness); }
   :host([segments]) .value { display: none; }
@@ -129,6 +157,13 @@ template.innerHTML = `
     transition: transform var(--cj-duration) var(--cj-easing);
   }
   .needle[hidden] { display: none; }
+
+  /* only one pointer shape is ever drawn; needle="hand" picks the other */
+  .hand { display: none; }
+  :host([needle="hand"]) .mark { display: none; }
+  :host([needle="hand"]) .hand { display: block; }
+  .hub { fill: var(--cj-needle); }
+  .hub[hidden] { display: none; }
 
   /* a second pointer, for dials where the two ends mean different things */
   .needle-2 {
@@ -260,6 +295,20 @@ template.innerHTML = `
 </style>
 
 <svg viewBox="0 0 100 100" part="svg" aria-hidden="true" focusable="false">
+  <defs>
+    <clipPath id="cj-vessel"><circle cx="50" cy="50" r="33"/></clipPath>
+  </defs>
+
+  <!-- Liquid: a wave-topped body whose surface sits at the value. Two waves of
+       different wavelength and speed drift across each other, which reads as
+       moving fluid rather than a bar that happens to have a wavy edge. -->
+  <g class="liquid" part="liquid" clip-path="url(#cj-vessel)" hidden>
+    <g class="level">
+      <path class="wave wave-b"/>
+      <path class="wave wave-a"/>
+    </g>
+  </g>
+
   <g class="rings" part="rings">
     <circle class="track"     part="track"     cx="50" cy="50" r="42" pathLength="100" stroke-dasharray="100 100"/>
     <g class="zones"    part="zones"></g>
@@ -271,13 +320,18 @@ template.innerHTML = `
       <circle class="track-2"  part="track-overflow" cx="50" cy="50" r="31" pathLength="100" stroke-dasharray="100 100"/>
       <circle class="overflow" part="overflow"       cx="50" cy="50" r="31" pathLength="100" stroke-dasharray="100 100" stroke-dashoffset="100"/>
     </g>
+    <!-- Two pointer styles. The rim marker is the default; needle="hand" swaps in a
+         centre-mounted hand, which is what a clock or a pressure gauge wants. Both
+         are drawn pointing right, i.e. at 0deg before .rings applies --cj-start. -->
     <g class="needle" part="needle" hidden>
-      <!-- drawn pointing right, i.e. at 0deg before .rings applies --cj-start -->
-      <polygon points="87.5,50 79.5,46.3 79.5,53.7"/>
+      <polygon class="mark" points="87.5,50 79.5,46.3 79.5,53.7"/>
+      <polygon class="hand" points="86,50 52,48.1 43,50 52,51.9"/>
     </g>
     <g class="needle-2" part="needle-2" hidden>
-      <polygon points="85.5,50 78.5,47.4 78.5,52.6"/>
+      <polygon class="mark" points="85.5,50 78.5,47.4 78.5,52.6"/>
+      <polygon class="hand" points="68,50 52,48.5 44,50 52,51.5"/>
     </g>
+    <circle class="hub" part="hub" cx="50" cy="50" r="2.6" hidden/>
   </g>
   <g class="marks" part="marks"></g>
   <!-- a fixed index for the rotating-card dial, the way a heading indicator has one -->
@@ -303,7 +357,7 @@ export class CJKnob extends HTMLElement {
     'value', 'min', 'max', 'benchmark', 'sweep', 'start',
     'readout', 'unit', 'decimals', 'label', 'color',
     'zones', 'segments', 'ticks', 'tick-major',
-    'needle', 'labels', 'label-radius', 'value-2', 'rotating',
+    'needle', 'labels', 'label-radius', 'value-2', 'rotating', 'liquid',
     'interactive', 'disabled', 'step',
   ];
 
@@ -313,6 +367,8 @@ export class CJKnob extends HTMLElement {
   #ownsColor = false;
   // unwrapped angles per pointer, so a full dial never spins the long way round
   #turns = {};
+  // the wave path is geometry, not state — build it once and move it by transform
+  #waveBuilt = false;
 
   constructor() {
     super();
@@ -331,6 +387,10 @@ export class CJKnob extends HTMLElement {
       needle: q('.needle'),
       needle2: q('.needle-2'),
       lubber: q('.lubber'),
+      hub: q('.hub'),
+      liquid: q('.liquid'),
+      waveA: q('.wave-a'),
+      waveB: q('.wave-b'),
       marks: q('.marks'),
       center: q('.center'),
       slot: q('slot[name="icon"]'),
@@ -448,6 +508,7 @@ export class CJKnob extends HTMLElement {
     this.#renderTicks(sweep);
     this.#renderNeedle(sweep, pct);
     this.#renderCard(sweep, pct);
+    this.#renderLiquid(pct);
     this.#renderMarks(sweep, this.#start);
 
     // `color` is a shorthand for the --cj-value custom property. Only clear it again if
@@ -536,6 +597,8 @@ export class CJKnob extends HTMLElement {
     // Angles are relative: .rings already carries --cj-start.
     const on = this.hasAttribute('needle');
     this.#els.needle.toggleAttribute('hidden', !on);
+    // centre-mounted hands need a hub to pivot on; rim markers do not
+    this.#els.hub.toggleAttribute('hidden', !(on && this.getAttribute('needle') === 'hand'));
     if (on) {
       const a = this.#unwrap('n1', pct * sweep, sweep);
       this.style.setProperty('--cj-needle-angle', `${a.toFixed(2)}deg`);
@@ -551,6 +614,41 @@ export class CJKnob extends HTMLElement {
       const a2 = this.#unwrap('n2', pct2 * sweep, sweep);
       this.style.setProperty('--cj-needle-2-angle', `${a2.toFixed(2)}deg`);
     }
+  }
+
+  /**
+   * liquid — fill the dial with fluid whose surface sits at the value.
+   *
+   * The wave path spans two wavelengths so the drift animation can slide it by
+   * exactly one and loop invisibly. It is built once and only rebuilt if the
+   * amplitude changes, since the level itself moves by transform.
+   */
+  #renderLiquid(pct) {
+    const on = this.hasAttribute('liquid');
+    this.#els.liquid.toggleAttribute('hidden', !on);
+    if (!on) return;
+
+    const R = 33;                    // the vessel radius the clip path uses
+    if (!this.#waveBuilt) {
+      // WL must divide evenly into the drift distance, and the path has to stay
+      // wider than the vessel at every offset — otherwise sliding it left drags
+      // its right-hand edge into view and the vessel appears to empty sideways.
+      const WL = 34;
+      const wave = (amp) => {
+        const pts = [];
+        for (let x = -WL; x <= 100 + WL; x += 2) {
+          pts.push(`${x},${(50 + Math.sin((x / WL) * Math.PI * 2) * amp).toFixed(2)}`);
+        }
+        // close the shape downward so it fills everything under the surface
+        return `M${pts.join(' L')} L${100 + WL},130 L${-WL},130 Z`;
+      };
+      this.#els.waveA.setAttribute('d', wave(2.3));
+      this.#els.waveB.setAttribute('d', wave(3.4));
+      this.#waveBuilt = true;
+    }
+
+    // surface at the top of the vessel when full, below the bottom when empty
+    this.#els.liquid.style.setProperty('--cj-level', `${(R - pct * 2 * R).toFixed(2)}px`);
   }
 
   /** rotating — the card turns under a fixed index instead of a pointer moving */

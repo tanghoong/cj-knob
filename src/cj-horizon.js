@@ -14,8 +14,6 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 const FACE = 40;          // radius of the visible face in the 0-100 viewBox
 const PER_DEG = 0.62;     // viewBox units the card slides per degree of pitch
 
-let uid = 0;
-
 const num = (v, fallback) => {
   const n = parseFloat(v);
   return Number.isFinite(n) ? n : fallback;
@@ -28,15 +26,21 @@ template.innerHTML = `
   :host {
     /* ---- public theming API ---- */
     --cjh-size: 220px;
-    --cjh-sky: #2b7fd4;
-    --cjh-ground: #8a5a2b;
+    /* each half is a two-stop gradient: lighter at the horizon, deeper away from it,
+       which is what stops a flat blue-over-brown disc looking like a pie chart */
+    --cjh-sky: #57b0ee;
+    --cjh-sky-deep: #14538f;
+    --cjh-ground: #a9762f;
+    --cjh-ground-deep: #4b2f12;
     --cjh-line: #ffffff;
-    --cjh-bezel: #14161a;
+    --cjh-bezel: #191d24;
+    --cjh-bezel-hi: #3a424f;
     --cjh-scale: #e9edf3;
-    --cjh-craft: #ffcf33;
+    --cjh-craft: #ffc61a;
+    --cjh-craft-edge: #17191d;
     --cjh-index: #ff4d4d;
     --cjh-text: #ffffff;
-    --cjh-text-size: 4.4px;
+    --cjh-text-size: 4.2px;
 
     display: inline-grid;
     place-items: center;
@@ -50,9 +54,11 @@ template.innerHTML = `
 
   svg { inline-size: 100%; block-size: 100%; }
 
-  .sky { fill: var(--cjh-sky); }
-  .ground { fill: var(--cjh-ground); }
-  .horizon { stroke: var(--cjh-line); stroke-width: .8; }
+  .sky { fill: url(#cjh-sky); }
+  .ground { fill: url(#cjh-ground); }
+  .horizon { stroke: var(--cjh-line); stroke-width: .9; }
+  /* a vignette gives the face some depth instead of reading as flat paper */
+  .vignette { fill: url(#cjh-vig); pointer-events: none; }
 
   /* The card carries sky, ground and the pitch ladder. Roll turns it; pitch
      slides it. Both are transitioned so a change reads as the aircraft moving
@@ -76,11 +82,19 @@ template.innerHTML = `
     font-weight: 600;
     text-anchor: middle;
     dominant-baseline: central;
+    /* outline first, glyph on top — white numerals otherwise wash out on the sky */
+    paint-order: stroke;
+    stroke: rgba(0, 0, 0, .45);
+    stroke-width: .9;
+    stroke-linejoin: round;
   }
 
-  .bezel { fill: none; stroke: var(--cjh-bezel); stroke-width: 8; }
+  .bezel { fill: none; stroke: url(#cjh-bezel); stroke-width: 9; }
+  .bezel-in { fill: none; stroke: rgba(0,0,0,.55); stroke-width: 1; }
   .scale line { stroke: var(--cjh-scale); stroke-width: .7; stroke-linecap: round; }
-  .scale line.major { stroke-width: 1.2; }
+  .scale line.major { stroke-width: 1.3; }
+  /* the fixed sky pointer the bank index is read against */
+  .zero { fill: var(--cjh-scale); }
 
   /* the bank pointer rides with the card and is read against the fixed scale */
   .bank {
@@ -90,8 +104,14 @@ template.innerHTML = `
     transform-box: view-box;
     transition: transform var(--cjh-duration, 320ms) linear;
   }
-  .craft { fill: none; stroke: var(--cjh-craft); stroke-width: 1.6; stroke-linecap: round; }
-  .craft-dot { fill: var(--cjh-craft); }
+  /* The aircraft symbol is drawn twice: a dark under-stroke, then the amber on top.
+     Without the outline it disappears into the sky on one side and the ground on
+     the other, which is exactly what made the flat version look cheap. */
+  .craft { fill: none; stroke-linecap: square; stroke-linejoin: miter; }
+  .craft.edge { stroke: var(--cjh-craft-edge); stroke-width: 3.4; }
+  .craft.body { stroke: var(--cjh-craft); stroke-width: 1.8; }
+  .craft-dot.edge { fill: var(--cjh-craft-edge); }
+  .craft-dot.body { fill: var(--cjh-craft); }
 
   @media (prefers-reduced-motion: reduce) {
     .card, .slide, .bank { transition: none; }
@@ -100,28 +120,52 @@ template.innerHTML = `
 
 <svg viewBox="0 0 100 100" part="svg" aria-hidden="true" focusable="false">
   <defs>
-    <clipPath class="clip"><circle cx="50" cy="50" r="40"/></clipPath>
+    <clipPath id="cjh-clip"><circle cx="50" cy="50" r="40"/></clipPath>
+    <linearGradient id="cjh-sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"  stop-color="var(--cjh-sky-deep)"/>
+      <stop offset="1"  stop-color="var(--cjh-sky)"/>
+    </linearGradient>
+    <linearGradient id="cjh-ground" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"  stop-color="var(--cjh-ground)"/>
+      <stop offset="1"  stop-color="var(--cjh-ground-deep)"/>
+    </linearGradient>
+    <linearGradient id="cjh-bezel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"  stop-color="var(--cjh-bezel-hi)"/>
+      <stop offset="1"  stop-color="var(--cjh-bezel)"/>
+    </linearGradient>
+    <radialGradient id="cjh-vig" cx="50%" cy="50%" r="50%">
+      <stop offset="0.55" stop-color="#000" stop-opacity="0"/>
+      <stop offset="1"    stop-color="#000" stop-opacity="0.42"/>
+    </radialGradient>
   </defs>
 
-  <g class="face">
+  <g class="face" clip-path="url(#cjh-clip)">
     <g class="card">
       <g class="slide">
         <!-- oversized so the card still covers the face when rolled and pitched -->
-        <rect class="sky"    x="-60" y="-110" width="220" height="160"/>
-        <rect class="ground" x="-60" y="50"   width="220" height="160"/>
-        <line class="horizon" x1="-60" y1="50" x2="160" y2="50"/>
+        <rect class="sky"    x="-90" y="-150" width="280" height="200"/>
+        <rect class="ground" x="-90" y="50"   width="280" height="200"/>
+        <line class="horizon" x1="-90" y1="50" x2="190" y2="50"/>
         <g class="ladder" part="ladder"></g>
       </g>
     </g>
+    <circle class="vignette" cx="50" cy="50" r="40"/>
   </g>
 
   <g class="scale" part="scale"></g>
-  <polygon class="bank" part="bank" points="50,8.5 46.8,14.5 53.2,14.5"/>
-  <circle class="bezel" part="bezel" cx="50" cy="50" r="44"/>
+  <polygon class="zero" points="50,7.4 47.4,11.6 52.6,11.6"/>
+  <polygon class="bank" part="bank" points="50,12.6 47.2,17.6 52.8,17.6"/>
+  <circle class="bezel-in" cx="50" cy="50" r="40"/>
+  <circle class="bezel" part="bezel" cx="50" cy="50" r="44.5"/>
 
-  <!-- the aircraft symbol never moves; everything else moves behind it -->
-  <path class="craft" part="craft" d="M28,50 L42,50 M58,50 L72,50 M50,50 L50,56"/>
-  <circle class="craft-dot" cx="50" cy="50" r="1.5"/>
+  <!-- The aircraft symbol never moves; everything else moves behind it. Classic
+       split wings with an inboard drop and a centre pip. -->
+  <g class="craft-group" part="craft">
+    <path class="craft edge" d="M22,50 H37 V54 M78,50 H63 V54"/>
+    <circle class="craft-dot edge" cx="50" cy="50" r="2.4"/>
+    <path class="craft body" d="M22,50 H37 V54 M78,50 H63 V54"/>
+    <circle class="craft-dot body" cx="50" cy="50" r="1.4"/>
+  </g>
 </svg>
 `;
 
@@ -137,11 +181,8 @@ export class CJHorizon extends HTMLElement {
     this.#root.append(template.content.cloneNode(true));
     const q = (s) => this.#root.querySelector(s);
 
-    // clip paths are referenced by id, so each instance needs its own
-    const id = `cjh-clip-${++uid}`;
-    q('.clip').id = id;
-    q('.face').setAttribute('clip-path', `url(#${id})`);
-
+    // url(#id) resolves inside the shadow root, so every instance keeps the same
+    // ids for its gradients and clip path without colliding across the page
     this.#els = { ladder: q('.ladder'), scale: q('.scale') };
   }
 

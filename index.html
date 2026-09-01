@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>cj-knob — one element, every dial</title>
-<meta name="description" content="A knob, gauge and meter as a single custom element. Zero dependencies, no build step, 8.2 KB gzipped. Works in plain HTML, React, Vue and Svelte.">
+<meta name="description" content="A knob, gauge and meter as a single custom element. Zero dependencies, no build step, 9.7 KB gzipped. Works in plain HTML, React, Vue and Svelte.">
 <style>
   :root {
     color-scheme: light dark;
@@ -308,15 +308,15 @@
       </div>
 
       <ul class="facts">
-        <li><b>8.2 KB</b><span>gzipped</span></li>
+        <li><b>9.7 KB</b><span>gzipped</span></li>
         <li><b>0</b><span>dependencies</span></li>
-        <li><b>23</b><span>attributes</span></li>
+        <li><b>24</b><span>attributes</span></li>
         <li><b>3</b><span>elements</span></li>
       </ul>
 
       <div class="actions">
         <a class="btn primary" href="#start">Get started</a>
-        <a class="btn" href="lab/">See 29 dashboards</a>
+        <a class="btn" href="lab/">See 30 dashboards</a>
         <a class="btn" href="https://github.com/tanghoong/cj-knob">GitHub</a>
       </div>
     </div>
@@ -412,7 +412,7 @@
   <div class="wrap">
     <h2>Small on purpose. Complete anyway.</h2>
     <p class="sub">
-      Everything below ships inside the 8.2 KB. There is no pro tier, no plugin system,
+      Everything below ships inside the 9.7 KB. There is no pro tier, no plugin system,
       and nothing to install alongside it.
     </p>
 
@@ -771,7 +771,7 @@ document.querySelector(<span class="s">'[data-count="1"]'</span>).onclick = () =
 <section class="band" id="api">
   <div class="wrap">
     <h2>The whole API</h2>
-    <p class="sub">Twenty-three attributes on <code>&lt;cj-knob&gt;</code>, six on <code>&lt;cj-radar&gt;</code>,
+    <p class="sub">Twenty-four attributes on <code>&lt;cj-knob&gt;</code>, six on <code>&lt;cj-radar&gt;</code>,
       four on <code>&lt;cj-horizon&gt;</code>. That is all of it — there is no second page.</p>
 
     <div class="table-scroll">
@@ -793,11 +793,12 @@ document.querySelector(<span class="s">'[data-count="1"]'</span>).onclick = () =
           <tr><td><code>interactive</code> / <code>step</code></td><td>— / <code>1</code></td><td>Turns it into a draggable, keyboard-operable slider.</td></tr>
           <tr><td><code>disabled</code></td><td>—</td><td>Dims it and ignores input.</td></tr>
           <tr><td><code>animate-in</code></td><td>—</td><td>Grow from empty on first paint.</td></tr>
-          <tr><td><code>needle</code></td><td>—</td><td>A pointer that swings to the value, taking the short way round a closed dial.</td></tr>
+          <tr><td><code>needle</code></td><td>—</td><td>A pointer that swings to the value, taking the short way round a closed dial. <code>needle="hand"</code> swaps the rim marker for a centre-mounted hand.</td></tr>
           <tr><td><code>labels</code></td><td>—</td><td>Upright captions spaced round the arc: <code>"N,E,S,W"</code>. Every fourth reads heavier.</td></tr>
           <tr><td><code>label-radius</code></td><td><code>29.5</code></td><td>How far out the captions sit, in the 0–100 viewBox.</td></tr>
           <tr><td><code>value-2</code></td><td>—</td><td>A second value, drawn as a second pointer alongside the first.</td></tr>
           <tr><td><code>rotating</code></td><td>—</td><td>The card turns under a fixed index, the way a heading indicator works.</td></tr>
+          <tr><td><code>liquid</code></td><td>—</td><td>Fills the dial with fluid whose surface sits at the value, with drifting waves.</td></tr>
         </tbody>
       </table>
     </div>
@@ -856,7 +857,7 @@ cj-knob::part(value) { <span class="a">filter</span>: <span class="s">drop-shado
   <div class="wrap">
     <div class="lab">
       <div>
-        <h2>29 dashboards. One element.</h2>
+        <h2>30 dashboards. Three elements.</h2>
         <p class="sub" style="margin-bottom:0">
           The instrument lab is a stress test disguised as a showcase: aircraft six-packs,
           a submarine sonar, brass steampunk dials, a reactor core, a 96-dial server wall
@@ -866,7 +867,7 @@ cj-knob::part(value) { <span class="a">filter</span>: <span class="s">drop-shado
         <div class="lab-tags">
           <span>Aviation</span><span>Submarine</span><span>Spacecraft</span><span>Race</span>
           <span>Steampunk</span><span>Reactor</span><span>Server</span><span>World Clock</span>
-          <span>+21 more</span>
+          <span>Kitchen</span><span>+21 more</span>
         </div>
         <a class="btn primary" href="lab/">Open the instrument lab &rarr;</a>
       </div>

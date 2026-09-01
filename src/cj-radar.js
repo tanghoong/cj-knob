@@ -67,19 +67,22 @@ template.innerHTML = `
       from 0deg,
       transparent 0deg,
       transparent calc(360deg - var(--cjr-tail)),
-      color-mix(in srgb, var(--cjr-beam) 3%, transparent)  calc(360deg - var(--cjr-tail)),
-      color-mix(in srgb, var(--cjr-beam) 10%, transparent) calc(360deg - var(--cjr-tail) * .55),
-      color-mix(in srgb, var(--cjr-beam) 26%, transparent) calc(360deg - var(--cjr-tail) * .22),
-      color-mix(in srgb, var(--cjr-beam) 52%, transparent) 360deg);
+      color-mix(in srgb, var(--cjr-beam) 0%,  transparent) calc(360deg - var(--cjr-tail)),
+      color-mix(in srgb, var(--cjr-beam) 24%, transparent) calc(360deg - var(--cjr-tail) * .5),
+      color-mix(in srgb, var(--cjr-beam) 58%, transparent) calc(360deg - var(--cjr-tail) * .18),
+      color-mix(in srgb, var(--cjr-beam) 92%, transparent) 360deg);
     rotate: var(--cjr-beam-angle, 0deg);
     pointer-events: none;
+    /* the phosphor is brightest at the hub and thins out toward the rim */
+    -webkit-mask-image: radial-gradient(circle at 50% 50%, #000 8%, rgba(0,0,0,.55) 74%, rgba(0,0,0,.25) 100%);
+    mask-image: radial-gradient(circle at 50% 50%, #000 8%, rgba(0,0,0,.55) 74%, rgba(0,0,0,.25) 100%);
   }
   /* the leading edge itself — the line you actually watch go round */
   .beam-line {
     stroke: var(--cjr-beam);
-    stroke-width: .9;
+    stroke-width: 1.3;
     stroke-linecap: round;
-    filter: drop-shadow(0 0 2px var(--cjr-beam));
+    filter: drop-shadow(0 0 2.5px var(--cjr-beam));
     transform: rotate(var(--cjr-beam-angle, 0deg));
     transform-origin: 50% 50%;
     transform-box: view-box;
@@ -135,7 +138,9 @@ template.innerHTML = `
 <svg viewBox="0 0 100 100" part="svg" aria-hidden="true" focusable="false">
   <circle class="field" part="field" cx="50" cy="50" r="46"/>
   <g class="grid" part="grid"></g>
-  <line class="beam-line" part="beam-line" x1="50" y1="50" x2="96" y2="50"/>
+  <!-- drawn pointing NORTH, matching the conic gradient's own 0deg, so the line and
+       its trail stay welded together once both are rotated by the beam angle -->
+  <line class="beam-line" part="beam-line" x1="50" y1="50" x2="50" y2="4"/>
   <g class="blips" part="blips"></g>
   <g class="marks" part="marks"></g>
 </svg>

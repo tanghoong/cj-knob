@@ -12,6 +12,7 @@ const SVG_ATTRS = [
   'min', 'max', 'value', 'sweep', 'start', 'benchmark', 'readout', 'unit',
   'decimals', 'label', 'color', 'zones', 'segments', 'ticks', 'tick-major',
   'interactive', 'step', 'animate-in',
+  'needle', 'labels', 'label-radius', 'value-2', 'rotating', 'liquid',
 ];
 
 const make = (tag, cls) => {

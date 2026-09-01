@@ -47,11 +47,12 @@ Or drop it in with no tooling at all:
 | `step` | `1` | Increment for dragging and arrow keys. |
 | `disabled` | — | Dims it and ignores input. |
 | `animate-in` | — | Grow from empty on first paint. |
-| `needle` | — | A pointer that swings to the value, taking the short way round a closed dial. |
+| `needle` | — | A pointer that swings to the value, taking the short way round a closed dial. `needle="hand"` swaps the rim marker for a centre-mounted hand. |
 | `labels` | — | Upright captions spaced round the arc: `"N,E,S,W"`. Every fourth reads heavier. |
 | `label-radius` | `29.5` | How far out the captions sit, in the 0–100 viewBox. |
 | `value-2` | — | A second value, drawn as a second pointer alongside the first. |
 | `rotating` | — | The card turns under a fixed index, the way a heading indicator works. |
+| `liquid` | — | Fills the dial with fluid whose surface sits at the value, with drifting waves. Good for tanks, fuel, reagents. |
 | `zones` | — | Coloured bands on the track, in value units: `"0-60:#22c55e, 60-85:#f59e0b, 85-100:#ef4444"`. |
 | `segments` | — | Consecutive stacked slices in place of the value ring: `"42:#3b82f6, 23:#8b5cf6"`. |
 | `ticks` | — | Number of graduations around the arc. |
@@ -78,6 +79,8 @@ cj-knob {
   --cj-mark: #6b7280;       /* bearing captions */
   --cj-mark-major: #14161a; /* every fourth caption */
   --cj-mark-size: 7px;      /* in the 0-100 viewBox, so it scales */
+  --cj-needle-2: #2f7ae5;   /* the second pointer */
+  --cj-liquid: #35a7ff;     /* the fluid, and --cj-liquid-back behind it */
   --cj-duration: 600ms;
   --cj-easing: cubic-bezier(.22,.61,.36,1);
 }
@@ -181,7 +184,7 @@ Theme it with `--cjh-sky`, `--cjh-ground`, `--cjh-craft`, `--cjh-index` and `--c
 
 ## The instrument lab
 
-`lab/` is 29 full-screen dashboards. Every dial on every one of them is the same `<cj-knob>` —
+`lab/` is 30 full-screen dashboards. Every dial on every one of them is the same `<cj-knob>` —
 the only thing that changes is the CSS custom properties and the numbers fed in.
 
 Open `lab/` and switch panels from the header. Each page also stands alone at `lab/aviation.html`
@@ -194,6 +197,7 @@ and so on. All data is simulated.
 | **Systems** | Server · Jobs · Micro |
 | **Human** | Body · Emotion · Life OS · Charm |
 | **Money** | Enterprise · Personal · Salary · Markets |
+| **Work** | Kitchen |
 | **World** | Countries · Population · Resources · Food · Faiths · Singapore · Malaysia · World Clock |
 
 Six of them are hand-written top to bottom (aviation, submarine, steampunk, futuristic,
@@ -223,7 +227,7 @@ The demo lives at the repository root so that `./src/cj-knob.js` never points ou
 
 ```sh
 npm run dev     # then open http://127.0.0.1:8765/
-npm test        # 76 Playwright checks: geometry, needle, radar, horizon, keyboard, a11y
+npm test        # 84 Playwright checks: geometry, needle, radar, horizon, keyboard, a11y
 ```
 
 ## Browser support
