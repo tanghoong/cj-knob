@@ -79,6 +79,7 @@ Or drop it in with no tooling at all:
 | `toggle` | — | Makes a `button` latch. Pairs with `slot="icon-on"` for the pressed glyph. |
 | `pressed` | — | Whether a `toggle` button is on. Also `.pressed`. |
 | `gas` | — | Fills the face with drifting haze whose density is the value. |
+| `spin` | `33` | The middle turns, in revolutions per minute. On a `toggle` button it only turns while pressed. |
 | `pulse` | `60` | A ring that swells and fades at this many beats per minute. `pulse="auto"` takes the rate from the dial's own reading. |
 | `inset` | `low` | Where `slot="inset"` content sits: `low` under the number, `fill` up the middle. |
 | `ballistics` | — | Meter ballistics: `"attack release"` in seconds, one number for both. |
@@ -126,6 +127,35 @@ cj-knob {
 ```
 
 Type scales with the knob but never drops below a legible floor, so a 56px knob is still readable.
+
+A caption is fitted to the circle it sits in. The room inside a ring narrows fast
+as you go down it, so one low on the face has much less of it than one across the
+middle — and narrowing a caption is not automatically an improvement, because it
+is anchored by its first line and a second one reaches further down than the wide
+single line ever did. So the fit is measured: the caption is narrowed only when
+doing so actually pulls its corners in off the track, and left alone otherwise.
+Only a real resize re-runs it, so a dial whose value is moving sixty times a
+second pays nothing for it.
+
+The graphics are not selectable text. A dial's numbers are drawn readings, and
+select-all dragging a blue box across every gauge on a dashboard helps nobody, so
+`user-select: none` is set on all seven elements. It blocks selection only:
+pointer and keyboard input, and everything a screen reader takes off the ARIA
+attributes, are untouched.
+
+A caption is fitted to the circle it sits in. The room inside a ring narrows
+fast as you go down it, so one low on the face has much less of it than one
+across the middle — and narrowing a caption is not automatically an improvement,
+because it is anchored by its first line and a second one reaches further down
+than the wide single line ever did. So the fit is measured: it narrows the
+caption only when doing so actually pulls its corners in off the track, and
+leaves it alone otherwise. Only a real resize re-runs it.
+
+The graphics are not selectable text. A dial's numbers are drawn readings, and
+select-all dragging a blue box across every gauge on a dashboard helps nobody —
+so  is set on all seven elements. It blocks selection only:
+pointer and keyboard input, and everything a screen reader takes off the ARIA
+attributes, are untouched.
 
 ### How the middle is laid out
 
@@ -196,6 +226,25 @@ button with no script at all, the ring left free to carry progress.
 The press lands on the face rather than the ring, because a ring is a hairline
 and the middle is what anyone actually aims at. Use `button` or `interactive`,
 not both: one wants a click and the other wants a drag.
+
+### The dial as a turntable
+
+```html
+<cj-knob button toggle spin="33" value="21" readout="none" label="Blue Train">
+  <svg slot="icon" viewBox="0 0 100 100">…a record…</svg>
+  <svg slot="icon-on" viewBox="0 0 100 100">…the same record…</svg>
+</cj-knob>
+```
+
+`spin` turns whatever is in the middle, in revolutions per minute; bare `spin`
+is 33, which is what an LP does. On a `toggle` button it only turns while
+pressed, because a record that keeps going after you hit pause is not a thing
+anyone has seen.
+
+It winds up like a motor — torque against inertia, so it eases in — and coasts
+down like friction, which is near enough constant. That difference is not
+pedantry: easing toward zero approaches it and never arrives, and the first
+version was still creeping round nine seconds after being stopped.
 
 ### Gas
 
@@ -616,7 +665,7 @@ The demo lives at the repository root so that `./src/cj-knob.js` never points ou
 
 ```sh
 npm run dev     # then open http://127.0.0.1:8765/
-npm test        # 250 Playwright checks: geometry, needle, radar, horizon, keyboard, a11y
+npm test        # 273 Playwright checks: geometry, needle, radar, horizon, keyboard, a11y
 ```
 
 ## Browser support

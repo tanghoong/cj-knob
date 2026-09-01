@@ -87,6 +87,7 @@ template.innerHTML = `
     --cj-width: 2;
     --cj-text: #14161a;
     --cj-muted: #6b7280;
+    --cj-scrim: rgba(255, 255, 255, .82);
     --cj-num-size: max(13px, calc(var(--cj-height) * .26));
     --cj-label-size: max(9px, calc(var(--cj-height) * .11));
 
@@ -96,6 +97,12 @@ template.innerHTML = `
     block-size: var(--cj-height);
     color: var(--cj-text);
     font: inherit;
+    /* A dial is an instrument, not text. Its numbers are drawn readings, and
+       select-all dragging a blue box across every gauge on a dashboard helps
+       nobody. This blocks selection only — pointer and keyboard input, and
+       everything a screen reader reads off the ARIA attributes, are untouched. */
+    -webkit-user-select: none;
+    user-select: none;
   }
   :host([hidden]) { display: none; }
 
@@ -108,7 +115,7 @@ template.innerHTML = `
   }
 
   @media (prefers-color-scheme: dark) {
-    :host { --cj-text: #f2f4f7; --cj-muted: #98a2b3; }
+    :host { --cj-text: #f2f4f7; --cj-muted: #98a2b3; --cj-scrim: rgba(8, 11, 15, .82); }
   }
 
   svg { display: block; inline-size: 100%; block-size: 100%; overflow: visible; }
@@ -116,22 +123,19 @@ template.innerHTML = `
   .grid { stroke: var(--cj-grid); stroke-width: .5; fill: none; }
   .grid[hidden] { display: none; }
 
-  .scrim {
-    fill: var(--cj-scrim, rgba(0, 0, 0, .55));
-    stroke: none;
-    /* fades out across the half the readout is in, so it never dims the trace
-       on the far side of the strip */
-    mask: linear-gradient(to right, #000 0%, #000 18%, transparent 52%);
+  /* A wash that travels with the text rather than a band across the strip.
+     It has to sit ABOVE the trace and below the digits — under the trace it
+     dims the background and leaves the line running straight through the
+     numbers, which is the one thing it exists to stop. And it has to fade out
+     in every direction, or its own edge becomes the visible artefact. */
+  .center {
+    padding: .3em .7em;
+    margin: -.3em -.7em;
+    background: radial-gradient(closest-side ellipse at 50% 50%,
+      var(--cj-scrim) 0%, var(--cj-scrim) 46%, transparent 100%);
   }
-  :host([readout-at~="right"]) .scrim {
-    mask: linear-gradient(to left, #000 0%, #000 18%, transparent 52%);
-  }
-  .scrim[hidden] { display: none; }
-  /* a ring puts its readout in the middle, where a corner wash means nothing */
-  :host([shape="ring"]) .scrim { display: none; }
-  @media (prefers-color-scheme: light) {
-    :host { --cj-scrim: rgba(255, 255, 255, .72); }
-  }
+  /* a ring puts its readout in the middle, where the trace is not */
+  :host([shape="ring"]) .center { background: none; padding: 0; margin: 0; }
 
   path { fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-width: var(--cj-width); }
   .fresh { stroke: var(--cj-trace); }
@@ -183,14 +187,11 @@ template.innerHTML = `
     color: var(--cj-muted);
   }
   .label[hidden] { display: none; }
+  .center.bare { background: none; }
 </style>
 
 <svg part="svg" aria-hidden="true" focusable="false" preserveAspectRatio="none">
   <rect class="face" part="face" x="0" y="0" width="100%" height="100%"/>
-  <!-- A wash under the readout, dark at the corner it sits in and gone by the
-       middle. The trace runs underneath the text and the two are the same
-       weight of line, so without this the digits and the waveform interleave. -->
-  <rect class="scrim" part="scrim" x="0" y="0" width="100%" height="100%" hidden/>
   <path class="grid" part="grid" hidden/>
   <path class="stale" part="stale"/>
   <path class="fresh" part="fresh"/>
@@ -236,8 +237,9 @@ export class CJTrace extends HTMLElement {
     this.#root.append(template.content.cloneNode(true));
     const q = (s) => this.#root.querySelector(s);
     this.#els = {
-      svg: q('svg'), grid: q('.grid'), fresh: q('.fresh'), stale: q('.stale'), scrim: q('.scrim'),
+      svg: q('svg'), grid: q('.grid'), fresh: q('.fresh'), stale: q('.stale'),
       pen: q('.pen'), readout: q('.readout'), num: q('.num'), unit: q('.unit'), label: q('.label'),
+      center: q('.center'),
     };
   }
 
@@ -554,7 +556,7 @@ export class CJTrace extends HTMLElement {
     this.#els.label.toggleAttribute('hidden', !label);
     if (label && !this.hasAttribute('aria-label')) this.setAttribute('aria-label', label);
     // no text in the corner, nothing to lift off the trace
-    this.#els.scrim.toggleAttribute('hidden', hide && !label);
+    this.#els.center.classList.toggle('bare', hide && !label);
   }
 
   // ---- the pen -----------------------------------------------------------

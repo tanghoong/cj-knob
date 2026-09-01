@@ -1630,6 +1630,179 @@ const icon = await page.evaluate(async () => {
 check('an icon sharing the middle stays modest', icon.withNum === 40, String(icon.withNum));
 check('an icon that IS the middle is large', icon.alone === 68, String(icon.alone));
 
+// --- the graphics are not prose ---
+const selectable = await page.evaluate(() => {
+  const tags = ['cj-knob', 'cj-heat', 'cj-trace', 'cj-level', 'cj-radar', 'cj-horizon', 'cj-rings'];
+  const out = {};
+  for (const tag of tags) {
+    const el = document.createElement(tag);
+    document.body.append(el);
+    out[tag] = getComputedStyle(el).userSelect || getComputedStyle(el).webkitUserSelect;
+    el.remove();
+  }
+  return out;
+});
+for (const [tag, mode] of Object.entries(selectable)) {
+  check(tag + "'s graphics are not selectable", mode === 'none', String(mode));
+}
+// blocking selection must not block using it: a slider still drags, a button still fires
+const stillWorks = await page.evaluate(async () => {
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const k = document.createElement('cj-knob');
+  k.setAttribute('button', '');
+  document.body.append(k);
+  await wait(30);
+  let fired = false;
+  k.addEventListener('cj-press', () => { fired = true; });
+  k.click();
+  await wait(20);
+  const pe = getComputedStyle(k).pointerEvents;
+  k.remove();
+  return { fired, pe };
+});
+check('and are still clickable', stillWorks.fired && stillWorks.pe !== 'none',
+  JSON.stringify(stillWorks));
+
+// --- the trace's readout has to sit above the trace, not under it ---
+const scrim = await page.evaluate(async () => {
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const t = document.createElement('cj-trace');
+  t.setAttribute('beat', '72');
+  t.setAttribute('label', 'heart');
+  document.body.append(t);
+  await wait(60);
+  const centre = t.shadowRoot.querySelector('.center');
+  const svg = t.shadowRoot.querySelector('svg');
+  const out = {
+    // the wash lives on the text layer; under the trace it would dim the
+    // background and leave the line running straight through the digits
+    hasWash: getComputedStyle(centre).backgroundImage.includes('gradient'),
+    noRect: !t.shadowRoot.querySelector('.scrim'),
+    aboveTrace: centre.compareDocumentPosition(svg) & Node.DOCUMENT_POSITION_PRECEDING,
+  };
+  t.setAttribute('readout', 'none');
+  t.removeAttribute('label');
+  await wait(40);
+  out.bareWash = getComputedStyle(t.shadowRoot.querySelector('.center')).backgroundImage;
+
+  const ring = document.createElement('cj-trace');
+  ring.setAttribute('shape', 'ring');
+  ring.setAttribute('beat', '72');
+  document.body.append(ring);
+  await wait(40);
+  out.ringWash = getComputedStyle(ring.shadowRoot.querySelector('.center')).backgroundImage;
+  t.remove(); ring.remove();
+  return out;
+});
+check('the readout carries its own wash', scrim.hasWash);
+check('the old under-the-trace rect is gone', scrim.noRect);
+check('the wash is painted over the trace', !!scrim.aboveTrace);
+check('no text, no wash', scrim.bareWash === 'none', scrim.bareWash);
+check('a ring puts its readout where the trace is not, so it needs none',
+  scrim.ringWash === 'none', scrim.ringWash);
+
+// --- a button's caption must clear both the glyph and the track ---
+const fits = await page.evaluate(async () => {
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const measure = async (attrs, size) => {
+    const k = document.createElement('cj-knob');
+    for (const [a, v] of Object.entries(attrs)) k.setAttribute(a, v);
+    k.setAttribute('label', 'Midnight City');
+    k.setAttribute('readout', 'none');
+    k.style.setProperty('--cj-size', size + 'px');
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    g.setAttribute('slot', 'icon');
+    g.setAttribute('viewBox', '0 0 24 24');
+    k.append(g);
+    document.body.append(k);
+    await wait(70);
+    const h = k.getBoundingClientRect();
+    const cx = h.left + h.width / 2, cy = h.top + h.height / 2;
+    const th = parseFloat(getComputedStyle(k).getPropertyValue('--cj-thickness')) || 8;
+    const R = h.width * 0.42 - h.width * th / 200;
+    const worst = (sel) => {
+      const b = k.shadowRoot.querySelector(sel).getBoundingClientRect();
+      return Math.max(...[[b.left, b.top], [b.right, b.top], [b.left, b.bottom], [b.right, b.bottom]]
+        .map(([x, y]) => Math.hypot(x - cx, y - cy)));
+    };
+    const lab = k.shadowRoot.querySelector('.label').getBoundingClientRect();
+    const icon = k.shadowRoot.querySelector('.icon').getBoundingClientRect();
+    const out = { R, label: worst('.label'), gap: lab.top - icon.bottom };
+    k.remove();
+    return out;
+  };
+  return {
+    button: await measure({ button: '' }, 150),
+    vinyl: await measure({ button: '', toggle: '', spin: '33' }, 190),
+  };
+});
+// the space inside a ring narrows fast going down it, so a caption low on the
+// face has to stay narrow or its bottom corners reach the track
+check('a button caption clears the track',
+  fits.button.label < fits.button.R - 2,
+  (fits.button.R - fits.button.label).toFixed(1) + 'px of clearance');
+check('a button caption clears its glyph', fits.button.gap > 2, fits.button.gap.toFixed(1) + 'px');
+check('a turntable caption clears the track',
+  fits.vinyl.label < fits.vinyl.R - 2,
+  (fits.vinyl.R - fits.vinyl.label).toFixed(1) + 'px of clearance');
+check('a turntable caption clears the disc', fits.vinyl.gap > 2, fits.vinyl.gap.toFixed(1) + 'px');
+
+// --- spin: winds up like a motor, coasts down like friction ---
+const platter = await page.evaluate(async () => {
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const angle = (k) => parseFloat(k.style.getPropertyValue('--cj-spin-angle')) || 0;
+  const k = document.createElement('cj-knob');
+  k.setAttribute('button', '');
+  k.setAttribute('toggle', '');
+  k.setAttribute('spin', '33');
+  k.setAttribute('readout', 'none');
+  document.body.append(k);
+  await wait(200);
+  const out = { atRest: angle(k) };
+  await wait(300);
+  // a record does not turn while it is paused
+  out.stillAtRest = angle(k) === out.atRest;
+
+  k.click();
+  await wait(250);
+  const a1 = angle(k);
+  await wait(600);
+  const a2 = angle(k);
+  out.turning = a2 !== a1;
+
+  k.click();
+  const b1 = angle(k);
+  await wait(200);
+  out.coasted = angle(k) !== b1;      // it must not halt the instant it is released
+  await wait(2600);
+  const settled = angle(k);
+  await wait(500);
+  out.stopped = Math.abs(angle(k) - settled) < 0.01;
+  k.remove();
+
+  // without toggle, platter runs on its own
+  const plain = document.createElement('cj-knob');
+  plain.setAttribute('spin', '78');
+  document.body.append(plain);
+  await wait(500);
+  const p1 = angle(plain);
+  await wait(300);
+  out.plainTurns = angle(plain) !== p1;
+  plain.remove();
+  await wait(200);
+  const after = angle(plain);
+  await wait(300);
+  out.stopsWhenDetached = angle(plain) === after;
+  return out;
+});
+check('a paused turntable does not turn', platter.stillAtRest);
+check('pressing play spins it up', platter.turning);
+// easing toward zero approaches it and never arrives; friction is what stops it
+check('releasing it coasts rather than halting', platter.coasted);
+check('and it does come to rest', platter.stopped);
+check('platter without toggle just runs', platter.plainTurns);
+check('a detached turntable stops its loop', platter.stopsWhenDetached);
+
 check('still no page errors at end', errors.length === 0, errors.join(' | '));
 
 await browser.close();

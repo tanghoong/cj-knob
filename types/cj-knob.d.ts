@@ -32,7 +32,7 @@ export declare class CJKnob extends HTMLElement {
    * `needle`, `labels`, `label-radius`, `readout`, `unit`, `decimals`, `label`,
    * `color`, `disabled`, `animate-in`, `liquid`, `rotating`, `value-2`,
    * `gradient`, `ballistics`, `peak-hold`, `peak-fall`, `pulse`, `inset`,
-   * `button`, `toggle`, `gas`. Set them with `setAttribute`.
+   * `button`, `toggle`, `gas`, `spin`. Set them with `setAttribute`.
    *
    * Slots: `icon` in the middle, `icon-on` for the glyph a pressed `toggle`
    * button shows instead, and `inset` for something living inside the face —
