@@ -15,7 +15,11 @@
       "types": "./types/cj-radar.d.ts",
       "default": "./src/cj-radar.js"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./horizon": {
+      "types": "./types/cj-horizon.d.ts",
+      "default": "./src/cj-horizon.js"
+    }
   },
   "files": [
     "src",
@@ -24,7 +28,8 @@
   ],
   "sideEffects": [
     "./src/cj-knob.js",
-    "./src/cj-radar.js"
+    "./src/cj-radar.js",
+    "./src/cj-horizon.js"
   ],
   "keywords": [
     "knob",
@@ -38,7 +43,10 @@
     "custom-element",
     "radar",
     "compass",
-    "needle"
+    "needle",
+    "attitude-indicator",
+    "artificial-horizon",
+    "gyro"
   ],
   "author": "tanghoong",
   "license": "MIT",
