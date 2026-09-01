@@ -306,13 +306,13 @@ const radar = await page.evaluate(async () => {
   document.body.append(el);
   await new Promise((r) => requestAnimationFrame(r));
   const r = el.shadowRoot;
-  const first = r.querySelector('.blips circle');
+  const first = r.querySelector('.blips .dot');
   const out = {
     defined: !!customElements.get('cj-radar'),
     rings: r.querySelectorAll('.grid circle').length,
     spokes: r.querySelectorAll('.grid line').length,
     marks: r.querySelectorAll('.marks text').length,
-    blips: r.querySelectorAll('.blips circle').length,
+    blips: r.querySelectorAll('.blips .blip').length,
     // bearing 0 at range 1 is due north: x = 50, y = 50 - 46
     northX: +first.getAttribute('cx'),
     northY: +first.getAttribute('cy'),
@@ -332,6 +332,103 @@ check('bearing 0 range 1 plots due north', radar.northX === 50 && radar.northY =
   `${radar.northX},${radar.northY}`);
 check('scatter(7) sets seven contacts', radar.afterScatter === 7, String(radar.afterScatter));
 check('clearBlips empties the scope', radar.afterClear === 0, String(radar.afterClear));
+
+// --- a second pointer, and the rotating-card dial ---
+const twoUp = await page.evaluate(async () => {
+  const k = document.querySelector('#examples cj-knob[value-2]');
+  const r = k.shadowRoot;
+  const deg = (p) => parseFloat(k.style.getPropertyValue(p));
+  return {
+    shown: !r.querySelector('.needle-2').hasAttribute('hidden'),
+    // on a 0-100 full dial, value 20 is 72deg and value-2 70 is 252deg. Compare
+    // each pointer on its own: at exactly 180deg apart the signed gap is ambiguous,
+    // and the unwrapping legitimately reports -108deg rather than +252deg.
+    a1: ((deg('--cj-needle-angle') % 360) + 360) % 360,
+    a2: ((deg('--cj-needle-2-angle') % 360) + 360) % 360,
+  };
+});
+check('value-2 shows a second pointer', twoUp.shown);
+check('the first pointer sits on value', Math.abs(twoUp.a1 - 72) < 0.5, `${twoUp.a1}deg`);
+check('the second pointer sits on value-2', Math.abs(twoUp.a2 - 252) < 0.5, `${twoUp.a2}deg`);
+
+const card = await page.evaluate(async () => {
+  const k = document.querySelector('#playground cj-knob[rotating]');
+  k.value = 90;
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  return {
+    lubber: !k.shadowRoot.querySelector('.lubber').hasAttribute('hidden'),
+    angle: parseFloat(k.style.getPropertyValue('--cj-card-angle')),
+  };
+});
+check('rotating shows the fixed index', card.lubber);
+check('the card turns opposite the heading', Math.abs(card.angle + 90) < 0.5, `${card.angle}deg`);
+
+// --- attitude indicator ---
+const att = await page.evaluate(async () => {
+  const h = document.createElement('cj-horizon');
+  h.style.setProperty('--cjh-duration', '0ms');
+  document.body.append(h);
+  await new Promise((r) => requestAnimationFrame(r));
+
+  const svg = h.shadowRoot.querySelector('svg');
+  const line = h.shadowRoot.querySelector('.horizon');
+  const endsOf = () => {
+    const m = line.getScreenCTM();
+    const at = (x) => { const p = svg.createSVGPoint(); p.x = x; p.y = 50; return p.matrixTransform(m); };
+    return { l: at(20).y, r: at(80).y };
+  };
+
+  h.pitch = 0; h.roll = 0;
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const level = endsOf();
+  const levelMid = (level.l + level.r) / 2;
+
+  h.roll = 30;
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const banked = endsOf();
+
+  h.roll = 0; h.pitch = 20;
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const climbing = (endsOf().l + endsOf().r) / 2;
+
+  const out = {
+    defined: !!customElements.get('cj-horizon'),
+    levelFlat: Math.abs(level.l - level.r) < 0.5,
+    // a right bank lifts the horizon's right-hand end
+    rightUp: banked.r < banked.l,
+    // nose up pushes the horizon down the face
+    noseUp: climbing > levelMid,
+    ladder: h.shadowRoot.querySelectorAll('.ladder line').length,
+    scale: h.shadowRoot.querySelectorAll('.scale line').length,
+    attitude: (h.pitch = 10, h.roll = -20, h.attitude),
+  };
+  h.remove();
+  return out;
+});
+check('cj-horizon is defined', att.defined);
+check('wings level draws a flat horizon', att.levelFlat);
+check('a right bank lifts the horizon on the right', att.rightUp);
+check('nose up drops the horizon down the face', att.noseUp);
+check('the pitch ladder has a rung either side', att.ladder === 6, String(att.ladder));
+check('the bank scale is drawn', att.scale === 11, String(att.scale));
+check('attitude reads in words', att.attitude === 'climbing, left bank', att.attitude);
+
+// --- radar sweep trail ---
+const trail = await page.evaluate(() => {
+  const r = document.querySelector('#playground cj-radar');
+  const s = getComputedStyle(r.shadowRoot.querySelector('.beam'));
+  const line = r.shadowRoot.querySelector('.beam-line');
+  return {
+    tail: getComputedStyle(r).getPropertyValue('--cjr-tail').trim(),
+    hasGradient: s.backgroundImage.includes('conic-gradient'),
+    lineVisible: getComputedStyle(line).display !== 'none',
+    blipParts: r.shadowRoot.querySelectorAll('.blip .halo').length,
+  };
+});
+check('the sweep has a trailing tail', trail.tail === '130deg', trail.tail);
+check('the tail is one conic gradient', trail.hasGradient);
+check('the leading edge line is drawn while sweeping', trail.lineVisible);
+check('each contact carries a halo for the ping', trail.blipParts > 0, String(trail.blipParts));
 
 check('still no page errors at end', errors.length === 0, errors.join(' | '));
 
