@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kitchen — cj-knob lab</title>
+<link rel="stylesheet" href="panel.css">
+<style>
+  :root {
+    --bg: #0e0b09; --panel: #17120e; --edge: #2b211a; --ink: #f6efe6;
+    --dim: #9a8776; --track: #201811; --tick: #4a382a;
+    --a1: #ff8c42; --a2: #55c47a; --a3: #ffd166; --a4: #6cb6ff;
+    --bg-image:
+      radial-gradient(1000px 540px at 50% -12%, #2a1d13 0%, transparent 68%),
+      repeating-linear-gradient(90deg, transparent 0 44px, rgba(255,255,255,.012) 44px 45px);
+  }
+  h1 { color: var(--a1); }
+  .strip b { color: var(--a3); }
+</style>
+</head>
+<body>
+<script type="module">
+  import { buildPanel, wave, clamp } from './panel.js';
+
+  // A pass-through kitchen the way a POS and a few IoT probes would see it:
+  // tickets arriving, stock draining, drinks pouring, stations loading up.
+  const STOCK = [
+    ['eggs', '#ffd166', '🥚', 'trays'], ['butter', '#ffe9a8', '🧈', 'kg'],
+    ['noodles', '#f0c070', '🍜', 'kg'], ['rice', '#f5f0e4', '🍚', 'kg'],
+    ['chicken', '#ff9b7a', '🍗', 'kg'], ['greens', '#7ac74f', '🥬', 'kg'],
+  ];
+  const DRINKS = [
+    ['hot coffee', '#a9754a', '☕'], ['iced coffee', '#c99b6e', '🧋'],
+    ['tea', '#d0a24c', '🍵'], ['cola', '#8b5e3c', '🥤'],
+    ['lemon juice', '#f2d449', '🍋'], ['beer', '#f0b429', '🍺'],
+  ];
+  const STATIONS = ['grill', 'wok', 'fryer', 'cold', 'pastry', 'pass', 'dish', 'barista'];
+
+  buildPanel({
+    title: 'kitchen floor · service 18:00–23:00 · POS + IoT feed — simulation',
+    status: [
+      { id: 'clock', lead: true, value: '18:00' },
+      { id: 'tickets', label: 'open tickets', value: '—' },
+      { id: 'covers', label: 'covers', value: '—' },
+      { id: 'ticket-time', label: 'avg ticket', value: '—' },
+      { id: 'revenue', label: 'revenue', value: '—' },
+      { id: 'alert', flag: true, value: '' },
+    ],
+    rows: [
+      {
+        size: 'lg', items: [
+          { id: 'orders', cap: 'Open tickets', min: 0, max: 40, sweep: 270, readout: 'value',
+            ticks: 8, tickMajor: 4, label: 'on the rail', color: 'var(--a1)',
+            zones: '28-34:#4a3a12, 34-40:#4a1e1e', benchmark: 28 },
+          { id: 'occupancy', cap: 'Seats filled', min: 0, max: 100, sweep: 270,
+            readout: 'value', ticks: 10, tickMajor: 5, label: '% of 96', color: 'var(--a2)',
+            benchmark: 85 },
+          { id: 'satisfaction', cap: 'Guest rating', min: 0, max: 5, sweep: 270,
+            readout: 'value', decimals: 2, ticks: 10, tickMajor: 2, label: '★ tonight',
+            color: 'var(--a3)', zones: '0-3:#4a1e1e, 3-4:#4a3a12', benchmark: 4.5 },
+          { id: 'ticket-mix', cap: 'Where orders come from', readout: 'none', icon: '🧾',
+            segments: '46:#ff8c42, 28:#6cb6ff, 16:#55c47a, 10:#ffd166',
+            legend: [['dine-in', '#ff8c42'], ['delivery', '#6cb6ff'],
+                     ['takeaway', '#55c47a'], ['pre-order', '#ffd166']] },
+        ],
+      },
+      {
+        size: 'md',
+        items: [
+          // the two wet stores read as liquid; everything else is a dry count
+          { id: 'oil', cap: 'fryer oil', min: 0, max: 100, readout: 'value', unit: '%',
+            liquid: '', label: 'litres', color: 'var(--a3)',
+            style: '--cj-liquid:#e8b33c;--cj-liquid-back:rgba(232,179,60,.45);--cj-thickness:5' },
+          { id: 'milk', cap: 'milk', min: 0, max: 100, readout: 'value', unit: '%',
+            liquid: '', label: 'litres', color: '#dfe7f0',
+            style: '--cj-liquid:#eef3f8;--cj-liquid-back:rgba(238,243,248,.4);--cj-thickness:5' },
+          ...STOCK.map(([name, color, icon, unit]) => ({
+            id: name.replace(' ', '-'), cap: name, min: 0, max: 100, sweep: 270,
+            readout: 'value', unit: '%', ticks: 10, tickMajor: 5, label: unit, color,
+            zones: '0-15:#4a1e1e, 15-30:#4a3a12',
+          })),
+        ],
+      },
+      {
+        size: 'md',
+        items: DRINKS.map(([name, color, icon]) => ({
+          id: name.replace(' ', '-'), cap: name, min: 0, max: 60, sweep: 270,
+          readout: 'value', ticks: 6, tickMajor: 3, label: 'served', color, icon: undefined,
+        })).concat([
+          { id: 'drink-mix', cap: 'Drink mix', readout: 'none', icon: '🍹',
+            segments: '30:#a9754a, 22:#c99b6e, 18:#d0a24c, 16:#8b5e3c, 14:#f2d449',
+            legend: [['hot', '#a9754a'], ['iced', '#c99b6e'], ['tea', '#d0a24c'],
+                     ['cola', '#8b5e3c'], ['juice', '#f2d449']] },
+          { id: 'waste', cap: 'Food waste', min: 0, max: 20, sweep: 270, readout: 'value',
+            decimals: 1, ticks: 10, tickMajor: 5, label: '% of covers', color: 'var(--a1)',
+            zones: '8-14:#4a3a12, 14-20:#4a1e1e' },
+        ]),
+      },
+      {
+        size: 'sm',
+        items: STATIONS.map((name) => ({
+          id: `st-${name}`, cap: name, min: 0, max: 100, sweep: 270, readout: 'value',
+          ticks: 10, tickMajor: 5, label: '% busy', color: 'var(--a2)',
+          zones: '85-100:#4a1e1e',
+        })),
+      },
+    ],
+
+    // One service, driven by a single rush curve. Tickets, seats, station load,
+    // stock draw-down and waiting time all hang off it, so the board tells one
+    // story instead of eight unrelated ones.
+    tick(t, set) {
+      const SERVICE = 300;                 // five minutes stands in for five hours
+      const u = (t % SERVICE) / SERVICE;   // 0 at 18:00, 1 at 23:00
+      const mins = u * 300;
+      const hh = 18 + Math.floor(mins / 60);
+      const mm = Math.floor(mins % 60);
+
+      // two peaks: an early sitting and a later one
+      const rush = clamp(
+        0.9 * Math.exp(-((u - 0.28) ** 2) / 0.012) +
+        1.0 * Math.exp(-((u - 0.66) ** 2) / 0.016) + 0.12, 0, 1);
+
+      const tickets = rush * 34 + wave(t, 3, 1.5);
+      const seats = clamp(rush * 96 + 8, 0, 100);
+      const wait = 9 + rush * 17;
+      const rating = clamp(4.9 - Math.max(0, wait - 16) * 0.09, 0, 5);
+
+      set('orders', tickets);
+      set('occupancy', seats);
+      set('satisfaction', rating, 2);
+      set('waste', 3.4 + rush * 5, 1);
+
+      // stock only ever goes down across the service, at a rate set by the rush
+      const drain = (rate) => clamp(100 - u * rate * 100, 0, 100);
+      set('oil', drain(0.55));
+      set('milk', drain(0.78));
+      STOCK.forEach(([name], i) => set(name.replace(' ', '-'), drain(0.5 + i * 0.09)));
+
+      DRINKS.forEach(([name], i) => {
+        set(name.replace(' ', '-'), clamp(u * (52 - i * 5) + wave(t, 7 + i, 2, i), 0, 60));
+      });
+
+      STATIONS.forEach((name, i) => {
+        // the pass and the dish pit lag the stoves — they clear what the stoves send
+        const lag = i >= 5 ? 0.06 : 0;
+        const load = clamp(rush * (78 + (i % 3) * 12) + wave(t, 5 + i * 1.6, 12, i)
+          + (lag ? 14 : 0), 0, 100);
+        set(`st-${name}`, load);
+        set.attr(`st-${name}`, 'color', load > 85 ? 'var(--bad)' : load > 65 ? 'var(--a3)' : 'var(--a2)');
+      });
+
+      const dine = 46 - rush * 6;
+      set.seg('ticket-mix', [[dine, '#ff8c42'], [28 + rush * 8, '#6cb6ff'],
+        [16, '#55c47a'], [10, '#ffd166']]);
+
+      set.text('clock', `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`);
+      set.text('tickets', String(Math.round(tickets)));
+      set.text('covers', String(Math.round(u * 214)));
+      set.text('ticket-time', `${wait.toFixed(0)} min`);
+      set.text('revenue', 'RM ' + Math.round(u * 12800).toLocaleString());
+      set.text('alert',
+        tickets > 30 ? '▲ RAIL BACKED UP — CALL EXPEDITER'
+          : drain(0.78) < 18 ? '▲ MILK RUNNING OUT'
+            : wait > 22 ? '▲ TICKET TIMES OVER 20 MIN' : '');
+    },
+  });
+</script>
+</body>
+</html>
