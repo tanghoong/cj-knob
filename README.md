@@ -33,6 +33,9 @@ itself the instant each element is defined. There is nothing to import and
 nothing to call. On this project's own landing page it takes the jump from 3110
 pixels to 5.
 
+Progress, the reasoning behind the awkward parts, and what is next:
+[STATUS.md](STATUS.md).
+
 ## Install
 
 ```sh
@@ -722,7 +725,7 @@ The demo lives at the repository root so that `./src/cj-knob.js` never points ou
 
 ```sh
 npm run dev     # then open http://127.0.0.1:8765/
-npm test        # 296 Playwright checks: geometry, needle, radar, horizon, keyboard, a11y
+npm test        # 304 Playwright checks: geometry, needle, radar, horizon, keyboard, a11y
 ```
 
 ## Browser support
