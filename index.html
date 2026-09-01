@@ -129,14 +129,33 @@
     padding: 1.5rem; display: grid; gap: 1rem; justify-items: center;
     box-shadow: 0 1px 3px rgba(16,24,40,.05), 0 12px 32px -18px rgba(16,24,40,.25);
   }
-  .hero-art .big { --cj-size: 184px; --cj-thickness: 6; }
-  .hero-art .wave { inline-size: min(330px, 100%); }
-  .hero-art .strip { display: flex; gap: .85rem; flex-wrap: wrap; justify-content: center; }
+  .hero-art { padding: 1.25rem 1.25rem 1rem; gap: .75rem; }
+  /* every scene shares one cell, so the card never resizes as they change */
+  .scenes { display: grid; inline-size: 100%; }
+  .scene { grid-area: 1 / 1; display: grid; justify-items: center; gap: .7rem; }
+  .scene[hidden] { display: none; }
+  .scene .lead { display: flex; align-items: center; justify-content: center; gap: 1rem; }
+  .scene .strip { display: flex; gap: .9rem; flex-wrap: wrap; justify-content: center; }
+  .hero-art .big { --cj-size: 168px; --cj-thickness: 6; }
+  .hero-art .mid { --cj-size: 116px; --cj-thickness: 7; }
   .hero-art .strip cj-knob,
-  .hero-art .strip cj-heat { --cj-size: 82px; --cj-thickness: 9; }
+  .hero-art .strip cj-heat { --cj-size: 78px; --cj-thickness: 9; }
+  .hero-art .wave { inline-size: min(300px, 100%); }
   .hero-art .cap { font: 500 10px/1 ui-monospace, monospace; color: var(--dim);
-                   letter-spacing: .06em; text-align: center; margin-top: .3rem; }
+                   letter-spacing: .06em; text-align: center; margin-top: .35rem; }
   .hero-art figure { margin: 0; display: grid; justify-items: center; }
+
+  .hero-foot { display: flex; align-items: center; gap: .75rem; justify-content: center;
+               inline-size: 100%; }
+  .dots { display: flex; gap: .3rem; }
+  .dots button {
+    inline-size: 7px; block-size: 7px; padding: 0; border: 0; border-radius: 50%;
+    background: var(--line); cursor: pointer; transition: background .2s, transform .2s;
+  }
+  .dots button:hover { background: var(--dim); }
+  .dots button[aria-current="true"] { background: var(--accent); transform: scale(1.35); }
+  .scene-name { font: 600 10px/1 ui-monospace, monospace; color: var(--dim);
+                letter-spacing: .09em; text-transform: uppercase; min-inline-size: 7ch; }
   .yr-mid { text-align: center; line-height: 1.15; }
   .yr-mid b { display: block; font-size: 1.6rem; letter-spacing: -.02em; }
   .yr-mid span { font-size: .8rem; color: var(--dim); }
@@ -341,44 +360,180 @@
       </div>
     </div>
 
-    <div class="hero-art">
-      <!-- Everything here drives itself. Between them they are the whole library:
-           a dial with a chart living inside it, a breathing ring, a mirrored
-           waveform, a bar ring, a gas fill, a button and a meter with ballistics. -->
-      <cj-knob class="big" id="hero" value="72" min="40" max="180" readout="value"
-               unit="bpm" label="resting" pulse="auto" color="#e0433f" animate-in>
-        <cj-trace slot="inset" beat="72" readout="none" pen="none" samples="150"
-                  style="--cj-height:36px;--cj-trace:#e0433f;--cj-width:1.7"></cj-trace>
-      </cj-knob>
+    <div class="hero-art" id="hero-art">
+      <!-- Four scenes, and every element in them drives itself. Between them
+           they are most of the library: a chart living inside a dial, a ring
+           breathing at the reading, a turntable, a meter with ballistics, a
+           year of bars, a price with its direction, and a face that turns. -->
+      <div class="scenes">
+        <div class="scene" data-name="vitals">
+          <div class="lead">
+            <cj-knob class="big" id="hero" value="72" min="40" max="180" readout="value"
+                     unit="bpm" label="resting" pulse="auto" color="#e0433f" animate-in>
+              <cj-trace slot="inset" beat="72" readout="none" pen="none" samples="150"
+                        style="--cj-height:34px;--cj-trace:#e0433f;--cj-width:1.7"></cj-trace>
+            </cj-knob>
+            <figure>
+              <cj-knob class="mid" id="hero-listen" value="0" readout="none" label="listening"
+                       color="#0ea5e9" style="--cj-thickness:7">
+                <cj-trace slot="inset" id="hero-voice" voice mirror pen="none"
+                          style="--cj-height:26px;--cj-trace:#0ea5e9;--cj-width:1.2"></cj-trace>
+              </cj-knob>
+              <figcaption class="cap">voice</figcaption>
+            </figure>
+          </div>
+          <div class="strip">
+            <figure>
+              <cj-knob value="97" readout="value" unit="%" decimals="0" label="SpO₂"
+                       color="#22c55e"></cj-knob>
+              <figcaption class="cap">oxygen</figcaption>
+            </figure>
+            <figure>
+              <!-- no caption inside: at 78px the fluid, a number and a word is one -->
+              <!-- thing too many, and the figcaption below already names it -->
+              <cj-knob value="36" min="30" max="42" readout="value" unit="°C" decimals="1"
+                       liquid color="#f59e0b" style="--cj-liquid:#f59e0b"></cj-knob>
+              <figcaption class="cap">liquid</figcaption>
+            </figure>
+            <figure>
+              <cj-knob gas value="61" readout="none" color="#a3e635"
+                       style="--cj-gas:#a3e635"><span slot="icon">☁️</span></cj-knob>
+              <figcaption class="cap">gas</figcaption>
+            </figure>
+          </div>
+        </div>
 
-      <cj-trace class="wave" id="hero-voice" voice mirror pen="none"
-                style="--cj-height:52px;--cj-trace:#0ea5e9;--cj-width:1.3"></cj-trace>
+        <div class="scene" data-name="sound" hidden>
+          <div class="lead">
+            <cj-knob class="big" id="hero-vinyl" button toggle spin="33" value="21"
+                     readout="none" label="Blue Train" color="#e0b04a">
+              <svg slot="icon" viewBox="0 0 100 100" aria-hidden="true">
+                <defs><linearGradient id="hsleeve" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0" stop-color="#2b3a67"/><stop offset=".55" stop-color="#7b3f6b"/>
+                  <stop offset="1" stop-color="#d97742"/></linearGradient></defs>
+                <circle cx="50" cy="50" r="50" fill="url(#hsleeve)"/>
+                <g fill="none" stroke="#000" stroke-opacity=".28">
+                  <circle cx="50" cy="50" r="46"/><circle cx="50" cy="50" r="41"/>
+                  <circle cx="50" cy="50" r="36"/><circle cx="50" cy="50" r="31"/>
+                  <circle cx="50" cy="50" r="26"/></g>
+                <path d="M18 66c14-26 24-34 32-34s16 10 32 30" fill="none"
+                      stroke="#f7e7d3" stroke-opacity=".8" stroke-width="2.4"/>
+                <circle cx="66" cy="30" r="7" fill="#f7e7d3" fill-opacity=".85"/>
+                <circle cx="50" cy="50" r="17" fill="#e8c37a"/>
+                <circle cx="50" cy="50" r="2.3" fill="#0e131a"/>
+              </svg>
+            </cj-knob>
+            <figure>
+              <cj-knob class="mid vu" data-vu="4" sweep="100" needle="hand" readout="none"
+                       ballistics=".01 .55" peak-hold="1.2" ticks="10" tick-major="5"
+                       zones="80-100:#fee2e2" color="#14161a"
+                       style="--cj-thickness:5"></cj-knob>
+              <figcaption class="cap">VU · ballistics</figcaption>
+            </figure>
+          </div>
+          <div class="strip">
+            <figure>
+              <cj-knob class="vu" data-vu="5" sweep="270" readout="none" label="L"
+                       ballistics=".01 .8" peak-hold="1.4" color="#16a34a"></cj-knob>
+              <figcaption class="cap">peak hold</figcaption>
+            </figure>
+            <figure>
+              <cj-knob class="vu" data-vu="6" sweep="270" readout="none" label="R"
+                       ballistics=".01 .8" peak-hold="1.4" color="#16a34a"></cj-knob>
+              <figcaption class="cap">peak hold</figcaption>
+            </figure>
+            <figure>
+              <cj-knob id="hero-play" button toggle value="37" readout="none" color="#16a34a">
+                <svg slot="icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8.4 5.6a1 1 0 0 1 1.52-.85l8.2 5.4a1.2 1.2 0 0 1 0 2l-8.2 5.4a1 1 0 0 1-1.52-.85z"/></svg>
+                <svg slot="icon-on" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="7.2" y="5" width="3.9" height="14" rx="1.5"/><rect x="12.9" y="5" width="3.9" height="14" rx="1.5"/></svg>
+              </cj-knob>
+              <figcaption class="cap">play</figcaption>
+            </figure>
+          </div>
+        </div>
 
-      <div class="strip">
-        <figure>
-          <cj-knob id="hero-play" button toggle value="37" readout="none" color="#16a34a">
-        <svg slot="icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8.4 5.6a1 1 0 0 1 1.52-.85l8.2 5.4a1.2 1.2 0 0 1 0 2l-8.2 5.4a1 1 0 0 1-1.52-.85z"/></svg>
-        <svg slot="icon-on" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="7.2" y="5" width="3.9" height="14" rx="1.5"/><rect x="12.9" y="5" width="3.9" height="14" rx="1.5"/></svg>
-          </cj-knob>
-          <figcaption class="cap">button</figcaption>
-        </figure>
-        <figure>
-          <cj-heat id="hero-year" shape="bars" readout="none"></cj-heat>
-          <figcaption class="cap">a year</figcaption>
-        </figure>
-        <figure>
-          <cj-knob gas value="61" readout="none" color="#a3e635"
-                   style="--cj-gas:#a3e635"><span slot="icon">☁️</span></cj-knob>
-          <figcaption class="cap">gas</figcaption>
-        </figure>
-        <figure>
-          <cj-knob class="vu" data-vu="4" sweep="270" readout="none" needle="hand"
-                   ballistics=".01 .55" peak-hold="1.2" ticks="10" tick-major="5"
-                   color="#14161a" style="--cj-thickness:5"></cj-knob>
-          <figcaption class="cap">VU</figcaption>
-        </figure>
+        <div class="scene" data-name="house" hidden>
+          <div class="lead">
+            <cj-knob class="big" value="21.5" min="10" max="32" step=".5" decimals="1"
+                     readout="value" unit="°C" label="living room" interactive
+                     ticks="22" tick-major="4" color="#0ea5e9"
+                     gradient="#38bdf8,#a3e635,#f59e0b"></cj-knob>
+            <figure>
+              <cj-knob class="mid" id="hero-sky" button toggle turn="180" readout="none"
+                       label="day" color="#fbbf24" style="--cj-thickness:7">
+                <svg slot="icon" viewBox="0 0 100 100" aria-hidden="true">
+                  <defs><linearGradient id="hsky" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0" stop-color="#7dd3fc"/><stop offset=".5" stop-color="#fde68a"/>
+                    <stop offset=".5" stop-color="#1e293b"/><stop offset="1" stop-color="#0b1120"/>
+                  </linearGradient></defs>
+                  <circle cx="50" cy="50" r="50" fill="url(#hsky)"/>
+                  <circle cx="50" cy="27" r="11" fill="#f59e0b"/>
+                  <path d="M56 73a11 11 0 1 1-11-11 9 9 0 0 0 11 11z" fill="#e2e8f0"/>
+                  <circle cx="30" cy="80" r="1.6" fill="#e2e8f0"/>
+                  <circle cx="70" cy="84" r="1.3" fill="#e2e8f0"/>
+                </svg>
+              </cj-knob>
+              <figcaption class="cap">day · night</figcaption>
+            </figure>
+          </div>
+          <div class="strip">
+            <figure>
+              <cj-knob value="72" readout="value" unit="%" decimals="0" label="lamp"
+                       interactive color="#f59e0b"></cj-knob>
+              <figcaption class="cap">brightness</figcaption>
+            </figure>
+            <figure>
+              <cj-knob value="41" liquid readout="none" color="#0ea5e9"
+                       style="--cj-liquid:#0ea5e9"><span slot="icon">💧</span></cj-knob>
+              <figcaption class="cap">tank</figcaption>
+            </figure>
+            <figure>
+              <cj-knob id="hero-light" button readout="none" style="--cj-thickness:11"
+                       states="stop:#ef4444, go:#22c55e, wait:#f59e0b"></cj-knob>
+              <figcaption class="cap">states</figcaption>
+            </figure>
+          </div>
+        </div>
+
+        <div class="scene" data-name="numbers" hidden>
+          <div class="lead">
+            <cj-heat class="big" id="hero-year" shape="bars" readout="none" scale="#22c55e"
+                     labels="D,J,F,M,A,M,J,J,A,S,O,N"
+                     style="--cj-size:168px">
+              <div slot="center" class="yr-mid"><b>2025</b><span id="hero-year-total">—</span></div>
+            </cj-heat>
+            <figure>
+              <cj-knob class="mid" id="hero-stock" value="68" min="0" max="120"
+                       readout="value" decimals="2" unit="$" label="ACME"
+                       trend="1.84" trend-unit="%" color="#16a34a"
+                       style="--cj-thickness:7"></cj-knob>
+              <figcaption class="cap">trend</figcaption>
+            </figure>
+          </div>
+          <div class="strip">
+            <figure>
+              <cj-knob value="2841" min="0" max="4000" readout="value" decimals="0"
+                       label="kWh" gradient="#22c55e,#f59e0b,#ef4444"></cj-knob>
+              <figcaption class="cap">meter</figcaption>
+            </figure>
+            <figure>
+              <cj-knob value="63" readout="value" unit="%" decimals="0" label="data"
+                       benchmark="80" zones="80-100:#fee2e2" color="#7c3aed"></cj-knob>
+              <figcaption class="cap">against a cap</figcaption>
+            </figure>
+            <figure>
+              <cj-heat readout="none" style="--cj-size:78px;--cj-thickness:7"
+                values="7,6,6,5,5,6,8,11,14,17,20,22,24,25,24,22,19,16,14,12,10,9,8,7"></cj-heat>
+              <figcaption class="cap">a day</figcaption>
+            </figure>
+          </div>
+        </div>
       </div>
-      <div class="hint">all live · press play</div>
+
+      <div class="hero-foot">
+        <span class="scene-name" id="scene-name">vitals</span>
+        <div class="dots" id="hero-dots" role="tablist" aria-label="What it can do"></div>
+      </div>
     </div>
   </div>
 </section>
@@ -1620,13 +1775,64 @@ cj-knob::part(value) { <span class="a">filter</span>: <span class="s">drop-shado
   const listen = document.getElementById('ex-listen');
   const listenTrace = listen?.querySelector('cj-trace');
 
-  // ---- the hero's own two scripted bits -----------------------------------
+  // ---- the hero slider -----------------------------------------------------
+  {
+    const art = document.getElementById('hero-art');
+    const scenes = [...document.querySelectorAll('.scene')];
+    const dots = document.getElementById('hero-dots');
+    const sceneName = document.getElementById('scene-name');
+    if (art && scenes.length && dots) {
+      let at = 0;
+      let timer = 0;
+      const buttons = scenes.map((sc, i) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.setAttribute('role', 'tab');
+        b.setAttribute('aria-label', sc.dataset.name);
+        b.addEventListener('click', () => { show(i); hold(); });
+        dots.append(b);
+        return b;
+      });
+
+      const show = (i) => {
+        at = (i + scenes.length) % scenes.length;
+        scenes.forEach((sc, n) => sc.toggleAttribute('hidden', n !== at));
+        buttons.forEach((b, n) => b.setAttribute('aria-current', String(n === at)));
+        sceneName.textContent = scenes[at].dataset.name;
+      };
+
+      // A scene somebody is reading — or dragging a dial in — should not be
+      // taken off the screen underneath them. :focus-visible, not activeElement:
+      // clicking a dot focuses that dot, and "anything in here has focus" would
+      // then hold the slider still for good the first time anyone used it.
+      const busy = () => art.matches(':hover') || !!art.querySelector(':focus-visible');
+      const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const run = () => { if (!still) timer = setInterval(() => { if (!busy()) show(at + 1); }, 6000); };
+      const hold = () => { clearInterval(timer); run(); };
+
+      show(0);
+      run();
+    }
+  }
+
+  // ---- the hero's own scripted bits ---------------------------------------
   {
     const hy = document.getElementById('hero-year');
-    // 52 weeks, not 365 days: at eighty pixels a year of towers is a smudge,
-    // and a week each is the same shape you can actually count
-    if (hy) hy.values = Array.from({ length: 52 }, (_, w) =>
-      Math.max(0, Math.round(60 + 52 * Math.sin((w / 52) * Math.PI * 2 - 1.6) + (w * 7 % 9) - 4)));
+    if (hy) {
+      const days = Array.from({ length: 365 }, (_, d) => {
+        const busy = Math.max(0, Math.sin((d - 190) / 365 * Math.PI * 2)) ** 2;
+        if (((d * 7919) % 100) >= 18 + busy * 78) return 0;
+        return Math.round(1 + busy * 40 + ((d * 6151) % 37) * (0.4 + busy * 2.2));
+      });
+      hy.values = days;
+      const tot = document.getElementById('hero-year-total');
+      if (tot) tot.textContent = days.reduce((a, b) => a + b, 0).toLocaleString();
+    }
+    const sky = document.getElementById('hero-sky');
+    if (sky) sky.addEventListener('cj-press', (e) => {
+      sky.setAttribute('label', e.detail.pressed ? 'night' : 'day');
+      sky.setAttribute('color', e.detail.pressed ? '#64748b' : '#fbbf24');
+    });
   }
   const heroPlay = document.getElementById('hero-play');
   let playing = false;
@@ -1645,6 +1851,11 @@ cj-knob::part(value) { <span class="a">filter</span>: <span class="s">drop-shado
     });
   }
   const wStock = document.getElementById('w-stock');
+
+  const heroVinyl = document.getElementById('hero-vinyl');
+  const heroListen = document.getElementById('hero-listen');
+  const heroListenTrace = heroListen?.querySelector('cj-trace');
+  const heroStock = document.getElementById('hero-stock');
 
   const exVinyl = document.getElementById('ex-vinyl');
   const exPlay = document.getElementById('ex-play');
@@ -1848,6 +2059,17 @@ cj-knob::part(value) { <span class="a">filter</span>: <span class="s">drop-shado
     // the record's own progress: spin= handles the platter, the ring is the side
     if (exVinyl && exVinyl.pressed) {
       exVinyl.value = ((+exVinyl.value + dt * 3.5) % 100).toFixed(2);
+    }
+
+    if (heroVinyl && heroVinyl.pressed) {
+      heroVinyl.value = ((+heroVinyl.value + dt * 3.5) % 100).toFixed(2);
+    }
+    if (heroListen && heroListenTrace) heroListen.value = (heroListenTrace.level * 100).toFixed(1);
+    if (heroStock) {
+      const drift = Math.sin(now / 5200) * 9 + Math.sin(now / 1700) * 1.6;
+      heroStock.value = (68 + drift).toFixed(2);
+      heroStock.setAttribute('trend', drift.toFixed(2));
+      heroStock.setAttribute('color', drift >= 0 ? '#16a34a' : '#dc2626');
     }
 
     // a price that never moves is not a price

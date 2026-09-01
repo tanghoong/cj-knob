@@ -185,6 +185,9 @@ const labelInside = await page.evaluate(() => {
     const lab = k.shadowRoot.querySelector('.label');
     if (lab.hasAttribute('hidden')) continue;
     const host = k.getBoundingClientRect();
+    // a dial in a hidden hero scene measures zero, and nothing about a box that
+    // is not being displayed can be outside anything
+    if (!host.width) continue;
     const l = lab.getBoundingClientRect();
     const cx = host.left + host.width / 2, cy = host.top + host.height / 2;
     // furthest corner of the label from the ring centre
@@ -795,8 +798,17 @@ const vu = await page.evaluate(async () => {
   await wait(1500);
   out.peakDecayed = +k.peak.toFixed(1);
 
-  // and it must stop: a settled meter should not still be animating
-  await wait(600);
+  // And it must stop. Waiting a fixed time is not enough: with a release tau of
+  // half a second the reading needs about seven to be within the loop's idle
+  // threshold, and observing before then catches the readout rounding over one
+  // last time. So wait for it to actually stop moving.
+  let last = k.shown;
+  for (let i = 0; i < 200; i++) {
+    await wait(50);
+    if (Math.abs(k.shown - last) < 1e-6 && k.peak <= k.shown) break;
+    last = k.shown;
+  }
+  await wait(150);
   const settled = k.shown;
   let churn = 0;
   const obs = new MutationObserver((ms) => { for (const m of ms) churn += m.addedNodes.length; });
@@ -1993,6 +2005,63 @@ const centred = await page.evaluate(async () => {
 check('a spinning middle turns about its own centre',
   centred.drift < 0.6 && centred.worst < 0.6,
   JSON.stringify(centred));
+
+// --- the hero slider ---
+const slider = await page.evaluate(() => {
+  const scenes = [...document.querySelectorAll('.scene')];
+  const dots = [...document.querySelectorAll('#hero-dots button')];
+  return {
+    scenes: scenes.length,
+    dots: dots.length,
+    names: scenes.map((s) => s.dataset.name),
+    shown: scenes.filter((s) => !s.hasAttribute('hidden')).length,
+    labelled: dots.every((d) => d.getAttribute('aria-label')),
+    current: dots.filter((d) => d.getAttribute('aria-current') === 'true').length,
+  };
+});
+check('the hero has scenes', slider.scenes >= 3, String(slider.scenes));
+check('one dot per scene', slider.dots === slider.scenes, slider.dots + " vs " + slider.scenes);
+check('exactly one hero scene is shown', slider.shown === 1, String(slider.shown));
+check('exactly one dot is current', slider.current === 1, String(slider.current));
+check('every dot says which scene it is', slider.labelled, JSON.stringify(slider.names));
+
+// each dot has to actually select its own scene
+const picked = [];
+for (let i = 0; i < slider.dots; i++) {
+  await page.locator('#hero-dots button').nth(i).click();
+  await page.waitForTimeout(140);
+  picked.push(await page.evaluate(() => {
+    const on = [...document.querySelectorAll('.scene')].filter((s) => !s.hasAttribute('hidden'));
+    return { count: on.length, name: on[0]?.dataset.name,
+             label: document.getElementById('scene-name').textContent };
+  }));
+}
+check('each dot shows its own scene, and only it',
+  picked.every((p, i) => p.count === 1 && p.name === slider.names[i] && p.label === p.name),
+  JSON.stringify(picked));
+
+// Pausing must key off :focus-visible, not "anything in here has focus" — a dot
+// keeps focus after a click, which would hold the slider still for good.
+await page.mouse.move(4, 4);
+const advanced = await page.evaluate(async () => {
+  const name = () => document.getElementById('scene-name').textContent;
+  const before = name();
+  await new Promise((r) => setTimeout(r, 6800));
+  return { before, after: name() };
+});
+check('the slider advances on its own after a dot was clicked',
+  advanced.before !== advanced.after, advanced.before + " -> " + advanced.after);
+
+await page.locator('#hero-art').hover();
+const held = await page.evaluate(async () => {
+  const name = () => document.getElementById('scene-name').textContent;
+  const before = name();
+  await new Promise((r) => setTimeout(r, 7000));
+  return { before, after: name() };
+});
+check('and holds still while the pointer is on it',
+  held.before === held.after, held.before + " -> " + held.after);
+await page.mouse.move(4, 4);
 
 check('still no page errors at end', errors.length === 0, errors.join(' | '));
 
