@@ -267,6 +267,72 @@ check('icon sits above a label when both are present', noNumber.iconWithLabel < 
   `${noNumber.iconWithLabel}px`);
 check('label sits below the icon', noNumber.labelWithIcon > 2, `${noNumber.labelWithIcon}px`);
 
+// --- needle and bearing labels ---
+const compass = await page.evaluate(() => {
+  const k = document.querySelector('#playground cj-knob[needle]');
+  const r = k.shadowRoot;
+  return {
+    hidden: r.querySelector('.needle').hasAttribute('hidden'),
+    marks: r.querySelectorAll('.marks text').length,
+    major: r.querySelectorAll('.marks text.major').length,
+    first: r.querySelector('.marks text')?.textContent,
+    // .marks lives outside .rings so the captions stay upright
+    outsideRings: !r.querySelector('.rings .marks'),
+  };
+});
+check('needle renders when the attribute is set', !compass.hidden);
+check('labels="N,NE,…" draws one caption each', compass.marks === 8, String(compass.marks));
+check('cardinal captions are marked major', compass.major === 4, String(compass.major));
+check('first caption is N', compass.first === 'N', compass.first);
+check('captions sit outside the rotating group', compass.outsideRings);
+
+// A closed dial must take the short way round: 350° -> 10° is +20°, not -340°.
+const shortWay = await page.evaluate(async () => {
+  const k = document.querySelector('#playground cj-knob[needle]');
+  const angle = () => parseFloat(k.style.getPropertyValue('--cj-needle-angle'));
+  k.value = 350; const a = angle();
+  k.value = 10;  const b = angle();
+  return +(b - a).toFixed(2);
+});
+check('needle unwraps across the 0° seam', Math.abs(shortWay - 20) < 0.5, `${shortWay}deg`);
+
+// --- radar ---
+const radar = await page.evaluate(async () => {
+  const el = document.createElement('cj-radar');
+  el.setAttribute('rings', '5');
+  el.setAttribute('spokes', '12');
+  el.setAttribute('labels', 'N,E,S,W');
+  el.setAttribute('blips', '0:1, 90:0.5');
+  document.body.append(el);
+  await new Promise((r) => requestAnimationFrame(r));
+  const r = el.shadowRoot;
+  const first = r.querySelector('.blips circle');
+  const out = {
+    defined: !!customElements.get('cj-radar'),
+    rings: r.querySelectorAll('.grid circle').length,
+    spokes: r.querySelectorAll('.grid line').length,
+    marks: r.querySelectorAll('.marks text').length,
+    blips: r.querySelectorAll('.blips circle').length,
+    // bearing 0 at range 1 is due north: x = 50, y = 50 - 46
+    northX: +first.getAttribute('cx'),
+    northY: +first.getAttribute('cy'),
+    apiLen: el.blips.length,
+  };
+  el.scatter(7); out.afterScatter = el.blips.length;
+  el.clearBlips(); out.afterClear = el.blips.length;
+  el.remove();
+  return out;
+});
+check('cj-radar is defined', radar.defined);
+check('rings="5" draws 5 range rings', radar.rings === 5, String(radar.rings));
+check('spokes="12" draws 12 spokes', radar.spokes === 12, String(radar.spokes));
+check('radar labels render', radar.marks === 4, String(radar.marks));
+check('blips attribute parses', radar.blips === 2 && radar.apiLen === 2, String(radar.blips));
+check('bearing 0 range 1 plots due north', radar.northX === 50 && radar.northY === 4,
+  `${radar.northX},${radar.northY}`);
+check('scatter(7) sets seven contacts', radar.afterScatter === 7, String(radar.afterScatter));
+check('clearBlips empties the scope', radar.afterClear === 0, String(radar.afterClear));
+
 check('still no page errors at end', errors.length === 0, errors.join(' | '));
 
 await browser.close();

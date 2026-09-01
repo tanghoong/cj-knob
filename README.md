@@ -47,6 +47,9 @@ Or drop it in with no tooling at all:
 | `step` | `1` | Increment for dragging and arrow keys. |
 | `disabled` | — | Dims it and ignores input. |
 | `animate-in` | — | Grow from empty on first paint. |
+| `needle` | — | A pointer that swings to the value, taking the short way round a closed dial. |
+| `labels` | — | Upright captions spaced round the arc: `"N,E,S,W"`. Every fourth reads heavier. |
+| `label-radius` | `29.5` | How far out the captions sit, in the 0–100 viewBox. |
 | `zones` | — | Coloured bands on the track, in value units: `"0-60:#22c55e, 60-85:#f59e0b, 85-100:#ef4444"`. |
 | `segments` | — | Consecutive stacked slices in place of the value ring: `"42:#3b82f6, 23:#8b5cf6"`. |
 | `ticks` | — | Number of graduations around the arc. |
@@ -69,6 +72,10 @@ cj-knob {
   --cj-muted: #6b7280;
   --cj-num-size: 2rem;     /* defaults to 20% of --cj-size, floored at 13px */
   --cj-label-size: .8rem;  /* defaults to 8.2% of --cj-size, floored at 9px  */
+  --cj-needle: #e0433f;     /* the pointer */
+  --cj-mark: #6b7280;       /* bearing captions */
+  --cj-mark-major: #14161a; /* every fourth caption */
+  --cj-mark-size: 7px;      /* in the 0-100 viewBox, so it scales */
   --cj-duration: 600ms;
   --cj-easing: cubic-bezier(.22,.61,.36,1);
 }
@@ -105,6 +112,44 @@ knob.addEventListener('cj-change', (e) => console.log(e.detail.value));
 - Arrow keys step by `step`, PageUp/PageDown by ten steps, Home/End jump to the bounds.
 - Animation is dropped under `prefers-reduced-motion: reduce`.
 - Geometry and ARIA are written synchronously on connect, so assistive tech and server-side snapshots never see an empty element.
+
+## `<cj-radar>`
+
+A knob describes one value on a rim; a radar describes many contacts across a whole
+field. Different geometry and a different API, so it is a sibling element rather than
+a mode — import it only if you want it.
+
+```html
+<script type="module" src="cj-knob/src/cj-radar.js"></script>
+
+<cj-radar period="4" rings="4" spokes="8" labels="N,E,S,W"
+          blips="35:0.62, 118:0.34, 214:0.78"></cj-radar>
+```
+
+| Attribute | Default | Description |
+|---|---|---|
+| `rings` | `4` | Concentric range rings. |
+| `spokes` | `8` | Bearing spokes. `0` for none. |
+| `period` | — | Seconds per sweep revolution. Omit or `0` for a static scope. |
+| `labels` | — | Bearing captions, spaced evenly from north. |
+| `blips` | — | Contacts as `bearing:range` pairs, range 0 at the centre to 1 at the rim. |
+| `interactive` | — | Clicking the scope adds a contact where you clicked. |
+
+Contacts are also a property, so they do not have to go through an attribute:
+
+```js
+radar.blips = [{ bearing: 45, range: 0.6 }];
+radar.addBlip({ bearing: 190, range: 0.3 });
+radar.scatter(6);
+radar.clearBlips();
+
+// the sweep lights each contact as it crosses it
+radar.addEventListener("cj-detect", (e) => console.log(e.detail.bearing));
+```
+
+Theme it with `--cjr-field`, `--cjr-grid`, `--cjr-beam`, `--cjr-blip`, `--cjr-mark`
+and `--cjr-size`. With no `period` the beam is not drawn at all and the contacts
+carry their own contrast, which is also what happens under `prefers-reduced-motion`.
 
 ## The instrument lab
 
@@ -150,7 +195,7 @@ The demo lives at the repository root so that `./src/cj-knob.js` never points ou
 
 ```sh
 npm run dev     # then open http://127.0.0.1:8765/
-npm test        # Playwright checks: geometry, keyboard, pointer, a11y
+npm test        # 60 Playwright checks: geometry, needle, radar, keyboard, pointer, a11y
 ```
 
 ## Browser support
