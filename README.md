@@ -79,7 +79,7 @@ Or drop it in with no tooling at all:
 | `toggle` | — | Makes a `button` latch. Pairs with `slot="icon-on"` for the pressed glyph. |
 | `pressed` | — | Whether a `toggle` button is on. Also `.pressed`. |
 | `gas` | — | Fills the face with drifting haze whose density is the value. |
-| `pulse` | `60` | A ring that swells and fades at this many beats per minute. |
+| `pulse` | `60` | A ring that swells and fades at this many beats per minute. `pulse="auto"` takes the rate from the dial's own reading. |
 | `inset` | `low` | Where `slot="inset"` content sits: `low` under the number, `fill` up the middle. |
 | `ballistics` | — | Meter ballistics: `"attack release"` in seconds, one number for both. |
 | `peak-hold` | `1.2` | Seconds to hold the highest reading before it falls. Draws a marker in `--cj-peak`. |
@@ -207,10 +207,22 @@ thing left to carry a value is how much of the dial is occupied by it:
          style="--cj-gas:#a3e635"></cj-knob>
 ```
 
-Eighteen blurred blobs are scattered on the golden angle so they never band, and
+Eleven blurred blobs are scattered on the golden angle so they never band, and
 they are built once: the value decides how many exist, not where they are. A
 rising value therefore thickens the same cloud rather than rearranging it, and
 the blob at the edge fades in instead of popping.
+
+Few and large, not many and small — small blobs read as a rash of dots, while
+large overlapping ones blur into the single soft mass that actually says "gas".
+
+For a **liquid** in a dial, note there is no tube to nest inside the ring: the
+face itself is the vessel. `liquid` fills it, and a thermometer is just that
+plus graduations.
+
+```html
+<cj-knob value="62" liquid readout="value" unit="°C" label="coolant"
+         ticks="20" tick-major="5" style="--cj-liquid:#35a7ff"></cj-knob>
+```
 
 ### Putting something inside the face
 
@@ -345,13 +357,19 @@ which reads as the worst possible thing.
 | `grid` | — | Graph paper behind the trace, ruled square or polar to match the shape. |
 | `pen` | — | `pen="none"` hides the writing head. |
 | `readout-at` | `top left` | Which corner the readout sits in: `"bottom right"` and the other three. A resting trace sits low, so the bottom corner is the one place it must not go by default. |
+
+A wash sits under the readout, dark at its corner and gone by the middle. The
+trace runs behind the text and the two are the same weight of line, so without it
+the digits and the waveform interleave. `--cj-scrim` is the colour; it flips for
+a light page on its own.
 | `sweep` / `start` / `amplitude` | `360` / `-90` / `.18` | Ring shape only: the arc it covers and how far it deflects. |
 | `readout` | auto | The rate when `beat` is set, else the last sample. `none` to hide. |
 | `unit` / `decimals` / `label` / `color` | — | As on `<cj-knob>`. |
 
 `voice mirror` is the other kind of trace — a sound wave rather than a
-heartbeat. It jumps while someone is talking and lies flat while nobody is, and
-the flat part is the point: a nearly-still line still reads as noise, so silence
+heartbeat, and it is meant for the inside of a dial rather than as a strip of its
+own. It jumps while someone is talking and lies flat while nobody is, and the
+flat part is the point: a nearly-still line still reads as noise, so silence
 writes the baseline exactly. `.level` is how loud the talker is right now
 (exactly `0` between phrases), `.speaking` is the same thing as a boolean, and
 `cj-speech` fires on each change — which is enough to drive a ring around it:
@@ -408,12 +426,14 @@ them, which matters when there are three hundred.
 | --- | --- | --- |
 | `values` | — | The list: `"4,6,9,14,19"`. Also `.values = [...]` from script. |
 | `shape` | `cells` | `cells` for blocks of colour, `bars` for towers standing off a baseline. |
+| `labels` | — | Captions spaced round the ring: `"Jan,Feb,…"`. |
+| `label-radius` | `49` / `47` | How far out the captions sit, in the 0–100 viewBox. |
 | `scale` | 5-stop blue→red | Colour stops the values are mapped across. |
 | `min` / `max` | the data | The colour domain. Omit to fit the data. |
 | `rows` | `1` | Split the list across this many concentric rings. |
 | `sweep` / `start` | `360` / `-90` | The arc the cells cover. |
 | `interactive` | — | Hovering lifts a cell out of the ring and reads it in the middle. |
-| `readout` | auto | The hovered cell, or the ring's average. `none` to hide. |
+| `readout` | auto | The hovered cell, else the ring's `average`; `sum` for a total, `max` for the biggest, `none` to hide. |
 | `unit` / `decimals` / `label` | — | As on `<cj-knob>`. |
 
 `shape="bars"` draws each value as a tower instead of a block, which is what
@@ -427,13 +447,24 @@ turns a year into something you can read like a skyline:
 document.querySelector('cj-heat').values = rainfallByDay;   // 365 numbers
 ```
 
-Length carries the value and colour carries it again, which is why bars default
-to a calmer scale than cells do: a five-stop rainbow across three hundred towers
-says the same thing twice and reads as noise. That default ramp moves through hue
-rather than lightness, so neither end disappears into a dark page or a light one.
+Length already carries the value, so bars default to **one colour** rather than a
+ramp: three hundred and sixty-five hues is three hundred and sixty-five things to
+read instead of one shape. Pass `scale` when you want the ramp back.
+
 A value of zero still gets a stub, so a quiet day reads as a quiet day and not as
 a hole in the ring, and the whole angular slot is hoverable — nobody can be asked
-to hit a one-pixel line.
+to hit a one-pixel line. Bars also draw a rim at the top of the band, because
+without a ceiling a tall tower only looks tall; against one you can see how tall.
+
+`slot="center"` puts your own markup in the middle instead of the computed
+readout, which is how the year above gets a year and a total stacked:
+
+```html
+<cj-heat shape="bars" readout="none" scale="#22c55e"
+         labels="Dec,Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov">
+  <div slot="center"><b>2025</b><span>6,862</span></div>
+</cj-heat>
+```
 
 Properties: `.values`, `.rows`, `.hot`. Event: `cj-hover` with
 `{index, value}` — `index` is `-1` when the pointer leaves the cells.
@@ -585,7 +616,7 @@ The demo lives at the repository root so that `./src/cj-knob.js` never points ou
 
 ```sh
 npm run dev     # then open http://127.0.0.1:8765/
-npm test        # 249 Playwright checks: geometry, needle, radar, horizon, keyboard, a11y
+npm test        # 250 Playwright checks: geometry, needle, radar, horizon, keyboard, a11y
 ```
 
 ## Browser support

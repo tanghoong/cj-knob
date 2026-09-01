@@ -11,8 +11,11 @@ export declare class CJHeat extends HTMLElement {
   /**
    * Presentational attributes with no property mirror:
    * `shape` (`"cells"` | `"bars"`), `scale`, `min`, `max`, `sweep`, `start`,
-   * `label`, `unit`, `decimals`, `readout`, `interactive`.
+   * `labels`, `label-radius`, `label`, `unit`, `decimals`, `interactive`, and
+   * `readout` (`"average"` | `"sum"` | `"max"` | `"none"`).
    * Set them with `setAttribute`.
+   *
+   * Slot: `center` replaces the computed readout with your own markup.
    *
    * Without `min`/`max` the colour scale spans the data's own extremes.
    */
