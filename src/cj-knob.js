@@ -201,6 +201,11 @@ template.innerHTML = `
   :host([button]:active) .hit { opacity: 1; transform: scale(.94); }
   :host([button]) .icon { transition: transform 140ms ease; transform-origin: 50% 50%; }
   :host([button]:active) .icon { transform: scale(.9); }
+  /* A button's caption is a caption: it belongs clear of the glyph, near the
+     foot of the face, not tucked against it the way a number's label is. */
+  :host([button]) .center:has(.readout[hidden]) {
+    --label-y: calc(var(--cj-size) * .25);
+  }
   /* only one of the two glyphs is ever shown; which one is the pressed state */
   .icon-on { display: none; }
   :host([pressed]) .icon-off { display: none; }
@@ -214,7 +219,7 @@ template.innerHTML = `
   .gas circle {
     fill: var(--cj-gas);
     stroke: none;
-    animation: cj-waft var(--cj-waft, 9s) ease-in-out infinite alternate;
+    animation: cj-waft var(--cj-waft, 14s) ease-in-out infinite alternate;
   }
   @keyframes cj-waft {
     from { transform: translate(0, 0) scale(1); }
@@ -494,7 +499,7 @@ template.innerHTML = `
   <defs>
     <clipPath id="cj-vessel"><circle cx="50" cy="50" r="33"/></clipPath>
     <filter id="cj-haze" x="-30%" y="-30%" width="160%" height="160%">
-      <feGaussianBlur stdDeviation="3.4"/>
+      <feGaussianBlur stdDeviation="5.5"/>
     </filter>
     <mask id="cj-arcmask" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100">
       <circle class="value-mask" cx="50" cy="50" r="42" pathLength="100"
@@ -1144,22 +1149,24 @@ export class CJKnob extends HTMLElement {
     this.#els.gas.toggleAttribute('hidden', !on);
     if (!on) return;
 
-    const COUNT = 18;
+    const COUNT = 11;
     if (!this.#gasBuilt) {
       const frag = document.createDocumentFragment();
       for (let i = 0; i < COUNT; i++) {
         // A deterministic scatter, not Math.random: two dials showing the same
         // value should look the same, and a re-render must not reshuffle it.
         const a = i * 2.399963;                 // the golden angle, so they never band
-        const r = 6 + 26 * Math.sqrt((i + 0.5) / COUNT);
+        const r = 4 + 20 * Math.sqrt((i + 0.5) / COUNT);
         const c = document.createElementNS(SVG_NS, 'circle');
         c.setAttribute('cx', (50 + Math.cos(a) * r).toFixed(2));
         c.setAttribute('cy', (50 + Math.sin(a) * r).toFixed(2));
-        c.setAttribute('r', (4.5 + (i % 5) * 1.6).toFixed(2));
+        // Big and few, not small and many. Small blobs read as a rash of dots;
+        // large overlapping ones blur into the single soft mass that says "gas".
+        c.setAttribute('r', (11 + (i % 4) * 3).toFixed(2));
         c.style.setProperty('--dx', `${(Math.cos(a * 3.1) * 7).toFixed(2)}px`);
         c.style.setProperty('--dy', `${(Math.sin(a * 2.7) * 7).toFixed(2)}px`);
         c.style.setProperty('--ds', (1 + (i % 4) * 0.09).toFixed(2));
-        c.style.setProperty('--cj-waft', `${(7 + (i % 6) * 1.3).toFixed(1)}s`);
+        c.style.setProperty('--cj-waft', `${(12 + (i % 6) * 2.4).toFixed(1)}s`);
         c.style.animationDelay = `-${(i * 0.7).toFixed(1)}s`;
         frag.append(c);
       }
@@ -1174,7 +1181,7 @@ export class CJKnob extends HTMLElement {
       // the blob at the edge fades in rather than popping, so a slowly rising
       // value thickens smoothly instead of ticking over like a counter
       const o = i < live ? 1 : (i === live ? edge : 0);
-      const next = (o * 0.42).toFixed(3);
+      const next = (o * 0.3).toFixed(3);
       if (blobs[i].getAttribute('opacity') !== next) blobs[i].setAttribute('opacity', next);
     }
   }
@@ -1240,15 +1247,22 @@ export class CJKnob extends HTMLElement {
 
   /**
    * pulse — a ring that breathes at a rate, so a heart or an engine reads as
-   * having a rhythm and not just a number. The value is beats per minute, which
-   * is what the thing being measured is usually quoted in; bare `pulse` is 60.
+   * having a rhythm and not just a number.
+   *
+   * The value is beats per minute. `pulse="auto"` takes it from the dial's own
+   * reading instead, which is what a heart rate dial actually wants: the ring
+   * speeds up and slows down with the number, rather than sitting at whatever
+   * rate it was given once. Bare `pulse` is 60.
    */
   #renderPulse() {
     const on = this.hasAttribute('pulse');
     this.#els.pulse.toggleAttribute('hidden', !on);
     if (!on) return;
-    const bpm = clamp(num(this.getAttribute('pulse'), 60), 1, 600);
-    this.style.setProperty('--cj-pulse-period', `${(60 / bpm).toFixed(3)}s`);
+    const spec = this.getAttribute('pulse');
+    const bpm = clamp(spec === 'auto' ? this.shown : num(spec, 60), 1, 600);
+    // rounded, or every frame of a moving value restarts the animation and the
+    // ring never gets far enough through a breath to be seen taking one
+    this.style.setProperty('--cj-pulse-period', `${(60 / Math.round(bpm)).toFixed(2)}s`);
   }
 
   #renderText(raw, range) {

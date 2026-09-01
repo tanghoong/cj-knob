@@ -46,10 +46,11 @@ const DEFAULT_SCALE = '#123f6d,#1f6feb,#3fb950,#d29922,#f85149';
 // across a five-stop rainbow says the same thing twice and three hundred towers
 // of it read as noise. One hue deepening is enough to add depth without
 // competing with the shape.
-// The ramp moves through hue, not lightness: a light-to-dark ramp loses its
-// high values against a dark page and its low ones against a light page, and a
-// bar ring is a thing people put on both.
-const DEFAULT_BAR_SCALE = '#38bdf8,#3b82f6,#8b5cf6';
+// One colour. Length is already saying how much, and a year of towers each in a
+// different hue is three hundred and sixty-five things to read instead of one
+// shape. A ramp is still there for the asking — pass scale= — but the default
+// is the version you can take in at a glance.
+const DEFAULT_BAR_SCALE = '#22c55e';
 
 const template = document.createElement('template');
 template.innerHTML = `
@@ -85,8 +86,23 @@ template.innerHTML = `
   circle, line { fill: none; stroke-linecap: butt; }
   /* the baseline the towers stand on, so a short one still reads as a value and
      not as a gap in the ring */
-  .base { stroke: var(--cj-empty); stroke-width: .8; }
-  .base[hidden] { display: none; }
+  .base, .rim { stroke: var(--cj-empty); stroke-width: .8; }
+  .base[hidden], .rim[hidden] { display: none; }
+
+  /* month captions, sitting outside the towers the way a clock face carries its
+     hours — the ring says how much, these say when */
+  .marks text {
+    fill: var(--cj-mark, var(--cj-muted));
+    font-size: var(--cj-mark-size, 4.6px);
+    font-weight: 600;
+    text-anchor: middle;
+    dominant-baseline: middle;
+  }
+
+  /* anything the author wants in the middle instead of the computed readout */
+  .center ::slotted(*) { text-align: center; }
+  .center:has(::slotted(*)) .readout,
+  .center:has(::slotted(*)) .label { display: none; }
 
   /* the cell under the pointer lifts out of the ring rather than changing colour,
      which would be indistinguishable from it simply holding a different value */
@@ -113,10 +129,15 @@ template.innerHTML = `
 
 <svg viewBox="0 0 100 100" part="svg" aria-hidden="true" focusable="false">
   <circle class="base" part="base" cx="50" cy="50" r="25" hidden/>
+  <!-- the ceiling the towers are measured against; without it a tall one just
+       looks tall, with it you can see how tall it is -->
+  <circle class="rim" part="rim" cx="50" cy="50" r="46" hidden/>
   <g class="cells" part="cells"></g>
+  <g class="marks" part="marks"></g>
 </svg>
 
 <div class="center" part="center">
+  <slot name="center"></slot>
   <div class="readout" part="readout"><span class="num"></span><span class="unit"></span></div>
   <div class="label" part="label" hidden></div>
 </div>
@@ -124,7 +145,7 @@ template.innerHTML = `
 
 export class CJHeat extends HTMLElement {
   static observedAttributes = [
-    'values', 'scale', 'min', 'max', 'rows', 'sweep', 'start', 'shape',
+    'values', 'scale', 'min', 'max', 'rows', 'sweep', 'start', 'shape', 'labels', 'label-radius',
     'label', 'unit', 'decimals', 'readout', 'interactive',
   ];
 
@@ -134,6 +155,7 @@ export class CJHeat extends HTMLElement {
   #values = [];
   #hot = -1;
   #sig = '';
+  #markSig = '';
 
   constructor() {
     super();
@@ -142,6 +164,8 @@ export class CJHeat extends HTMLElement {
     this.#els = {
       cells: this.#root.querySelector('.cells'),
       base: this.#root.querySelector('.base'),
+      rim: this.#root.querySelector('.rim'),
+      marks: this.#root.querySelector('.marks'),
       readout: this.#root.querySelector('.readout'),
       num: this.#root.querySelector('.num'),
       unit: this.#root.querySelector('.unit'),
@@ -196,7 +220,10 @@ export class CJHeat extends HTMLElement {
   #stops() {
     const spec = this.getAttribute('scale') || (this.#bars ? DEFAULT_BAR_SCALE : DEFAULT_SCALE);
     const stops = spec.split(',').map((s) => s.trim()).filter(Boolean).map(parseColor);
-    return stops.length >= 2 ? stops : [parseColor('#1f6feb'), parseColor('#f85149')];
+    if (stops.length >= 2) return stops;
+    // one colour is a legitimate scale: every cell the same, length doing the work
+    if (stops.length === 1) return [stops[0], stops[0]];
+    return [parseColor('#1f6feb'), parseColor('#f85149')];
   }
 
   get #bars() { return this.getAttribute('shape') === 'bars'; }
@@ -236,7 +263,11 @@ export class CJHeat extends HTMLElement {
     // three hundred nodes to change three hundred colours.
     const bars = this.#bars;
     this.#els.base.toggleAttribute('hidden', !bars);
-    if (bars) this.#els.base.setAttribute('r', String(this.#band(rows).inner));
+    this.#els.rim.toggleAttribute('hidden', !bars);
+    if (bars) {
+      this.#els.base.setAttribute('r', String(this.#band(rows).inner));
+      this.#els.rim.setAttribute('r', String(this.#band(rows).outer + 1));
+    }
 
     const perRow = Math.ceil(n / rows);
     const sig = `${n}|${rows}|${sweep}|${thickness}|${gapFrac}|${bars}`;
@@ -326,7 +357,35 @@ export class CJHeat extends HTMLElement {
       c.classList.toggle('hot', i === this.#hot);
     }
 
+    this.#renderMarks(sweep, start);
     this.#renderText();
+  }
+
+  /**
+   * labels="Jan,Feb,…" — upright captions spaced round the ring, drawn outside
+   * the towers. Geometry, so it is rebuilt only when the spec or the arc moves.
+   */
+  #renderMarks(sweep, start) {
+    const spec = this.getAttribute('labels');
+    const r = num(this.getAttribute('label-radius'), this.#bars ? 49 : 47);
+    const sig = `${spec}|${r}|${sweep}|${start}`;
+    if (sig === this.#markSig) return;
+    this.#markSig = sig;
+    if (!spec) return void this.#els.marks.replaceChildren();
+    const parts = spec.split(',').map((x) => x.trim());
+    // a closed ring must not stack the last caption on top of the first
+    const span = sweep >= 360 ? parts.length : Math.max(1, parts.length - 1);
+    const frag = document.createDocumentFragment();
+    parts.forEach((text, i) => {
+      if (!text) return;
+      const a = (start + (i / span) * sweep) * Math.PI / 180;
+      const t = document.createElementNS(SVG_NS, 'text');
+      t.setAttribute('x', (50 + Math.cos(a) * r).toFixed(2));
+      t.setAttribute('y', (50 + Math.sin(a) * r).toFixed(2));
+      t.textContent = text;
+      frag.append(t);
+    });
+    this.#els.marks.replaceChildren(frag);
   }
 
   #renderText() {
@@ -338,9 +397,13 @@ export class CJHeat extends HTMLElement {
       const finite = this.#values.filter(Number.isFinite);
       // with nothing under the pointer the middle shows the average, which is the
       // one number that says something about the whole ring rather than one cell
-      const v = this.#hot >= 0
-        ? this.#values[this.#hot]
-        : (finite.length ? finite.reduce((a, b) => a + b, 0) / finite.length : NaN);
+      // A ring of days has a total; a ring of temperatures has an average. Which
+      // one the middle should show is the author's call, not ours to guess.
+      const total = finite.reduce((a, b) => a + b, 0);
+      const resting = mode === 'sum' ? total
+        : mode === 'max' ? (finite.length ? Math.max(...finite) : NaN)
+        : (finite.length ? total / finite.length : NaN);
+      const v = this.#hot >= 0 ? this.#values[this.#hot] : resting;
       setText(this.#els.num, Number.isFinite(v) ? v.toFixed(decimals) : '—');
       setText(this.#els.unit, this.getAttribute('unit') ?? '');
     }

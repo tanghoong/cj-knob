@@ -1283,8 +1283,8 @@ const pulse = await page.evaluate(async () => {
 });
 check('no pulse ring without the attribute', pulse.offByDefault);
 check('pulse shows the ring', pulse.shown);
-check('the period comes from the rate', pulse.period === '0.500s', pulse.period);
-check('bare pulse is 60 bpm', pulse.bare === '1.000s', pulse.bare);
+check('the period comes from the rate', pulse.period === '0.50s', pulse.period);
+check('bare pulse is 60 bpm', pulse.bare === '1.00s', pulse.bare);
 check('the ring is actually animating', pulse.opacities > 1, String(pulse.opacities));
 check('removing pulse hides the ring again', pulse.offAgain);
 
@@ -1320,6 +1320,12 @@ const bars = await page.evaluate(async () => {
   out.maxReach = Math.max(...many.map((l) => Math.hypot(+l.getAttribute('x2') - 50, +l.getAttribute('y2') - 50)));
   h.setAttribute('values', '0,25,50,75,100');
   await wait(50);
+  h.setAttribute('scale', '#1f6feb,#f85149');
+  await wait(50);
+  out.rampColours = new Set([...h.shadowRoot.querySelectorAll('.cells line')]
+    .map((l) => l.getAttribute('stroke'))).size;
+  h.removeAttribute('scale');
+  await wait(50);
   window.__bars = h; window.__barHover = [];
   h.setAttribute('interactive', '');
   h.addEventListener('cj-hover', (e) => window.__barHover.push(e.detail));
@@ -1334,7 +1340,10 @@ check('tower length follows the value',
   bars.lengths.every((v, i) => i === 0 || v > bars.lengths[i - 1]), bars.lengths.join(' '));
 // a zero still gets a stub, so a quiet day is not a hole in the ring
 check('a zero value still draws a stub', bars.lengths[0] > 0, String(bars.lengths[0]));
-check('colour carries the value too', bars.colours === 5, String(bars.colours));
+// One colour by default — length already says how much, and 365 hues is 365
+// things to read instead of one shape. A ramp is still there for the asking.
+check('bars are one colour unless asked otherwise', bars.colours === 1, String(bars.colours));
+check('a scale= ramp still colours them', bars.rampColours > 1, String(bars.rampColours));
 check('365 towers is fine', bars.manyCount === 365, String(bars.manyCount));
 check('towers stay inside the box', bars.maxReach <= 46, bars.maxReach.toFixed(2));
 
@@ -1436,7 +1445,12 @@ const voice = await page.evaluate(async () => {
   document.body.append(t);
   const out = { states: [], levels: [] };
   t.addEventListener('cj-speech', (e) => out.states.push(e.detail.speaking));
-  await wait(1500);
+  // Sample while it is actually talking. Silence is a flat line by design, so
+  // measuring at a random moment is a coin toss on whether there is any
+  // deflection to find at all.
+  await wait(600);
+  for (let i = 0; i < 120 && !t.speaking; i++) await wait(25);
+  await wait(260);
   const d = t.shadowRoot.querySelector('.fresh').getAttribute('d') ?? '';
   // mirrored, the trace is drawn once each way and the two runs never join
   out.runs = d.split('M').length - 1;
@@ -1583,7 +1597,7 @@ const gas = await page.evaluate(async () => {
   return out;
 });
 check('no gas layer without the attribute', gas.off);
-check('a gas dial has a cloud', gas.total === 18, String(gas.total));
+check('a gas dial has a cloud', gas.total === 11, String(gas.total));
 check('density follows the value', gas.low < gas.high && gas.high < gas.full,
   [gas.low, gas.high, gas.full].join(' < '));
 check('a full dial lights the whole cloud', gas.full === gas.total, String(gas.full));

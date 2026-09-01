@@ -116,6 +116,23 @@ template.innerHTML = `
   .grid { stroke: var(--cj-grid); stroke-width: .5; fill: none; }
   .grid[hidden] { display: none; }
 
+  .scrim {
+    fill: var(--cj-scrim, rgba(0, 0, 0, .55));
+    stroke: none;
+    /* fades out across the half the readout is in, so it never dims the trace
+       on the far side of the strip */
+    mask: linear-gradient(to right, #000 0%, #000 18%, transparent 52%);
+  }
+  :host([readout-at~="right"]) .scrim {
+    mask: linear-gradient(to left, #000 0%, #000 18%, transparent 52%);
+  }
+  .scrim[hidden] { display: none; }
+  /* a ring puts its readout in the middle, where a corner wash means nothing */
+  :host([shape="ring"]) .scrim { display: none; }
+  @media (prefers-color-scheme: light) {
+    :host { --cj-scrim: rgba(255, 255, 255, .72); }
+  }
+
   path { fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-width: var(--cj-width); }
   .fresh { stroke: var(--cj-trace); }
   /* What the pen has not reached yet is last time round, still fading. Opacity
@@ -170,6 +187,10 @@ template.innerHTML = `
 
 <svg part="svg" aria-hidden="true" focusable="false" preserveAspectRatio="none">
   <rect class="face" part="face" x="0" y="0" width="100%" height="100%"/>
+  <!-- A wash under the readout, dark at the corner it sits in and gone by the
+       middle. The trace runs underneath the text and the two are the same
+       weight of line, so without this the digits and the waveform interleave. -->
+  <rect class="scrim" part="scrim" x="0" y="0" width="100%" height="100%" hidden/>
   <path class="grid" part="grid" hidden/>
   <path class="stale" part="stale"/>
   <path class="fresh" part="fresh"/>
@@ -215,7 +236,7 @@ export class CJTrace extends HTMLElement {
     this.#root.append(template.content.cloneNode(true));
     const q = (s) => this.#root.querySelector(s);
     this.#els = {
-      svg: q('svg'), grid: q('.grid'), fresh: q('.fresh'), stale: q('.stale'),
+      svg: q('svg'), grid: q('.grid'), fresh: q('.fresh'), stale: q('.stale'), scrim: q('.scrim'),
       pen: q('.pen'), readout: q('.readout'), num: q('.num'), unit: q('.unit'), label: q('.label'),
     };
   }
@@ -532,6 +553,8 @@ export class CJTrace extends HTMLElement {
     setText(this.#els.label, label ?? '');
     this.#els.label.toggleAttribute('hidden', !label);
     if (label && !this.hasAttribute('aria-label')) this.setAttribute('aria-label', label);
+    // no text in the corner, nothing to lift off the trace
+    this.#els.scrim.toggleAttribute('hidden', hide && !label);
   }
 
   // ---- the pen -----------------------------------------------------------
