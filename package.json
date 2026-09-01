@@ -10,7 +10,12 @@
     ".": {
       "types": "./types/cj-knob.d.ts",
       "default": "./src/cj-knob.js"
-    }
+    },
+    "./radar": {
+      "types": "./types/cj-radar.d.ts",
+      "default": "./src/cj-radar.js"
+    },
+    "./package.json": "./package.json"
   },
   "files": [
     "src",
@@ -18,7 +23,8 @@
     "README.md"
   ],
   "sideEffects": [
-    "./src/cj-knob.js"
+    "./src/cj-knob.js",
+    "./src/cj-radar.js"
   ],
   "keywords": [
     "knob",
@@ -29,7 +35,10 @@
     "radial",
     "svg",
     "web-component",
-    "custom-element"
+    "custom-element",
+    "radar",
+    "compass",
+    "needle"
   ],
   "author": "tanghoong",
   "license": "MIT",
