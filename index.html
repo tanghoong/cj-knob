@@ -320,7 +320,7 @@
         <li><b>11.2 KB</b><span>gzipped</span></li>
         <li><b>0</b><span>dependencies</span></li>
         <li><b>25</b><span>attributes</span></li>
-        <li><b>4</b><span>elements</span></li>
+        <li><b>5</b><span>elements</span></li>
       </ul>
 
       <div class="actions">
@@ -552,6 +552,44 @@
   <figure><cj-knob value="72" color="#019ae6" style="--cj-size:80px"></cj-knob><figcaption>80px</figcaption></figure>
   <figure><cj-knob value="72" color="#019ae6" style="--cj-size:120px" label="Load"></cj-knob><figcaption>120px</figcaption></figure>
   <figure><cj-knob value="72" color="#019ae6" style="--cj-size:180px" label="Load"></cj-knob><figcaption>180px</figcaption></figure>
+</div>
+
+<h3>&lt;cj-rings&gt; — concentric knobs without the arithmetic</h3>
+<div class="grid">
+  <div class="card">
+    <cj-rings id="ring-clock" style="--cjs-size:118px">
+      <cj-knob readout="none" max="12" data-h ticks="12" tick-major="3" color="#019ae6"></cj-knob>
+      <cj-knob readout="none" max="60" data-m color="#7c3aed"></cj-knob>
+      <cj-knob readout="none" max="60" data-s color="#f59e0b"></cj-knob>
+      <div slot="center" class="clock-time" data-t>--:--:--</div>
+    </cj-rings>
+    <code>three knobs, sizes worked out for you</code>
+  </div>
+  <div class="card">
+    <cj-rings style="--cjs-size:118px">
+      <cj-knob readout="none" value="82" color="#22c55e"></cj-knob>
+      <cj-knob readout="none" value="64" color="#0ea5e9"></cj-knob>
+      <cj-knob readout="none" value="41" color="#f43f5e"></cj-knob>
+      <div slot="center">🎯</div>
+    </cj-rings>
+    <code>activity rings + a centre slot</code>
+  </div>
+  <div class="card">
+    <cj-rings thickness=".09" gap=".03" style="--cjs-size:118px">
+      <cj-knob readout="none" value="80" color="#f59e0b"></cj-knob>
+      <cj-knob readout="none" value="55" color="#8b5cf6"></cj-knob>
+      <cj-knob readout="none" value="30" color="#14b8a6"></cj-knob>
+    </cj-rings>
+    <code>thickness=".09" gap=".03"</code>
+  </div>
+  <div class="card">
+    <cj-rings style="--cjs-size:118px">
+      <cj-knob readout="none" value="90" gradient="#22c55e,#ef4444"></cj-knob>
+      <cj-knob readout="none" value="70" gradient="#0ea5e9,#a855f7"></cj-knob>
+      <cj-knob readout="none" value="50" gradient="#facc15,#f97316"></cj-knob>
+    </cj-rings>
+    <code>each ring is still a whole knob<br>— here, three gradients</code>
+  </div>
 </div>
 
 <h3>Composed — the ring as time, with no digits at all</h3>
@@ -940,6 +978,23 @@ document.querySelector(<span class="s">'[data-count="1"]'</span>).onclick = () =
       </table>
     </div>
 
+    <h3>&lt;cj-rings&gt;</h3>
+    <p class="sub" style="margin-bottom:1rem">
+      Lays out; does not draw. The children stay ordinary knobs, so ticks, gradients,
+      needles and zones all still work on them and script still sets their values
+      directly. All it solves is the arithmetic of nesting rings evenly.
+    </p>
+    <div class="table-scroll">
+      <table class="api">
+        <thead><tr><th>Attribute</th><th>Default</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr><td><code>thickness</code></td><td><code>0.043</code></td><td>Ring weight as a fraction of the box, so every ring gets the same pixel stroke.</td></tr>
+          <tr><td><code>gap</code></td><td><code>0.065</code></td><td>Space between rings, also a fraction of the box.</td></tr>
+          <tr><td colspan="3" style="color:var(--dim)">Size comes from <code>--cjs-size</code>. Put anything in the middle with <code>slot="center"</code>. A ring the box has no room for is dropped rather than drawn inside out, and the layout redoes itself on resize.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
     <h3>&lt;cj-level&gt;</h3>
     <div class="table-scroll">
       <table class="api">
@@ -996,7 +1051,7 @@ cj-knob::part(value) { <span class="a">filter</span>: <span class="s">drop-shado
   <div class="wrap">
     <div class="lab">
       <div>
-        <h2>30 dashboards. Four elements.</h2>
+        <h2>30 dashboards. Five elements.</h2>
         <p class="sub" style="margin-bottom:0">
           The instrument lab is a stress test disguised as a showcase: aircraft six-packs,
           a submarine sonar, brass steampunk dials, a reactor core, a 96-dial server wall
@@ -1036,7 +1091,8 @@ cj-knob::part(value) { <span class="a">filter</span>: <span class="s">drop-shado
 <script>
   setTimeout(() => {
     if (customElements.get('cj-knob') && customElements.get('cj-radar')
-        && customElements.get('cj-horizon') && customElements.get('cj-level')) return;
+        && customElements.get('cj-horizon') && customElements.get('cj-level')
+        && customElements.get('cj-rings')) return;
     const b = document.createElement('div');
     b.style.cssText = 'position:fixed;inset:0 0 auto 0;padding:1rem 1.25rem;background:#b91c1c;color:#fff;font:14px/1.5 ui-monospace,monospace;z-index:99';
     b.innerHTML = '<strong>cj-knob failed to load.</strong> Serve from the repository root, not from a subfolder &mdash;'
@@ -1051,6 +1107,7 @@ cj-knob::part(value) { <span class="a">filter</span>: <span class="s">drop-shado
   import './src/cj-radar.js';
   import './src/cj-horizon.js';
   import './src/cj-level.js';
+  import './src/cj-rings.js';
 
   // ---- copy the install line --------------------------------------------
   const copy = document.getElementById('copy');
@@ -1191,6 +1248,13 @@ cj-knob::part(value) { <span class="a">filter</span>: <span class="s">drop-shado
   // a real clock on the hand-pointer face: value is seconds, value-2 is minutes
   const handclock = $('#handclock');
 
+  // and one on cj-rings, to show the rings are still ordinary knobs
+  const ringClock = $('#ring-clock');
+  const rh = ringClock.querySelector('[data-h]');
+  const rm = ringClock.querySelector('[data-m]');
+  const rs = ringClock.querySelector('[data-s]');
+  const rt = ringClock.querySelector('[data-t]');
+
   // attitude indicator — two angles instead of one value
   const horizon = $('#pg-horizon');
   const attState = $('#pg-att-state');
@@ -1275,6 +1339,14 @@ cj-knob::part(value) { <span class="a">filter</span>: <span class="s">drop-shado
     }
     // the hand-pointer face runs off the wall clock: seconds on one hand, minutes on the other
     const wall = new Date();
+    {
+      const s2 = wall.getSeconds() + wall.getMilliseconds() / 1000;
+      const m2 = wall.getMinutes() + s2 / 60;
+      rs.value = s2.toFixed(2);
+      rm.value = m2.toFixed(3);
+      rh.value = ((wall.getHours() % 12) + m2 / 60).toFixed(4);
+      rt.textContent = `${pad(wall.getHours())}:${pad(wall.getMinutes())}:${pad(wall.getSeconds())}`;
+    }
     handclock.value = (wall.getSeconds() + wall.getMilliseconds() / 1000).toFixed(2);
     handclock.setAttribute('value-2', (wall.getMinutes() + wall.getSeconds() / 60).toFixed(3));
 

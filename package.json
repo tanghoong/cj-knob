@@ -23,6 +23,10 @@
     "./level": {
       "types": "./types/cj-level.d.ts",
       "default": "./src/cj-level.js"
+    },
+    "./rings": {
+      "types": "./types/cj-rings.d.ts",
+      "default": "./src/cj-rings.js"
     }
   },
   "files": [
@@ -34,7 +38,8 @@
     "./src/cj-knob.js",
     "./src/cj-radar.js",
     "./src/cj-horizon.js",
-    "./src/cj-level.js"
+    "./src/cj-level.js",
+    "./src/cj-rings.js"
   ],
   "keywords": [
     "knob",
@@ -55,7 +60,9 @@
     "level",
     "tank",
     "thermometer",
-    "gradient"
+    "gradient",
+    "concentric",
+    "rings"
   ],
   "author": "tanghoong",
   "license": "MIT",

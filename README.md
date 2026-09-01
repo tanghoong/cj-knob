@@ -119,6 +119,38 @@ knob.addEventListener('cj-change', (e) => console.log(e.detail.value));
 - Animation is dropped under `prefers-reduced-motion: reduce`.
 - Geometry and ARIA are written synchronously on connect, so assistive tech and server-side snapshots never see an empty element.
 
+## `<cj-rings>`
+
+Concentric knobs without the arithmetic. It lays out; it does not draw — the children
+stay ordinary knobs, so ticks, gradients, needles and zones all still work on them and
+script still sets their values directly.
+
+```html
+<script type="module" src="cj-knob/src/cj-rings.js"></script>
+
+<cj-rings style="--cjs-size:160px">
+  <cj-knob readout="none" max="12" value="3"  color="#e8b64c"></cj-knob>
+  <cj-knob readout="none" max="60" value="42" color="#64b5f6"></cj-knob>
+  <cj-knob readout="none" max="60" value="17" color="#ef6c6c"></cj-knob>
+  <div slot="center">03:42:17</div>
+</cj-rings>
+```
+
+| Attribute | Default | Description |
+|---|---|---|
+| `thickness` | `0.043` | Ring weight as a fraction of the box, so every ring gets the same pixel stroke. |
+| `gap` | `0.065` | Space between rings, also a fraction of the box. |
+
+Size comes from `--cjs-size`; the middle takes anything you put in `slot="center"`.
+A ring the box has no room left for is dropped rather than drawn inside out, and the
+layout redoes itself on resize, so one stack of markup works at any size.
+
+Nesting rings by hand means choosing a `--cj-size` and a `--cj-thickness` per ring so
+the gaps and the weights come out even — which is easy to get subtly wrong. The world
+clock and the reactor core in the lab were both hand-tuned that way; converting them
+produced almost exactly the same radii, but with stroke weights that are actually
+equal, which they had not been.
+
 ## `<cj-level>`
 
 The straight tube a ring cannot give you: a tank, a cylinder, a thermometer. Same
@@ -264,7 +296,7 @@ The demo lives at the repository root so that `./src/cj-knob.js` never points ou
 
 ```sh
 npm run dev     # then open http://127.0.0.1:8765/
-npm test        # 115 Playwright checks: geometry, needle, radar, horizon, keyboard, a11y
+npm test        # 121 Playwright checks: geometry, needle, radar, horizon, keyboard, a11y
 ```
 
 ## Browser support

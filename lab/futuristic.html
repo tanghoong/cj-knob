@@ -76,9 +76,8 @@
 
   .side { display: grid; gap: .6rem; align-content: center; }
 
-  /* the reactor: five thin rings stacked on one centre */
-  .reactor { display: grid; place-items: center; position: relative; }
-  .reactor > * { grid-area: 1 / 1; }
+  /* the reactor: five thin rings on one centre, spaced by cj-rings */
+  .reactor { --cjs-size: min(300px, 38vh); }
   .reactor-core {
     text-align: center; z-index: 2;
     text-shadow: 0 0 22px rgba(53,230,255,.7);
@@ -136,22 +135,18 @@
     </div>
   </div>
 
-  <div class="reactor">
-    <cj-knob id="r1" readout="none" value="92" color="var(--cyn)"
-             style="--cj-size:min(300px,38vh);--cj-thickness:2.6"></cj-knob>
-    <cj-knob id="r2" readout="none" value="74" color="var(--mag)" class="drift-a"
-             style="--cj-size:min(252px,32vh);--cj-thickness:2.6"></cj-knob>
-    <cj-knob id="r3" readout="none" value="58" color="var(--vio)" class="drift-b"
-             style="--cj-size:min(204px,26vh);--cj-thickness:2.6"></cj-knob>
+  <cj-rings class="reactor" thickness=".022" gap=".044">
+    <cj-knob id="r1" readout="none" value="92" color="var(--cyn)"></cj-knob>
+    <cj-knob id="r2" readout="none" value="74" color="var(--mag)" class="drift-a"></cj-knob>
+    <cj-knob id="r3" readout="none" value="58" color="var(--vio)" class="drift-b"></cj-knob>
     <cj-knob id="r4" readout="none" ticks="48" tick-major="4" value="0" color="transparent"
-             style="--cj-size:min(160px,20vh);--cj-thickness:1;--cj-track:transparent"></cj-knob>
-    <cj-knob id="r5" readout="none" value="41" color="var(--lim)"
-             style="--cj-size:min(112px,14vh);--cj-thickness:3"></cj-knob>
-    <div class="reactor-core">
+             style="--cj-track:transparent"></cj-knob>
+    <cj-knob id="r5" readout="none" value="41" color="var(--lim)"></cj-knob>
+    <div slot="center" class="reactor-core">
       <div class="n" id="core-n">—</div>
       <div class="u">TERAWATT</div>
     </div>
-  </div>
+  </cj-rings>
 
   <div class="side">
     <div class="cell">
@@ -214,6 +209,7 @@
 
 <script type="module">
   import '../src/cj-knob.js';
+  import '../src/cj-rings.js';
 
   const $ = (id) => document.getElementById(id);
   const wave = (t, period, amp, phase = 0) => Math.sin(t / period + phase) * amp;
